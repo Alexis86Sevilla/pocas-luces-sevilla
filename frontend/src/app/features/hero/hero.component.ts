@@ -11,6 +11,7 @@ const HERO_SEEN_KEY = 'hero-animation-seen';
 export class HeroComponent {
   protected readonly animate: boolean;
   protected readonly isGrayscale = signal(false);
+  private animationFinished = false;
 
   constructor() {
     const reducedMotion = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
@@ -25,6 +26,8 @@ export class HeroComponent {
   }
 
   protected onLastBulbFinished(): void {
+    if (this.animationFinished) return;
+    this.animationFinished = true;
     this.isGrayscale.set(true);
   }
 
