@@ -1,0 +1,26 @@
+<article class="rounded-2xl bg-white p-6 shadow-md">
+  <blockquote>
+    <p class="mb-4 text-lg italic text-gray-800">
+      "{{ testimonial().quote }}"
+    </p>
+
+    <footer class="flex items-center justify-between border-t border-gray-100 pt-4">
+      <cite class="not-italic">
+        <span class="block text-sm font-semibold text-gray-900">{{ testimonial().authorName }}</span>
+      </cite>
+
+      @if (testimonial().sourceUrl) {
+        <a
+          class="text-sm font-medium text-blue-700 hover:underline"
+          [href]="testimonial().sourceUrl"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {{ testimonial().source }}
+        </a>
+      } @else {
+        <span class="text-sm text-gray-500">{{ testimonial().source }}</span>
+      }
+    </footer>
+  </blockquote>
+</article>
