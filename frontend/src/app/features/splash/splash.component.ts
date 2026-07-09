@@ -29,10 +29,6 @@ export class SplashComponent {
     this.startAnimation();
   }
 
-  public skip(): void {
-    this.dismiss();
-  }
-
   private startAnimation(): void {
     globalThis.setTimeout(() => this.phase.set('blackout'), 3000);
     globalThis.setTimeout(() => {
