@@ -1,21 +1,20 @@
-# Specs: init-outage-platform
+# Specs: init-outage-platform (synced with implementation)
 
-> 4 new capabilities. Spanish UI. Non-tech-savvy audience. Strict TDD (Vitest + TestBed).
+> 4 new capabilities. Spanish UI. Non-tech-savvy audience. Splash embedded in HomeComponent, not a separate route.
 
 ## splash-screen
 
 | ID | Requirement | Strength | Summary |
 |----|------------|----------|---------|
-| SP-01 | First-visit gate | MUST | Splash only on first visit; flag stored in localStorage |
+| SP-01 | First-visit gate | MUST | Splash shown on first visit only; flag stored in localStorage |
 | SP-02 | Hero grayscale transition | MUST | Full-color → blackout → grayscale on hero photo only; rest of site normal color |
-| SP-03 | Skip button | MUST | Visible "Saltar" button dismisses splash immediately |
-| SP-04 | Reduced motion | MUST | `prefers-reduced-motion: reduce` disables animation; direct grayscale |
+| SP-03 | Reduced motion | MUST | `prefers-reduced-motion: reduce` disables animation; direct grayscale |
+| ~~SP-03~~ | ~~Skip button~~ | ~~REMOVED~~ | ~~User decision: animation is short, splash is entry point — no skip needed~~ |
 
-- **SC-SP01**: GIVEN no localStorage flag → WHEN any route loads → THEN splash with animation shown
-- **SC-SP02**: GIVEN flag is `true` → WHEN any route loads → THEN direct to requested page, no splash
-- **SC-SP03**: GIVEN splash visible → WHEN "Saltar" clicked → THEN flag set, redirect to `/home`
-- **SC-SP04**: GIVEN `prefers-reduced-motion: reduce` → WHEN splash loads → THEN no animation, instant grayscale
-- **SC-SP05**: GIVEN post-splash → WHEN page renders → THEN hero `<img>` is grayscale; nav and content are full color
+- **SC-SP01**: GIVEN no localStorage flag → WHEN HomeComponent loads → THEN splash animation shown
+- **SC-SP02**: GIVEN flag is `true` → WHEN HomeComponent loads → THEN content shown directly, no splash
+- **SC-SP03**: GIVEN `prefers-reduced-motion: reduce` → WHEN splash loads → THEN no animation, instant grayscale
+- **SC-SP04**: GIVEN post-splash → WHEN page renders → THEN hero `<img>` is grayscale; nav and content are full color
 
 ## outage-display
 
