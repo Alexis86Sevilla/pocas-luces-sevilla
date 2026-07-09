@@ -1,0 +1,31 @@
+.hero-image {
+  transition: filter 0.5s ease;
+  will-change: filter;
+}
+
+.hero-image.grayscale {
+  filter: grayscale(100%);
+}
+
+.blackout-overlay {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 1s ease;
+  will-change: opacity;
+}
+
+.blackout-overlay.active {
+  opacity: 1;
+}
+
+.blackout-overlay.done {
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-image,
+  .blackout-overlay {
+    transition: none !important;
+  }
+}
