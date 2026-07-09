@@ -2,11 +2,12 @@
   class="hero relative flex min-h-screen flex-col items-center overflow-hidden bg-gray-900 animate"
   [class.dark]="isGrayscale()"
 >
-  <img
-    class="mayor-photo absolute inset-0 h-full w-full object-cover"
-    src="alcalde-micro.png"
-    alt="Fotografía del alcalde"
-  />
+  <div
+    class="mayor-photo absolute inset-0 bg-cover bg-center"
+    style="background-image: url('alcalde-micro.png')"
+    role="img"
+    aria-label="Fotografía del alcalde"
+  ></div>
 
   <p class="mt-6 inline-block rounded-full border border-amber-400/30 bg-amber-400/10 px-5 py-2 text-sm font-bold uppercase tracking-[0.25em] text-amber-300 backdrop-blur-sm">
       Sevilla
