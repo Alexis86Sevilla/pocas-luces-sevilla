@@ -1,4 +1,4 @@
-import type { Neighborhood, OutageEvent, Testimonial } from '../models';
+import type { Neighborhood, OutageEvent, VideoTestimonial } from '../models';
 
 export const MOCK_NEIGHBORHOODS: readonly Neighborhood[] = [
   { id: 'san-pablo', name: 'San Pablo' },
@@ -8,6 +8,7 @@ export const MOCK_NEIGHBORHOODS: readonly Neighborhood[] = [
 ];
 
 export const MOCK_OUTAGES: readonly OutageEvent[] = [
+  // San Pablo
   {
     id: 'outage-001',
     date: new Date('2026-06-12T14:30:00'),
@@ -16,16 +17,18 @@ export const MOCK_OUTAGES: readonly OutageEvent[] = [
   },
   {
     id: 'outage-002',
-    date: new Date('2026-06-18T22:15:00'),
-    durationMinutes: 180,
+    date: new Date('2026-07-03T22:15:00'),
+    durationMinutes: 120,
     neighborhoodId: 'san-pablo',
   },
   {
     id: 'outage-003',
-    date: new Date('2026-06-20T09:45:00'),
-    durationMinutes: 45,
+    date: new Date('2026-03-10T09:45:00'),
+    durationMinutes: 60,
     neighborhoodId: 'san-pablo',
   },
+
+  // Triana
   {
     id: 'outage-004',
     date: new Date('2026-06-14T11:00:00'),
@@ -34,47 +37,63 @@ export const MOCK_OUTAGES: readonly OutageEvent[] = [
   },
   {
     id: 'outage-005',
-    date: new Date('2026-06-22T19:30:00'),
-    durationMinutes: 120,
+    date: new Date('2026-07-08T19:30:00'),
+    durationMinutes: 45,
     neighborhoodId: 'triana',
   },
   {
     id: 'outage-006',
+    date: new Date('2026-03-22T21:00:00'),
+    durationMinutes: 30,
+    neighborhoodId: 'triana',
+  },
+
+  // Macarena
+  {
+    id: 'outage-007',
     date: new Date('2026-06-15T07:20:00'),
     durationMinutes: 30,
     neighborhoodId: 'macarena',
   },
   {
-    id: 'outage-007',
+    id: 'outage-008',
+    date: new Date('2026-07-05T16:00:00'),
+    durationMinutes: 90,
+    neighborhoodId: 'macarena',
+  },
+
+  // Nervión
+  {
+    id: 'outage-009',
     date: new Date('2026-06-25T16:00:00'),
     durationMinutes: 75,
     neighborhoodId: 'nervion',
   },
+  {
+    id: 'outage-010',
+    date: new Date('2026-07-01T13:10:00'),
+    durationMinutes: 50,
+    neighborhoodId: 'nervion',
+  },
 ];
 
-export const MOCK_TESTIMONIALS: readonly Testimonial[] = [
+export const MOCK_VIDEO_TESTIMONIALS: readonly VideoTestimonial[] = [
   {
-    id: 'testimonial-001',
+    id: 'video-001',
     authorName: 'María López',
-    quote:
-      'Llevamos tres cortes esta semana en San Pablo. Los niños no pueden estudiar y la comida se estropea en la nevera.',
-    source: 'X',
-    sourceUrl: 'https://x.com/example',
+    embedUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+    platform: 'youtube',
   },
   {
-    id: 'testimonial-002',
+    id: 'video-002',
     authorName: 'Antonio Ruiz',
-    quote:
-      'Se fue la luz justo cuando mi madre necesitaba la concentradora de oxígeno. Es una situación muy grave.',
-    source: 'Facebook',
-    sourceUrl: null,
+    embedUrl: 'https://www.youtube.com/embed/9bZkp7q19f0',
+    platform: 'youtube',
   },
   {
-    id: 'testimonial-003',
+    id: 'video-003',
     authorName: 'Carmen Vega',
-    quote:
-      'En Triana parece que los cortes son cada vez más frecuentes. Nadie nos explica por qué ocurre.',
-    source: 'Instagram',
-    sourceUrl: 'https://instagram.com/example',
+    embedUrl: 'https://www.instagram.com/p/ABC123/embed/',
+    platform: 'instagram',
   },
 ];
