@@ -1,15 +1,21 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject } from '@angular/core';
 
 import { OUTAGE_SERVICE } from '../../core/services/outage.service';
+import { DateFilterComponent, type DateFilterValue } from '../outages/date-filter.component';
 import { OutageCardComponent } from '../outages/outage-card.component';
-import { SplashComponent } from '../splash/splash.component';
-import { TestimonialCardComponent } from '../testimonials/testimonial-card.component';
-
-const SPLASH_KEY = 'splash-dismissed';
+import { HeroComponent } from '../hero/hero.component';
+import { VideoCarouselComponent } from '../testimonials/video-carousel.component';
+import { FooterComponent } from '../footer/footer.component';
 
 @Component({
   selector: 'app-home',
-  imports: [OutageCardComponent, SplashComponent, TestimonialCardComponent],
+  imports: [
+    HeroComponent,
+    DateFilterComponent,
+    OutageCardComponent,
+    VideoCarouselComponent,
+    FooterComponent,
+  ],
   templateUrl: './home.component.html',
   styleUrl: './home.component.css',
 })
@@ -17,14 +23,12 @@ export class HomeComponent {
   private readonly outageService = inject(OUTAGE_SERVICE);
 
   protected readonly neighborhoods = this.outageService.neighborhoods;
-  protected readonly testimonials = this.outageService.testimonials;
+  protected readonly filteredOutages = this.outageService.filteredOutages;
+  protected readonly videoTestimonials = this.outageService.videoTestimonials;
+  protected readonly selectedMonth = this.outageService.selectedMonth;
+  protected readonly selectedYear = this.outageService.selectedYear;
 
-  protected readonly showSplash = signal(
-    globalThis.localStorage?.getItem(SPLASH_KEY) !== 'true',
-  );
-
-  protected onSplashFinished(): void {
-    globalThis.localStorage?.setItem(SPLASH_KEY, 'true');
-    this.showSplash.set(false);
+  protected onFilterChange(value: DateFilterValue): void {
+    this.outageService.setMonthFilter(value.year, value.month);
   }
 }
