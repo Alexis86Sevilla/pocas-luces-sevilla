@@ -11,24 +11,20 @@ const HERO_SEEN_KEY = 'hero-animation-seen';
 export class HeroComponent {
   protected readonly animate: boolean;
   protected readonly isGrayscale = signal(false);
-  private animationFinished = false;
 
   constructor() {
     const reducedMotion = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
     const hasSeen = globalThis.localStorage?.getItem(HERO_SEEN_KEY) === 'true';
 
-    this.animate = !reducedMotion && !hasSeen;
-    this.isGrayscale.set(reducedMotion || hasSeen);
-
-    if (this.animate) {
+    if (reducedMotion || hasSeen) {
+      this.animate = false;
+      this.isGrayscale.set(true);
+    } else {
+      this.animate = true;
       globalThis.localStorage?.setItem(HERO_SEEN_KEY, 'true');
+      // Sync grayscale with CSS animation timing (2.8s)
+      globalThis.setTimeout(() => this.isGrayscale.set(true), 2800);
     }
-  }
-
-  protected onLastBulbFinished(): void {
-    if (this.animationFinished) return;
-    this.animationFinished = true;
-    this.isGrayscale.set(true);
   }
 
   protected scrollToOutages(): void {

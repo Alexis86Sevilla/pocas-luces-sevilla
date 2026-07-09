@@ -1,37 +1,20 @@
 <section
-  class="hero relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-gray-900 text-white"
+  class="hero relative flex min-h-screen flex-col items-center justify-center overflow-hidden"
   [class.animate]="animate"
-  [class.grayscale]="isGrayscale()"
+  [class.dark]="isGrayscale()"
 >
-  <!-- Bulb row — marquee style across the top -->
-  <div class="bulb-row absolute left-0 top-0 z-20 flex w-full justify-center gap-6 px-8 py-6 sm:gap-10 sm:py-8" aria-hidden="true">
-    @for (i of [0, 1, 2, 3, 4, 5]; track i) {
-      <div
-        class="bulb-wrapper"
-        [style.--i]="i"
-        (animationend)="i === 5 && onLastBulbFinished()"
-      >
-        <!-- Glass bulb -->
-        <div class="bulb-glass"></div>
-        <!-- Glow ring -->
-        <div class="bulb-glow"></div>
-        <!-- Filament -->
-        <div class="bulb-filament"></div>
-        <!-- Base -->
-        <div class="bulb-base"></div>
-      </div>
-    }
-  </div>
-
-  <!-- Mayor photo background -->
+  <!-- Mayor photo -->
   <img
-    class="mayor-photo absolute inset-0 h-full w-full object-cover opacity-70"
+    class="mayor-photo absolute inset-0 h-full w-full object-cover"
     src="https://images.unsplash.com/photo-1579038773867-044c48829161?w=1200&q=80"
     alt="Fotografía del alcalde"
   />
 
-  <!-- Dark overlay for readability -->
-  <div class="absolute inset-0 bg-gray-900/60" aria-hidden="true"></div>
+  <!-- Warm light overlay — simulates room lighting -->
+  <div class="light-overlay absolute inset-0 z-10" aria-hidden="true"></div>
+
+  <!-- Darkness overlay — fades in as lights go out -->
+  <div class="darkness-overlay absolute inset-0 z-20" aria-hidden="true"></div>
 
   <!-- Content -->
   <div class="hero-content relative z-30 mx-auto max-w-3xl px-6 text-center">
@@ -47,15 +30,17 @@
       Visibilizamos los cortes de luz para que ningún barrio<br />se quede a oscuras sin que nadie lo sepa.
     </p>
 
-    <button
-      type="button"
-      class="inline-flex items-center gap-2 rounded-full bg-amber-400 px-8 py-3.5 text-base font-bold text-gray-900 shadow-lg shadow-amber-400/30 transition hover:bg-amber-300 hover:shadow-amber-400/40 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2 focus:ring-offset-gray-900"
-      (click)="scrollToOutages()"
-    >
-      Ver cortes
-      <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-      </svg>
-    </button>
+    <div class="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
+      <button
+        type="button"
+        class="inline-flex items-center gap-2 rounded-full bg-amber-400 px-8 py-3.5 text-base font-bold text-gray-900 shadow-lg shadow-amber-400/30 transition hover:bg-amber-300 hover:shadow-amber-400/50 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2 focus:ring-offset-gray-900"
+        (click)="scrollToOutages()"
+      >
+        Ver cortes
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+    </div>
   </div>
 </section>

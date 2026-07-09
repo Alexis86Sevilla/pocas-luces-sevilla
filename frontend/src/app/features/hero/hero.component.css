@@ -1,198 +1,96 @@
 /* ===== Hero section ===== */
 .hero {
-  position: relative;
+  background-color: #111827;
 }
 
 /* ===== Mayor photo ===== */
 .mayor-photo {
-  transition: filter 1s ease;
+  transition: filter 1.2s ease 1.6s;
   will-change: filter;
 }
 
-.hero.grayscale .mayor-photo,
+.hero.dark .mayor-photo,
 .hero:not(.animate) .mayor-photo {
-  filter: grayscale(100%);
+  filter: grayscale(100%) brightness(0.6);
 }
 
-/* ===== Bulb row ===== */
-.bulb-row {
+/* ===== Warm light overlay — simulates lit room ===== */
+.light-overlay {
+  background: radial-gradient(
+    ellipse at 50% 40%,
+    rgba(251, 191, 36, 0.25) 0%,
+    rgba(251, 191, 36, 0.12) 30%,
+    rgba(251, 191, 36, 0.04) 55%,
+    transparent 75%
+  );
   pointer-events: none;
 }
 
-/* ===== Bulb wrapper ===== */
-.bulb-wrapper {
-  position: relative;
-  width: 52px;
-  height: 80px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+/* ===== Darkness overlay ===== */
+.darkness-overlay {
+  background: rgba(0, 0, 0, 0);
+  pointer-events: none;
+  transition: background 1.2s ease;
 }
 
-/* Lit state — before animation */
-.bulb-glass,
-.bulb-glow,
-.bulb-filament,
-.bulb-base {
-  transition: opacity 0.4s ease, box-shadow 0.4s ease, background 0.4s ease;
+/* Animate: light flickers → darkness falls */
+.hero.animate .light-overlay {
+  animation: light-flicker 2.8s ease forwards;
 }
 
-/* ===== Glass bulb ===== */
-.bulb-glass {
-  width: 36px;
-  height: 44px;
-  background: radial-gradient(
-    ellipse at 50% 30%,
-    rgba(250, 204, 21, 0.9) 0%,
-    rgba(250, 204, 21, 0.4) 40%,
-    rgba(250, 204, 21, 0.08) 70%,
-    rgba(250, 204, 21, 0.02) 100%
-  );
-  border-radius: 50% 50% 35% 35% / 55% 55% 30% 30%;
-  position: relative;
-  z-index: 1;
+.hero.animate .darkness-overlay {
+  animation: darkness-fall 2.8s ease forwards;
 }
 
-/* ===== Glow ring ===== */
-.bulb-glow {
-  position: absolute;
-  top: -8px;
-  width: 52px;
-  height: 52px;
-  background: radial-gradient(
-    circle,
-    rgba(250, 204, 21, 0.35) 0%,
-    rgba(250, 204, 21, 0.12) 40%,
-    transparent 70%
-  );
-  border-radius: 50%;
-  z-index: 0;
-}
-
-/* ===== Filament ===== */
-.bulb-filament {
-  position: absolute;
-  top: 22px;
-  width: 6px;
-  height: 14px;
-  background: rgba(255, 240, 180, 0.9);
-  border-radius: 3px;
-  z-index: 2;
-  box-shadow: 0 0 6px 2px rgba(255, 220, 100, 0.6);
-}
-
-/* ===== Metallic base ===== */
-.bulb-base {
-  width: 18px;
-  height: 18px;
-  background: linear-gradient(to bottom, #9ca3af, #6b7280, #4b5563);
-  border-radius: 0 0 6px 6px;
-  margin-top: -2px;
-  position: relative;
-  z-index: 1;
-}
-
-.bulb-base::after {
-  content: '';
-  position: absolute;
-  bottom: -4px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 10px;
-  height: 4px;
-  background: #374151;
-  border-radius: 0 0 2px 2px;
-}
-
-/* ===== Animation ===== */
-.hero.animate .bulb-wrapper {
-  animation: bulb-off 2.8s ease forwards;
-  animation-delay: calc(var(--i) * 0.35s);
-}
-
-@keyframes bulb-off {
+/* ===== Light flicker + fade keyframes ===== */
+@keyframes light-flicker {
   0% {
-    /* fully lit */
-  }
-
-  15% {
-    /* subtle flicker */
-    opacity: 0.6;
-  }
-
-  18% {
     opacity: 1;
   }
 
-  25% {
-    opacity: 0.5;
-  }
-
-  28% {
-    opacity: 0.9;
-  }
-
-  40% {
-    /* steady */
-  }
-
-  65% {
-    opacity: 0.7;
-  }
-
-  68% {
-    opacity: 1;
-  }
-
-  80% {
+  8% {
+    /* first flicker — dip */
     opacity: 0.3;
   }
 
-  85% {
-    opacity: 0.6;
-  }
-
-  100% {
-    opacity: 0.12;
-  }
-}
-
-.hero.animate .bulb-wrapper .bulb-glass {
-  animation: glass-dim 2.8s ease forwards;
-  animation-delay: calc(var(--i) * 0.35s);
-}
-
-@keyframes glass-dim {
-  0%,
-  40% {
-    background: radial-gradient(
-      ellipse at 50% 30%,
-      rgba(250, 204, 21, 0.9) 0%,
-      rgba(250, 204, 21, 0.4) 40%,
-      rgba(250, 204, 21, 0.08) 70%,
-      rgba(250, 204, 21, 0.02) 100%
-    );
-  }
-
-  100% {
-    background: radial-gradient(
-      ellipse at 50% 30%,
-      rgba(75, 85, 99, 0.5) 0%,
-      rgba(75, 85, 99, 0.2) 40%,
-      rgba(75, 85, 99, 0.03) 100%
-    );
-  }
-}
-
-.hero.animate .bulb-wrapper .bulb-glow {
-  animation: glow-fade 2.8s ease forwards;
-  animation-delay: calc(var(--i) * 0.35s);
-}
-
-@keyframes glow-fade {
-  0%,
-  40% {
+  12% {
     opacity: 1;
+  }
+
+  24% {
+    /* second flicker — deeper */
+    opacity: 0.15;
+  }
+
+  30% {
+    opacity: 0.85;
+  }
+
+  40% {
+    /* third flicker — struggling */
+    opacity: 0.2;
+  }
+
+  46% {
+    opacity: 0.7;
+  }
+
+  54% {
+    /* fourth — almost gone */
+    opacity: 0.1;
+  }
+
+  58% {
+    opacity: 0.4;
+  }
+
+  65% {
+    /* fade out begins */
+    opacity: 0.08;
+  }
+
+  85% {
+    opacity: 0.02;
   }
 
   100% {
@@ -200,95 +98,49 @@
   }
 }
 
-.hero.animate .bulb-wrapper .bulb-filament {
-  animation: filament-off 2.8s ease forwards;
-  animation-delay: calc(var(--i) * 0.35s);
-}
-
-@keyframes filament-off {
+/* ===== Darkness falls keyframes ===== */
+@keyframes darkness-fall {
   0%,
-  40% {
-    background: rgba(255, 240, 180, 0.9);
-    box-shadow: 0 0 6px 2px rgba(255, 220, 100, 0.6);
+  50% {
+    background: rgba(0, 0, 0, 0);
+  }
+
+  65% {
+    background: rgba(0, 0, 0, 0.15);
+  }
+
+  80% {
+    background: rgba(0, 0, 0, 0.35);
   }
 
   100% {
-    background: rgba(75, 85, 99, 0.4);
-    box-shadow: none;
+    background: rgba(0, 0, 0, 0.5);
   }
 }
 
-/* ===== Mobile ===== */
-@media (max-width: 768px) {
-  .bulb-wrapper:nth-child(n+5) {
-    display: none;
-  }
+/* ===== End state (return visits / post-animation) ===== */
+.hero.dark .light-overlay {
+  opacity: 0;
+}
 
-  .bulb-row {
-    gap: 1rem;
-    padding: 0.75rem 0.5rem;
-  }
-
-  .bulb-wrapper {
-    width: 40px;
-    height: 64px;
-  }
-
-  .bulb-glass {
-    width: 28px;
-    height: 34px;
-  }
-
-  .bulb-glow {
-    width: 40px;
-    height: 40px;
-    top: -6px;
-  }
-
-  .bulb-filament {
-    top: 18px;
-    width: 5px;
-    height: 10px;
-  }
-
-  .bulb-base {
-    width: 14px;
-    height: 14px;
-  }
+.hero.dark .darkness-overlay {
+  background: rgba(0, 0, 0, 0.5);
 }
 
 /* ===== Reduced motion ===== */
 @media (prefers-reduced-motion: reduce) {
   .mayor-photo {
     transition: none;
+    filter: grayscale(100%) brightness(0.6);
   }
 
-  .bulb-wrapper,
-  .bulb-glass,
-  .bulb-glow,
-  .bulb-filament {
+  .light-overlay {
     animation: none !important;
-  }
-
-  .bulb-glass {
-    background: radial-gradient(
-      ellipse at 50% 30%,
-      rgba(75, 85, 99, 0.5) 0%,
-      rgba(75, 85, 99, 0.2) 40%,
-      rgba(75, 85, 99, 0.03) 100%
-    );
-  }
-
-  .bulb-glow {
     opacity: 0;
   }
 
-  .bulb-filament {
-    background: rgba(75, 85, 99, 0.4);
-    box-shadow: none;
-  }
-
-  .bulb-wrapper {
-    opacity: 0.12;
+  .darkness-overlay {
+    animation: none !important;
+    background: rgba(0, 0, 0, 0.5);
   }
 }
