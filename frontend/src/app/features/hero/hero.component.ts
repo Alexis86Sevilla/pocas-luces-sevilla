@@ -22,8 +22,8 @@ export class HeroComponent {
     } else {
       this.animate = true;
       globalThis.localStorage?.setItem(HERO_SEEN_KEY, 'true');
-      // Sync grayscale with CSS animation timing (2.8s)
-      globalThis.setTimeout(() => this.isGrayscale.set(true), 2800);
+      // Sync with CSS animation duration (3s)
+      globalThis.setTimeout(() => this.isGrayscale.set(true), 3000);
     }
   }
 

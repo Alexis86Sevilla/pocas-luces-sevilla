@@ -1,46 +1,41 @@
 <section
-  class="hero relative flex min-h-screen flex-col items-center justify-center overflow-hidden"
+  class="hero relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-gray-900"
   [class.animate]="animate"
   [class.dark]="isGrayscale()"
 >
-  <!-- Mayor photo -->
+  <!-- Mayor photo — the star. Color → flickers B&W → stays B&W -->
   <img
     class="mayor-photo absolute inset-0 h-full w-full object-cover"
     src="https://images.unsplash.com/photo-1579038773867-044c48829161?w=1200&q=80"
     alt="Fotografía del alcalde"
   />
 
-  <!-- Warm light overlay — simulates room lighting -->
-  <div class="light-overlay absolute inset-0 z-10" aria-hidden="true"></div>
-
-  <!-- Darkness overlay — fades in as lights go out -->
-  <div class="darkness-overlay absolute inset-0 z-20" aria-hidden="true"></div>
+  <!-- Subtle vignette for text readability, always on -->
+  <div class="vignette absolute inset-0 z-10" aria-hidden="true"></div>
 
   <!-- Content -->
-  <div class="hero-content relative z-30 mx-auto max-w-3xl px-6 text-center">
-    <p class="mb-4 text-sm font-medium uppercase tracking-widest text-amber-400">
+  <div class="hero-content relative z-20 mx-auto max-w-3xl px-6 text-center">
+    <p class="mb-4 inline-block rounded-full bg-amber-400/15 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-amber-300 backdrop-blur-sm">
       Sevilla, barrios humildes
     </p>
 
-    <h1 class="mb-6 text-4xl font-extrabold leading-tight drop-shadow-lg md:text-6xl">
+    <h1 class="mb-6 text-4xl font-extrabold leading-tight text-white md:text-6xl" style="text-shadow: 0 4px 24px rgba(0,0,0,0.7), 0 2px 8px rgba(0,0,0,0.5)">
       Un alcalde con<br />pocas luces
     </h1>
 
-    <p class="mb-10 text-lg leading-relaxed text-gray-200 drop-shadow-md md:text-xl">
+    <p class="mb-10 text-lg leading-relaxed text-gray-100 md:text-xl" style="text-shadow: 0 2px 12px rgba(0,0,0,0.6)">
       Visibilizamos los cortes de luz para que ningún barrio<br />se quede a oscuras sin que nadie lo sepa.
     </p>
 
-    <div class="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-      <button
-        type="button"
-        class="inline-flex items-center gap-2 rounded-full bg-amber-400 px-8 py-3.5 text-base font-bold text-gray-900 shadow-lg shadow-amber-400/30 transition hover:bg-amber-300 hover:shadow-amber-400/50 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2 focus:ring-offset-gray-900"
-        (click)="scrollToOutages()"
-      >
-        Ver cortes
-        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
-    </div>
+    <button
+      type="button"
+      class="inline-flex items-center gap-2 rounded-full bg-amber-400 px-8 py-3.5 text-base font-bold text-gray-900 shadow-lg shadow-amber-400/30 transition hover:bg-amber-300 hover:shadow-amber-400/50 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2 focus:ring-offset-gray-900"
+      (click)="scrollToOutages()"
+    >
+      Ver cortes
+      <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+      </svg>
+    </button>
   </div>
 </section>

@@ -3,144 +3,83 @@
   background-color: #111827;
 }
 
-/* ===== Mayor photo ===== */
-.mayor-photo {
-  transition: filter 1.2s ease 1.6s;
-  will-change: filter;
-}
-
-.hero.dark .mayor-photo,
-.hero:not(.animate) .mayor-photo {
-  filter: grayscale(100%) brightness(0.6);
-}
-
-/* ===== Warm light overlay — simulates lit room ===== */
-.light-overlay {
+/* ===== Vignette — readability, always on ===== */
+.vignette {
   background: radial-gradient(
-    ellipse at 50% 40%,
-    rgba(251, 191, 36, 0.25) 0%,
-    rgba(251, 191, 36, 0.12) 30%,
-    rgba(251, 191, 36, 0.04) 55%,
-    transparent 75%
+    ellipse at center,
+    transparent 40%,
+    rgba(0, 0, 0, 0.15) 65%,
+    rgba(0, 0, 0, 0.45) 100%
   );
   pointer-events: none;
 }
 
-/* ===== Darkness overlay ===== */
-.darkness-overlay {
-  background: rgba(0, 0, 0, 0);
-  pointer-events: none;
-  transition: background 1.2s ease;
+/* ===== Mayor photo ===== */
+.mayor-photo {
+  will-change: filter;
 }
 
-/* Animate: light flickers → darkness falls */
-.hero.animate .light-overlay {
-  animation: light-flicker 2.8s ease forwards;
+/* Animation: photo flickers from color → B&W several times, ends B&W + darker */
+.hero.animate .mayor-photo {
+  animation: photo-flicker 3s ease forwards;
 }
 
-.hero.animate .darkness-overlay {
-  animation: darkness-fall 2.8s ease forwards;
+/* End state — dark grayscale */
+.hero.dark .mayor-photo,
+.hero:not(.animate) .mayor-photo {
+  filter: grayscale(100%) brightness(0.4);
 }
 
-/* ===== Light flicker + fade keyframes ===== */
-@keyframes light-flicker {
+@keyframes photo-flicker {
   0% {
-    opacity: 1;
+    filter: grayscale(0%) brightness(1);
   }
 
-  8% {
-    /* first flicker — dip */
-    opacity: 0.3;
+  /* Flicker 1 — brief dip to B&W */
+  10% {
+    filter: grayscale(95%) brightness(0.5);
+  }
+  14% {
+    filter: grayscale(0%) brightness(1);
   }
 
-  12% {
-    opacity: 1;
+  /* Flicker 2 — deeper, longer */
+  26% {
+    filter: grayscale(98%) brightness(0.4);
+  }
+  32% {
+    filter: grayscale(5%) brightness(0.9);
   }
 
-  24% {
-    /* second flicker — deeper */
-    opacity: 0.15;
+  /* Flicker 3 — struggling to stay on */
+  44% {
+    filter: grayscale(90%) brightness(0.45);
+  }
+  48% {
+    filter: grayscale(15%) brightness(0.85);
   }
 
-  30% {
-    opacity: 0.85;
-  }
-
-  40% {
-    /* third flicker — struggling */
-    opacity: 0.2;
-  }
-
-  46% {
-    opacity: 0.7;
-  }
-
-  54% {
-    /* fourth — almost gone */
-    opacity: 0.1;
-  }
-
+  /* Flicker 4 — almost gone */
   58% {
-    opacity: 0.4;
+    filter: grayscale(98%) brightness(0.35);
+  }
+  62% {
+    filter: grayscale(40%) brightness(0.7);
   }
 
-  65% {
-    /* fade out begins */
-    opacity: 0.08;
+  /* Final fade to dark B&W */
+  75% {
+    filter: grayscale(100%) brightness(0.35);
   }
-
-  85% {
-    opacity: 0.02;
-  }
-
   100% {
-    opacity: 0;
+    filter: grayscale(100%) brightness(0.35);
   }
-}
-
-/* ===== Darkness falls keyframes ===== */
-@keyframes darkness-fall {
-  0%,
-  50% {
-    background: rgba(0, 0, 0, 0);
-  }
-
-  65% {
-    background: rgba(0, 0, 0, 0.15);
-  }
-
-  80% {
-    background: rgba(0, 0, 0, 0.35);
-  }
-
-  100% {
-    background: rgba(0, 0, 0, 0.5);
-  }
-}
-
-/* ===== End state (return visits / post-animation) ===== */
-.hero.dark .light-overlay {
-  opacity: 0;
-}
-
-.hero.dark .darkness-overlay {
-  background: rgba(0, 0, 0, 0.5);
 }
 
 /* ===== Reduced motion ===== */
 @media (prefers-reduced-motion: reduce) {
   .mayor-photo {
-    transition: none;
-    filter: grayscale(100%) brightness(0.6);
-  }
-
-  .light-overlay {
     animation: none !important;
-    opacity: 0;
-  }
-
-  .darkness-overlay {
-    animation: none !important;
-    background: rgba(0, 0, 0, 0.5);
+    filter: grayscale(100%) brightness(0.4);
   }
 }
