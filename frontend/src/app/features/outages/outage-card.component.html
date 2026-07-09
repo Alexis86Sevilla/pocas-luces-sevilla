@@ -29,7 +29,9 @@
       <h4 class="mb-2 text-sm font-semibold text-gray-700">Historial de cortes</h4>
 
       @if (outages().length === 0) {
-        <p class="text-sm text-gray-500">No hay cortes registrados en este barrio.</p>
+        <p class="text-sm text-gray-500">
+          {{ isFilterActive() ? 'No hay cortes para este período.' : 'No hay cortes registrados en este barrio.' }}
+        </p>
       } @else {
         <ul class="space-y-2">
           @for (outage of outages(); track outage.id) {

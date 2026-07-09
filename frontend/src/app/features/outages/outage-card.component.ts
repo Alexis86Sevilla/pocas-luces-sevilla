@@ -14,6 +14,7 @@ export class OutageCardComponent {
   private readonly outageService = inject(OUTAGE_SERVICE);
 
   readonly neighborhood = input.required<Neighborhood>();
+  readonly isFilterActive = input<boolean>(false);
   protected readonly expanded = signal(false);
 
   protected readonly outages = computed(() =>

@@ -1,0 +1,25 @@
+<div class="flex items-center gap-3">
+  <label class="sr-only" for="month-select">Mes</label>
+  <select
+    id="month-select"
+    class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
+    [value]="selectedMonth()"
+    (change)="onMonthChange($event)"
+  >
+    @for (month of months; track month.value) {
+      <option [value]="month.value">{{ month.label }}</option>
+    }
+  </select>
+
+  <label class="sr-only" for="year-select">Año</label>
+  <select
+    id="year-select"
+    class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
+    [value]="selectedYear()"
+    (change)="onYearChange($event)"
+  >
+    @for (year of years; track year) {
+      <option [value]="year">{{ year }}</option>
+    }
+  </select>
+</div>
