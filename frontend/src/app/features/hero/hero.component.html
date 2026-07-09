@@ -1,22 +1,19 @@
 <section
-  class="hero relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-gray-900"
+  class="hero relative flex min-h-screen flex-col items-center overflow-hidden bg-gray-900"
   [class.animate]="animate"
   [class.dark]="isGrayscale()"
 >
-  <!-- Mayor photo — the star. Color → flickers B&W → stays B&W -->
   <img
     class="mayor-photo absolute inset-0 h-full w-full object-cover"
-    src="https://images.unsplash.com/photo-1579038773867-044c48829161?w=1200&q=80"
+    src="alcalde-micro.png"
     alt="Fotografía del alcalde"
   />
 
-  <!-- Subtle vignette for text readability, always on -->
   <div class="vignette absolute inset-0 z-10" aria-hidden="true"></div>
 
-  <!-- Content -->
-  <div class="hero-content relative z-20 mx-auto max-w-3xl px-6 text-center">
-    <p class="mb-4 inline-block rounded-full bg-amber-400/15 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-amber-300 backdrop-blur-sm">
-      Sevilla, barrios humildes
+  <div class="hero-content relative z-20 mx-auto mb-40 mt-auto max-w-3xl px-6 text-center">
+    <p class="mb-6 inline-block rounded-full border border-amber-400/30 bg-amber-400/10 px-5 py-2 text-sm font-bold uppercase tracking-[0.25em] text-amber-300 backdrop-blur-sm">
+      Sevilla
     </p>
 
     <h1 class="mb-6 text-4xl font-extrabold leading-tight text-white md:text-6xl" style="text-shadow: 0 4px 24px rgba(0,0,0,0.7), 0 2px 8px rgba(0,0,0,0.5)">
@@ -24,7 +21,7 @@
     </h1>
 
     <p class="mb-10 text-lg leading-relaxed text-gray-100 md:text-xl" style="text-shadow: 0 2px 12px rgba(0,0,0,0.6)">
-      Visibilizamos los cortes de luz para que ningún barrio<br />se quede a oscuras sin que nadie lo sepa.
+      Sacamos a la luz los cortes que la dejadez municipal esconde en los barrios humildes.
     </p>
 
     <button
@@ -38,4 +35,8 @@
       </svg>
     </button>
   </div>
+
+  <span class="absolute bottom-3 right-4 z-20 select-none text-xs font-light text-white/30">
+    María José López / Europa Press
+  </span>
 </section>

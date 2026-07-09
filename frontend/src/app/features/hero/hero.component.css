@@ -1,9 +1,7 @@
-/* ===== Hero section ===== */
 .hero {
   background-color: #111827;
 }
 
-/* ===== Vignette — readability, always on ===== */
 .vignette {
   background: radial-gradient(
     ellipse at center,
@@ -14,72 +12,63 @@
   pointer-events: none;
 }
 
-/* ===== Mayor photo ===== */
 .mayor-photo {
   will-change: filter;
 }
 
-/* Animation: photo flickers from color → B&W several times, ends B&W + darker */
-.hero.animate .mayor-photo {
-  animation: photo-flicker 3s ease forwards;
-}
-
-/* End state — dark grayscale */
 .hero.dark .mayor-photo,
 .hero:not(.animate) .mayor-photo {
-  filter: grayscale(100%) brightness(0.4);
+  filter: grayscale(100%) brightness(0.35);
+}
+
+.hero.animate .mayor-photo {
+  animation: photo-flicker 4s ease forwards;
 }
 
 @keyframes photo-flicker {
   0% {
+    filter: grayscale(0%) brightness(1.05);
+  }
+
+  8% {
+    filter: grayscale(90%) brightness(0.55);
+  }
+  12% {
     filter: grayscale(0%) brightness(1);
   }
 
-  /* Flicker 1 — brief dip to B&W */
-  10% {
-    filter: grayscale(95%) brightness(0.5);
+  22% {
+    filter: grayscale(95%) brightness(0.45);
   }
-  14% {
-    filter: grayscale(0%) brightness(1);
-  }
-
-  /* Flicker 2 — deeper, longer */
-  26% {
-    filter: grayscale(98%) brightness(0.4);
-  }
-  32% {
-    filter: grayscale(5%) brightness(0.9);
+  28% {
+    filter: grayscale(5%) brightness(0.92);
   }
 
-  /* Flicker 3 — struggling to stay on */
-  44% {
-    filter: grayscale(90%) brightness(0.45);
+  38% {
+    filter: grayscale(85%) brightness(0.5);
   }
-  48% {
+  42% {
     filter: grayscale(15%) brightness(0.85);
   }
 
-  /* Flicker 4 — almost gone */
-  58% {
-    filter: grayscale(98%) brightness(0.35);
+  52% {
+    filter: grayscale(98%) brightness(0.4);
   }
-  62% {
-    filter: grayscale(40%) brightness(0.7);
+  56% {
+    filter: grayscale(40%) brightness(0.72);
   }
 
-  /* Final fade to dark B&W */
-  75% {
-    filter: grayscale(100%) brightness(0.35);
+  68% {
+    filter: grayscale(100%) brightness(0.3);
   }
   100% {
-    filter: grayscale(100%) brightness(0.35);
+    filter: grayscale(100%) brightness(0.3);
   }
 }
 
-/* ===== Reduced motion ===== */
 @media (prefers-reduced-motion: reduce) {
   .mayor-photo {
     animation: none !important;
-    filter: grayscale(100%) brightness(0.4);
+    filter: grayscale(100%) brightness(0.35);
   }
 }
