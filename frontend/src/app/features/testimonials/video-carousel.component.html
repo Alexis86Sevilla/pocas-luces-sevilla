@@ -1,0 +1,19 @@
+<section aria-labelledby="testimonials-heading">
+  <h2 id="testimonials-heading" class="mb-6 text-2xl font-bold text-gray-900">
+    Testimonios en video
+  </h2>
+
+  @if (testimonials().length === 0) {
+    <p class="rounded-xl bg-white p-6 text-center text-gray-600 shadow-sm">
+      Aún no hay testimonios disponibles.
+    </p>
+  } @else {
+    <div class="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-4">
+      @for (video of testimonials(); track video.id) {
+        <div class="w-[85vw] shrink-0 snap-start md:w-[400px]">
+          <app-video-card [video]="video" />
+        </div>
+      }
+    </div>
+  }
+</section>
