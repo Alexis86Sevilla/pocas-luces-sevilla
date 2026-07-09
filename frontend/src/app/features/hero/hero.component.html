@@ -1,0 +1,72 @@
+<section
+  class="hero relative flex min-h-screen items-center justify-center overflow-hidden bg-gray-900 text-white"
+  [class.animate]="animate"
+  [class.grayscale]="isGrayscale()"
+>
+  <div class="bulbs pointer-events-none absolute inset-0 z-20" aria-hidden="true">
+    <svg class="bulb" style="--i: 0" viewBox="0 0 64 100" aria-hidden="true">
+      <circle cx="32" cy="32" r="28" />
+      <rect x="20" y="56" width="24" height="8" rx="2" />
+      <rect x="22" y="64" width="20" height="8" rx="2" />
+      <path d="M26 72 h12 v14 a6 6 0 0 1 -12 0 z" />
+    </svg>
+
+    <svg class="bulb" style="--i: 1" viewBox="0 0 64 100" aria-hidden="true">
+      <circle cx="32" cy="32" r="28" />
+      <rect x="20" y="56" width="24" height="8" rx="2" />
+      <rect x="22" y="64" width="20" height="8" rx="2" />
+      <path d="M26 72 h12 v14 a6 6 0 0 1 -12 0 z" />
+    </svg>
+
+    <svg class="bulb" style="--i: 2" viewBox="0 0 64 100" aria-hidden="true">
+      <circle cx="32" cy="32" r="28" />
+      <rect x="20" y="56" width="24" height="8" rx="2" />
+      <rect x="22" y="64" width="20" height="8" rx="2" />
+      <path d="M26 72 h12 v14 a6 6 0 0 1 -12 0 z" />
+    </svg>
+
+    <svg class="bulb" style="--i: 3" viewBox="0 0 64 100" aria-hidden="true">
+      <circle cx="32" cy="32" r="28" />
+      <rect x="20" y="56" width="24" height="8" rx="2" />
+      <rect x="22" y="64" width="20" height="8" rx="2" />
+      <path d="M26 72 h12 v14 a6 6 0 0 1 -12 0 z" />
+    </svg>
+
+    <svg
+      class="bulb"
+      style="--i: 4"
+      viewBox="0 0 64 100"
+      aria-hidden="true"
+      (animationend)="onLastBulbFinished()"
+    >
+      <circle cx="32" cy="32" r="28" />
+      <rect x="20" y="56" width="24" height="8" rx="2" />
+      <rect x="22" y="64" width="20" height="8" rx="2" />
+      <path d="M26 72 h12 v14 a6 6 0 0 1 -12 0 z" />
+    </svg>
+  </div>
+
+  <img
+    class="mayor-photo absolute inset-0 h-full w-full object-cover"
+    src="https://placehold.co/800x600/374151/e5e7eb?text=Foto+del+alcalde"
+    alt="Fotografía del alcalde"
+  />
+
+  <div class="hero-content relative z-30 mx-auto max-w-3xl px-6 text-center">
+    <h1 class="mb-6 text-4xl font-bold leading-tight drop-shadow-lg md:text-6xl">
+      Un alcalde con pocas luces
+    </h1>
+
+    <p class="mb-8 text-lg drop-shadow-md md:text-2xl">
+      Sevilla merece un servicio eléctrico digno para todos los barrios.
+    </p>
+
+    <button
+      type="button"
+      class="rounded-full bg-amber-400 px-8 py-3 text-base font-bold text-gray-900 shadow-lg transition hover:bg-amber-300 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2"
+      (click)="scrollToOutages()"
+    >
+      Ver cortes
+    </button>
+  </div>
+</section>
