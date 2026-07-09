@@ -1,0 +1,7 @@
+.hero {
+  background-image: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)),
+    url('https://placehold.co/1200x400/374151/e5e7eb?text=Sevilla');
+  background-size: cover;
+  background-position: center;
+  filter: grayscale(100%);
+}
