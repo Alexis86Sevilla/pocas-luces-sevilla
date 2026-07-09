@@ -1,7 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
-import { Router } from '@angular/router';
-
-import { SPLASH_DISMISSED_KEY } from '../../core/guards/splash.guard';
+import { Component, output, signal } from '@angular/core';
 
 type SplashPhase = 'color' | 'blackout' | 'done';
 
@@ -11,7 +8,7 @@ type SplashPhase = 'color' | 'blackout' | 'done';
   styleUrl: './splash.component.css',
 })
 export class SplashComponent {
-  private readonly router = inject(Router);
+  readonly finished = output<void>();
 
   protected readonly phase = signal<SplashPhase>('color');
   protected readonly reducedMotion = signal(false);
@@ -22,23 +19,14 @@ export class SplashComponent {
 
     if (this.reducedMotion()) {
       this.phase.set('done');
-      this.dismiss();
+      globalThis.setTimeout(() => this.finished.emit(), 0);
       return;
     }
 
-    this.startAnimation();
-  }
-
-  private startAnimation(): void {
     globalThis.setTimeout(() => this.phase.set('blackout'), 3000);
     globalThis.setTimeout(() => {
       this.phase.set('done');
-      this.dismiss();
+      this.finished.emit();
     }, 4000);
-  }
-
-  private dismiss(): void {
-    globalThis.localStorage?.setItem(SPLASH_DISMISSED_KEY, 'true');
-    void this.router.navigate(['/home']);
   }
 }

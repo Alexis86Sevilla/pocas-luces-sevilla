@@ -1,44 +1,48 @@
-<main class="min-h-screen bg-gray-50">
-  <section class="hero relative overflow-hidden bg-gray-900 py-20 text-white">
-    <div class="relative z-10 mx-auto max-w-4xl px-6 text-center">
-      <h1 class="mb-4 text-3xl font-bold md:text-5xl">
-        Pocas Luces Sevilla
-      </h1>
-      <p class="text-lg text-gray-200 md:text-xl">
-        Visibilizamos los cortes de luz en los barrios de Sevilla para que ninguno pase desapercibido.
-      </p>
-    </div>
-  </section>
-
-  <section class="mx-auto max-w-6xl px-6 py-12">
-    <h2 class="mb-6 text-2xl font-bold text-gray-900">Cortes por barrio</h2>
-
-    @if (neighborhoods().length === 0) {
-      <p class="rounded-xl bg-white p-6 text-center text-gray-600 shadow-sm">
-        No hay datos de cortes disponibles.
-      </p>
-    } @else {
-      <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        @for (neighborhood of neighborhoods(); track neighborhood.id) {
-          <app-outage-card [neighborhood]="neighborhood" />
-        }
+@if (showSplash()) {
+  <app-splash (finished)="onSplashFinished()" />
+} @else {
+  <main class="min-h-screen bg-gray-50">
+    <section class="hero relative overflow-hidden bg-gray-900 py-20 text-white">
+      <div class="relative z-10 mx-auto max-w-4xl px-6 text-center">
+        <h1 class="mb-4 text-3xl font-bold md:text-5xl">
+          Pocas Luces Sevilla
+        </h1>
+        <p class="text-lg text-gray-200 md:text-xl">
+          Visibilizamos los cortes de luz en los barrios de Sevilla para que ninguno pase desapercibido.
+        </p>
       </div>
-    }
-  </section>
+    </section>
 
-  <section class="mx-auto max-w-6xl px-6 py-12">
-    <h2 class="mb-6 text-2xl font-bold text-gray-900">Testimonios</h2>
+    <section class="mx-auto max-w-6xl px-6 py-12">
+      <h2 class="mb-6 text-2xl font-bold text-gray-900">Cortes por barrio</h2>
 
-    @if (testimonials().length === 0) {
-      <p class="rounded-xl bg-white p-6 text-center text-gray-600 shadow-sm">
-        Aún no hay testimonios disponibles.
-      </p>
-    } @else {
-      <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        @for (testimonial of testimonials(); track testimonial.id) {
-          <app-testimonial-card [testimonial]="testimonial" />
-        }
-      </div>
-    }
-  </section>
-</main>
+      @if (neighborhoods().length === 0) {
+        <p class="rounded-xl bg-white p-6 text-center text-gray-600 shadow-sm">
+          No hay datos de cortes disponibles.
+        </p>
+      } @else {
+        <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          @for (neighborhood of neighborhoods(); track neighborhood.id) {
+            <app-outage-card [neighborhood]="neighborhood" />
+          }
+        </div>
+      }
+    </section>
+
+    <section class="mx-auto max-w-6xl px-6 py-12">
+      <h2 class="mb-6 text-2xl font-bold text-gray-900">Testimonios</h2>
+
+      @if (testimonials().length === 0) {
+        <p class="rounded-xl bg-white p-6 text-center text-gray-600 shadow-sm">
+          Aún no hay testimonios disponibles.
+        </p>
+      } @else {
+        <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          @for (testimonial of testimonials(); track testimonial.id) {
+            <app-testimonial-card [testimonial]="testimonial" />
+          }
+        </div>
+      }
+    </section>
+  </main>
+}
