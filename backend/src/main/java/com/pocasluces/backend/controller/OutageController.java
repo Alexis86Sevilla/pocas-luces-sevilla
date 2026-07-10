@@ -1,7 +1,11 @@
 package com.pocasluces.backend.controller;
 
+import com.pocasluces.backend.dto.ChartDataPoint;
 import com.pocasluces.backend.dto.NeighborhoodStatsDto;
+import com.pocasluces.backend.entity.EnelOutage;
 import com.pocasluces.backend.entity.Neighborhood;
+import com.pocasluces.backend.service.OutageDataScheduler;
+import com.pocasluces.backend.repository.EnelOutageRepository;
 import com.pocasluces.backend.entity.OutageEvent;
 import com.pocasluces.backend.entity.Testimonial;
 import com.pocasluces.backend.repository.NeighborhoodRepository;
@@ -14,13 +18,14 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api")
-@CrossOrigin(origins = "*") // Ajustar en producción
 @RequiredArgsConstructor
 public class OutageController {
 
     private final NeighborhoodRepository neighborhoodRepo;
     private final OutageEventRepository outageRepo;
     private final TestimonialRepository testimonialRepo;
+    private final EnelOutageRepository enelOutageRepo;
+    private final OutageDataScheduler scheduler;
 
     // ── Barrios ──
 
@@ -42,7 +47,7 @@ public class OutageController {
         if (year != null) {
             return outageRepo.findByYear(year);
         }
-        return outageRepo.findAll();
+        return outageRepo.findAllWithNeighborhood();
     }
 
     // ── Estadísticas ──
@@ -71,5 +76,46 @@ public class OutageController {
     @GetMapping("/testimonials")
     public List<Testimonial> getTestimonials() {
         return testimonialRepo.findAll();
+    }
+
+    // ── Datos en tiempo real (Enel) ──
+
+    @GetMapping("/outages/yearly")
+    public List<EnelOutage> getOutagesByYear(@RequestParam int year) {
+        return enelOutageRepo.findByYear(year);
+    }
+
+    @GetMapping("/outages/live")
+    public List<EnelOutage> getLiveOutages() {
+        return enelOutageRepo.findAllByOrderByInterruptionDateDesc();
+    }
+
+    // ── Gráfica (datos agregados por mes y barrio) ──
+
+    @GetMapping("/outages/chart")
+    public List<ChartDataPoint> getChartData(@RequestParam int year) {
+        List<Object[]> rows = enelOutageRepo.aggregateByMonthAndNeighborhood(year);
+        return rows.stream()
+            .map(row -> new ChartDataPoint(
+                (Integer) row[0],
+                (String) row[1],
+                (Long) row[2]
+            ))
+            .toList();
+    }
+
+    // ── Detalle mensual (datos reales de Enel) ──
+
+    @GetMapping("/outages/monthly")
+    public List<EnelOutage> getMonthlyOutages(
+            @RequestParam int year,
+            @RequestParam int month) {
+        return enelOutageRepo.findByYearAndMonth(year, month);
+    }
+
+    @PostMapping("/outages/fetch")
+    public String triggerFetch() {
+        scheduler.fetchAndSaveOutages();
+        return "Fetch triggered. Check /api/outages/live";
     }
 }

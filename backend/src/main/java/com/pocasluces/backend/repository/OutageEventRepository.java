@@ -9,10 +9,13 @@ import java.util.List;
 
 public interface OutageEventRepository extends JpaRepository<OutageEvent, Long> {
 
-    @Query("SELECT o FROM OutageEvent o WHERE YEAR(o.date) = :year")
+    @Query("SELECT o FROM OutageEvent o JOIN FETCH o.neighborhood")
+    List<OutageEvent> findAllWithNeighborhood();
+
+    @Query("SELECT o FROM OutageEvent o JOIN FETCH o.neighborhood WHERE YEAR(o.date) = :year")
     List<OutageEvent> findByYear(@Param("year") int year);
 
-    @Query("SELECT o FROM OutageEvent o WHERE YEAR(o.date) = :year AND MONTH(o.date) = :month")
+    @Query("SELECT o FROM OutageEvent o JOIN FETCH o.neighborhood WHERE YEAR(o.date) = :year AND MONTH(o.date) = :month")
     List<OutageEvent> findByYearAndMonth(@Param("year") int year, @Param("month") int month);
 
     @Query("SELECT o.neighborhood.id, COUNT(o), AVG(o.durationMinutes) " +

@@ -2,7 +2,15 @@ spring:
   application:
     name: backend
 
-  # H2 en memoria para desarrollo
+  profiles:
+    active: dev
+
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+
   datasource:
     url: jdbc:h2:mem:pocasluces
     driver-class-name: org.h2.Driver
@@ -16,7 +24,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: update
     show-sql: false
     defer-datasource-initialization: true
 
@@ -30,3 +38,34 @@ server:
 logging:
   level:
     com.pocasluces: DEBUG
+
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/sevillasinluz
+    driver-class-name: org.postgresql.Driver
+    username: sevillasinluz_user
+    password: sevillanos40SinLuces
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  sql:
+    init:
+      mode: never
+
+server:
+  port: 8081
+
+logging:
+  level:
+    com.pocasluces: INFO
