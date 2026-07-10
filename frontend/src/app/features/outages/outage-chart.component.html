@@ -1,0 +1,42 @@
+<div class="overflow-hidden rounded-3xl border border-gray-100 bg-gradient-to-br from-gray-50 to-white p-6 shadow-lg shadow-gray-100/50 sm:p-8">
+  <!-- Controls row: neighborhood toggles + year selector -->
+  <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+    <div class="flex flex-wrap items-center gap-2">
+      <span class="mr-2 text-sm font-semibold uppercase tracking-wider text-gray-400">Comparar</span>
+      @for (neighborhood of neighborhoods(); track neighborhood.id) {
+        <button
+          type="button"
+          class="rounded-full border px-3.5 py-1.5 text-sm font-semibold transition-all"
+          [class.border-gray-200]="!selectedIds().has(neighborhood.id)"
+          [class.bg-white]="!selectedIds().has(neighborhood.id)"
+          [class.text-gray-400]="!selectedIds().has(neighborhood.id)"
+          [class.hover:border-gray-300]="!selectedIds().has(neighborhood.id)"
+          [class.border-transparent]="selectedIds().has(neighborhood.id)"
+          [class.bg-gray-900]="selectedIds().has(neighborhood.id)"
+          [class.text-white]="selectedIds().has(neighborhood.id)"
+          [class.shadow-md]="selectedIds().has(neighborhood.id)"
+          (click)="toggleNeighborhood(neighborhood.id)"
+        >
+          {{ neighborhood.name }}
+        </button>
+      }
+    </div>
+
+    <div class="flex items-center gap-2">
+      <span class="text-sm font-semibold uppercase tracking-wider text-gray-400">Año</span>
+      <select
+        class="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-900 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/20"
+        [value]="selectedYear()"
+        (change)="onYearChange($event)"
+      >
+        @for (year of availableYears(); track year) {
+          <option [value]="year">{{ year }}</option>
+        }
+      </select>
+    </div>
+  </div>
+
+  <div class="relative h-80 w-full sm:h-96">
+    <canvas #chartCanvas></canvas>
+  </div>
+</div>

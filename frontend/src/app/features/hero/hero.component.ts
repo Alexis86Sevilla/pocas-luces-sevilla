@@ -7,7 +7,6 @@ import { Component, signal } from '@angular/core';
   styleUrl: './hero.component.css',
 })
 export class HeroComponent {
-  protected readonly animate = true;
   protected readonly isGrayscale = signal(false);
 
   constructor() {

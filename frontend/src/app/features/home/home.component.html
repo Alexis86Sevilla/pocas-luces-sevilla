@@ -1,34 +1,68 @@
 <main class="min-h-screen bg-gray-50">
   <app-hero />
 
-  <section id="outages" class="mx-auto max-w-6xl px-6 py-12">
-    <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-      <h2 class="text-2xl font-bold text-gray-900">Cortes por barrio</h2>
-      <app-date-filter
-        [selectedMonth]="selectedMonth()"
-        [selectedYear]="selectedYear()"
-        (filterChange)="onFilterChange($event)"
-      />
-    </div>
-
-    @if (neighborhoods().length === 0) {
-      <p class="rounded-xl bg-white p-6 text-center text-gray-600 shadow-sm">
-        No hay datos de cortes disponibles.
-      </p>
-    } @else if (filteredOutages().length === 0) {
-      <p class="rounded-xl bg-white p-6 text-center text-gray-600 shadow-sm">
-        No hay cortes para este período.
-      </p>
-    } @else {
-      <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        @for (neighborhood of neighborhoods(); track neighborhood.id) {
-          <app-outage-card [neighborhood]="neighborhood" [isFilterActive]="true" />
-        }
+  <!-- Outage section -->
+  <section id="outages" class="bg-white py-20">
+    <div class="mx-auto max-w-6xl px-6">
+      <!-- Intro -->
+      <div class="mb-14 text-center">
+        <span class="mb-4 inline-block rounded-full bg-amber-100 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-amber-700">
+          Los datos
+        </span>
+        <h2 class="mx-auto mb-5 max-w-2xl text-4xl font-extrabold leading-tight text-gray-900">
+          Los barrios que más sufren los cortes de luz
+        </h2>
+        <p class="mx-auto max-w-xl text-lg leading-relaxed text-gray-500">
+          Los datos no mienten: en los barrios más humildes de Sevilla la luz se va con más frecuencia y
+          durante más tiempo. Selecciona los barrios y compáralos en el gráfico.
+        </p>
       </div>
-    }
+
+      <!-- Chart -->
+      <div class="mb-14">
+        <app-outage-chart
+          [neighborhoods]="neighborhoods()"
+          [outages]="outages()"
+        />
+      </div>
+
+      <!-- Monthly detail -->
+      <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <span class="mb-1 inline-block rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-gray-500">
+            Detalle mensual
+          </span>
+          <h3 class="mt-2 text-2xl font-bold text-gray-900">¿Cómo fue el mes?</h3>
+        </div>
+        <app-date-filter
+          [selectedMonth]="selectedMonth()"
+          [selectedYear]="selectedYear()"
+          (filterChange)="onFilterChange($event)"
+        />
+      </div>
+
+      <!-- Explanation for non-tech-savvy neighbors -->
+      <p class="mb-6 max-w-2xl text-base leading-relaxed text-gray-500">
+        Cada tarjeta muestra un barrio con dos datos: los <strong class="text-gray-700">minutos de media</strong> que duran los cortes
+        (cuanto más altos, peor es el servicio) y el <strong class="text-gray-700">número de cortes</strong> que ha sufrido ese mes.
+        Si pulsas en <em>«Ver historial»</em> puedes consultar el detalle de cada apagón.
+      </p>
+
+      @if (filteredOutages().length === 0) {
+        <div class="rounded-2xl border border-dashed border-gray-200 bg-gray-50/50 px-8 py-16 text-center">
+          <p class="text-lg text-gray-400">No hay cortes en el período seleccionado. Prueba con otro mes.</p>
+        </div>
+      } @else {
+        <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          @for (neighborhood of neighborhoods(); track neighborhood.id) {
+            <app-outage-card [neighborhood]="neighborhood" />
+          }
+        </div>
+      }
+    </div>
   </section>
 
-  <section class="mx-auto max-w-6xl px-6 pb-12">
+  <section class="mx-auto max-w-6xl px-6 pb-16">
     <app-video-carousel [testimonials]="videoTestimonials()" />
   </section>
 
