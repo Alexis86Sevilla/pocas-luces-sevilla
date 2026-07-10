@@ -59,7 +59,5 @@ export class MockOutageService implements IOutageService {
   }
 }
 
-export const OUTAGE_SERVICE = new InjectionToken<IOutageService>('OUTAGE_SERVICE', {
-  providedIn: 'root',
-  factory: () => new MockOutageService(),
-});
+// Kept for backward compatibility — now points to ApiOutageService
+export const OUTAGE_SERVICE = new InjectionToken<IOutageService>('OUTAGE_SERVICE');

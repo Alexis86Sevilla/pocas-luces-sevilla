@@ -3,11 +3,11 @@
   <select
     id="month-select"
     class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
-    [value]="selectedMonth()"
-    (change)="onMonthChange($event)"
+    [(ngModel)]="month"
+    (change)="onMonthChange()"
   >
     @for (month of months; track month.value) {
-      <option [value]="month.value">{{ month.label }}</option>
+      <option [ngValue]="month.value">{{ month.label }}</option>
     }
   </select>
 
@@ -15,11 +15,11 @@
   <select
     id="year-select"
     class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
-    [value]="selectedYear()"
-    (change)="onYearChange($event)"
+    [(ngModel)]="year"
+    (change)="onYearChange()"
   >
     @for (year of years; track year) {
-      <option [value]="year">{{ year }}</option>
+      <option [ngValue]="year">{{ year }}</option>
     }
   </select>
 </div>

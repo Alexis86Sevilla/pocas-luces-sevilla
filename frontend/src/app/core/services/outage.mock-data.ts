@@ -102,23 +102,4 @@ export const MOCK_OUTAGES: readonly OutageEvent[] = [
   { id: 'o-45', date: d(5, 5, 18, 0), durationMinutes: 15, neighborhoodId: 'santa-cruz' },
 ];
 
-export const MOCK_VIDEO_TESTIMONIALS: readonly VideoTestimonial[] = [
-  {
-    id: 'video-001',
-    authorName: 'María López',
-    embedUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
-    platform: 'youtube',
-  },
-  {
-    id: 'video-002',
-    authorName: 'Antonio Ruiz',
-    embedUrl: 'https://www.youtube.com/embed/9bZkp7q19f0',
-    platform: 'youtube',
-  },
-  {
-    id: 'video-003',
-    authorName: 'Carmen Vega',
-    embedUrl: 'https://www.instagram.com/p/ABC123/embed/',
-    platform: 'instagram',
-  },
-];
+export const MOCK_VIDEO_TESTIMONIALS: readonly VideoTestimonial[] = [];

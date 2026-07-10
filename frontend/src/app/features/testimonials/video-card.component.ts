@@ -13,6 +13,8 @@ export class VideoCardComponent {
 
   readonly video = input.required<VideoTestimonial>();
 
+  protected readonly isYouTube = computed(() => this.video().platform === 'youtube');
+
   protected readonly safeUrl = computed(() =>
     this.sanitizer.bypassSecurityTrustResourceUrl(this.video().embedUrl),
   );
