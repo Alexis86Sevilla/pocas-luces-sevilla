@@ -17,6 +17,11 @@ public interface EnelOutageRepository extends JpaRepository<EnelOutage, Long> {
 
     Optional<EnelOutage> findByObjectId(Long objectId);
 
+    Optional<EnelOutage> findByNeighborhoodNameAndInterruptionDateAndServiceType(
+            String neighborhoodName,
+            LocalDateTime interruptionDate,
+            String serviceType);
+
     Page<EnelOutage> findByNeighborhoodNameIgnoreCase(String neighborhoodName, Pageable pageable);
 
     // Currently active outages: no reposition date yet, or reposition is in the future,

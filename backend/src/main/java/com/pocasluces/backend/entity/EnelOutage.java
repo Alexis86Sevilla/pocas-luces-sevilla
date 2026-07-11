@@ -14,7 +14,7 @@ import java.time.LocalDateTime;
         @Index(name = "idx_enel_outage_fetched_at", columnList = "fetched_at")
     },
     uniqueConstraints = {
-        @UniqueConstraint(name = "uk_enel_outage_object_id", columnNames = "object_id")
+        @UniqueConstraint(name = "uk_enel_outage_natural_key", columnNames = {"neighborhood_name", "interruption_date", "service_type"})
     }
 )
 @Getter
@@ -37,16 +37,16 @@ public class EnelOutage {
     @Column(name = "affected_clients")
     private Integer affectedClients;
 
-    @Column(name = "service_type", length = 10)
+    @Column(name = "service_type", nullable = false, length = 10)
     private String serviceType;
 
-    @Column(name = "interruption_date")
+    @Column(name = "interruption_date", nullable = false)
     private LocalDateTime interruptionDate;
 
     @Column(name = "reposition_date")
     private LocalDateTime repositionDate;
 
-    @Column(name = "neighborhood_name", length = 100)
+    @Column(name = "neighborhood_name", nullable = false, length = 100)
     private String neighborhoodName;
 
     @Column(name = "source_url", length = 500)
