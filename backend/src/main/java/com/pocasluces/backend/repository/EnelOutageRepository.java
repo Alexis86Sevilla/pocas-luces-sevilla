@@ -13,13 +13,15 @@ public interface EnelOutageRepository extends JpaRepository<EnelOutage, Long> {
 
     List<EnelOutage> findAllByOrderByInterruptionDateDesc();
 
-    // Cortes actualmente activos: reposición estimada futura y reportados recientemente
-    @Query("""
-        SELECT o FROM EnelOutage o
-        WHERE o.repositionDate > CURRENT_TIMESTAMP
-        AND o.fetchedAt > :since
-        ORDER BY o.affectedClients DESC, o.interruptionDate DESC
-    """)
+    // Cortes actualmente activos: reposición estimada futura y reportados recientemente.
+    // Se devuelve solo el registro más reciente por clave natural.
+    @Query(value = """
+        SELECT DISTINCT ON (neighborhood_name, interruption_date, service_type) *
+        FROM enel_outages
+        WHERE reposition_date > CURRENT_TIMESTAMP
+        AND fetched_at > :since
+        ORDER BY neighborhood_name, interruption_date, service_type, fetched_at DESC
+        """, nativeQuery = true)
     List<EnelOutage> findCurrentlyActive(@Param("since") LocalDateTime since);
 
     // Agregado mensual para el chart: cuenta de cortes por mes y barrio

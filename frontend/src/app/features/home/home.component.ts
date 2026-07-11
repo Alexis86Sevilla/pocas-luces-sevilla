@@ -15,7 +15,7 @@ export interface LiveGroup {
   readonly neighborhoodName: string;
   readonly count: number;
   readonly affectedClients: number;
-  readonly serviceTypes: readonly string[];
+  readonly serviceCategories: readonly string[];
   readonly earliestStart: Date;
   readonly latestEnd: Date;
 }
@@ -85,7 +85,7 @@ export class HomeComponent implements OnInit {
         neighborhoodName,
         count: outages.length,
         affectedClients: outages.reduce((sum, o) => sum + o.affectedClients, 0),
-        serviceTypes: [...new Set(outages.map(o => o.serviceType))],
+        serviceCategories: [...new Set(outages.map(o => o.serviceType === 'LV' ? 'Programado' : 'Avería'))],
         earliestStart: new Date(Math.min(...starts)),
         latestEnd: new Date(Math.max(...ends)),
       } as LiveGroup;
