@@ -14,6 +14,7 @@ import com.pocasluces.backend.repository.TestimonialRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
@@ -87,7 +88,7 @@ public class OutageController {
 
     @GetMapping("/outages/live")
     public List<EnelOutage> getLiveOutages() {
-        return enelOutageRepo.findCurrentlyActive();
+        return enelOutageRepo.findCurrentlyActive(LocalDateTime.now().minusHours(6));
     }
 
     // ── Gráfica (datos agregados por mes y barrio) ──

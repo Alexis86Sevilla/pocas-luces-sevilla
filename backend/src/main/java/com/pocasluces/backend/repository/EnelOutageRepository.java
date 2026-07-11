@@ -17,10 +17,10 @@ public interface EnelOutageRepository extends JpaRepository<EnelOutage, Long> {
     @Query("""
         SELECT o FROM EnelOutage o
         WHERE o.repositionDate > CURRENT_TIMESTAMP
-        AND o.fetchedAt > CURRENT_TIMESTAMP - INTERVAL '6' HOUR
+        AND o.fetchedAt > :since
         ORDER BY o.affectedClients DESC, o.interruptionDate DESC
     """)
-    List<EnelOutage> findCurrentlyActive();
+    List<EnelOutage> findCurrentlyActive(@Param("since") LocalDateTime since);
 
     // Agregado mensual para el chart: cuenta de cortes por mes y barrio
     @Query("""
