@@ -5,7 +5,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 public interface EnelOutageRepository extends JpaRepository<EnelOutage, Long> {
 
@@ -33,4 +35,9 @@ public interface EnelOutageRepository extends JpaRepository<EnelOutage, Long> {
 
     @Query("SELECT o FROM EnelOutage o WHERE EXTRACT(YEAR FROM o.interruptionDate) = :year ORDER BY o.interruptionDate DESC")
     List<EnelOutage> findByYear(@Param("year") int year);
+
+    Optional<EnelOutage> findByNeighborhoodNameAndInterruptionDateAndServiceType(
+            String neighborhoodName,
+            LocalDateTime interruptionDate,
+            String serviceType);
 }

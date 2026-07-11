@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Optional;
 
 @Slf4j
 @Service
@@ -27,28 +28,40 @@ public class OutageDataScheduler {
     public void fetchAndSaveOutages() {
         log.info("Scheduler: fetching Enel outages for Sevilla...");
 
-        int count = 0;
+        int inserted = 0;
+        int updated = 0;
         for (Feature feature : enelApiService.fetchSevillaOutages()) {
             var attr = feature.getAttributes();
             if (attr == null || attr.getObjectId() == null) continue;
 
-            EnelOutage outage = EnelOutage.builder()
-                .objectId(attr.getObjectId())
-                .latitude(attr.getLatitude())
-                .longitude(attr.getLongitude())
-                .affectedClients(attr.getAffectedClient())
-                .serviceType(attr.getServiceType())
-                .interruptionDate(parseDate(attr.getInterruptionDate()))
-                .repositionDate(parseDate(attr.getRepositionDate()))
-                .fetchedAt(LocalDateTime.now())
-                .neighborhoodName(locator.findNeighborhood(attr.getLatitude(), attr.getLongitude()))
-                .build();
+            String neighborhoodName = locator.findNeighborhood(attr.getLatitude(), attr.getLongitude());
+            LocalDateTime interruptionDate = parseDate(attr.getInterruptionDate());
+            String serviceType = attr.getServiceType();
+
+            Optional<EnelOutage> existing = repository.findByNeighborhoodNameAndInterruptionDateAndServiceType(
+                    neighborhoodName, interruptionDate, serviceType);
+
+            EnelOutage outage = existing.orElseGet(EnelOutage::new);
+            outage.setObjectId(attr.getObjectId());
+            outage.setLatitude(attr.getLatitude());
+            outage.setLongitude(attr.getLongitude());
+            outage.setAffectedClients(attr.getAffectedClient());
+            outage.setServiceType(serviceType);
+            outage.setInterruptionDate(interruptionDate);
+            outage.setRepositionDate(parseDate(attr.getRepositionDate()));
+            outage.setFetchedAt(LocalDateTime.now());
+            outage.setNeighborhoodName(neighborhoodName);
 
             repository.save(outage);
-            count++;
+
+            if (existing.isPresent()) {
+                updated++;
+            } else {
+                inserted++;
+            }
         }
 
-        log.info("Scheduler: saved {} outages", count);
+        log.info("Scheduler: saved {} outages ({} inserted, {} updated)", inserted + updated, inserted, updated);
     }
 
     private LocalDateTime parseDate(String dateStr) {
