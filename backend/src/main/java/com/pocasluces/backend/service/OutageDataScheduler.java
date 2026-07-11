@@ -75,12 +75,15 @@ public class OutageDataScheduler {
                 continue;
             }
 
-            Optional<EnelOutage> existing = repository.findByObjectId(attr.getObjectId());
-            EnelOutage outage = existing.orElseGet(EnelOutage::new);
-
             double lat = attr.getLatitude() != null ? attr.getLatitude() : 0.0;
             double lon = attr.getLongitude() != null ? attr.getLongitude() : 0.0;
-            String neighborhoodName = locator.findNeighborhood(lat, lon);
+            String neighborhoodName = normalizeNeighborhood(locator.findNeighborhood(lat, lon));
+            String serviceType = normalizeServiceType(attr.getServiceType());
+
+            Optional<EnelOutage> existing = repository
+                .findByNeighborhoodNameAndInterruptionDateAndServiceType(neighborhoodName, interruptionDate, serviceType);
+            EnelOutage outage = existing.orElseGet(EnelOutage::new);
+            boolean isNew = existing.isEmpty();
 
             String featureJson = serializeFeature(feature, attr.getObjectId());
 
@@ -88,7 +91,7 @@ public class OutageDataScheduler {
             outage.setLatitude(attr.getLatitude());
             outage.setLongitude(attr.getLongitude());
             outage.setAffectedClients(attr.getAffectedClient());
-            outage.setServiceType(attr.getServiceType());
+            outage.setServiceType(serviceType);
             outage.setInterruptionDate(interruptionDate);
             outage.setRepositionDate(parseDate(attr.getRepositionDate()));
             outage.setNeighborhoodName(neighborhoodName);
@@ -98,7 +101,7 @@ public class OutageDataScheduler {
             outage.setFetchedAt(now);
             outage.setUpdatedAt(now);
 
-            if (existing.isEmpty()) {
+            if (isNew) {
                 outage.setCreatedAt(now);
                 outage.setFirstSeenAt(now);
                 inserted++;
@@ -136,6 +139,14 @@ public class OutageDataScheduler {
         }
         log.warn("Could not parse date '{}'", dateStr);
         return null;
+    }
+
+    private String normalizeNeighborhood(String neighborhoodName) {
+        return neighborhoodName == null || neighborhoodName.isBlank() ? "Zona no identificada" : neighborhoodName;
+    }
+
+    private String normalizeServiceType(String serviceType) {
+        return serviceType == null || serviceType.isBlank() ? "UNKNOWN" : serviceType;
     }
 
     private String sha256Hex(String input) {
