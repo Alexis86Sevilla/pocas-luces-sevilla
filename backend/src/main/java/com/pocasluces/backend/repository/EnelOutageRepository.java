@@ -1,6 +1,8 @@
 package com.pocasluces.backend.repository;
 
 import com.pocasluces.backend.entity.EnelOutage;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -13,42 +15,46 @@ public interface EnelOutageRepository extends JpaRepository<EnelOutage, Long> {
 
     List<EnelOutage> findAllByOrderByInterruptionDateDesc();
 
-    // Cortes actualmente activos: reposición estimada futura y reportados recientemente.
-    // Se devuelve solo el registro más reciente por clave natural.
-    @Query(value = """
-        SELECT DISTINCT ON (neighborhood_name, interruption_date, service_type) *
-        FROM enel_outages
-        WHERE reposition_date > CURRENT_TIMESTAMP
-        AND fetched_at > :since
-        ORDER BY neighborhood_name, interruption_date, service_type, fetched_at DESC
-        """, nativeQuery = true)
-    List<EnelOutage> findCurrentlyActive(@Param("since") LocalDateTime since);
+    Optional<EnelOutage> findByObjectId(Long objectId);
 
-    // Agregado mensual para el chart: cuenta de cortes por mes y barrio
-    @Query("""
-        SELECT EXTRACT(MONTH FROM o.interruptionDate), o.neighborhoodName, COUNT(o)
-        FROM EnelOutage o
-        WHERE EXTRACT(YEAR FROM o.interruptionDate) = :year
-        AND o.neighborhoodName IS NOT NULL
-        GROUP BY EXTRACT(MONTH FROM o.interruptionDate), o.neighborhoodName
-        ORDER BY EXTRACT(MONTH FROM o.interruptionDate)
-    """)
-    List<Object[]> aggregateByMonthAndNeighborhood(@Param("year") int year);
+    Page<EnelOutage> findByNeighborhoodNameIgnoreCase(String neighborhoodName, Pageable pageable);
 
-    // Cortes de un mes concreto
+    // Currently active outages: no reposition date yet, or reposition is in the future,
+    // and we fetched it recently enough to trust it is still ongoing.
     @Query("""
         SELECT o FROM EnelOutage o
-        WHERE EXTRACT(YEAR FROM o.interruptionDate) = :year
-        AND EXTRACT(MONTH FROM o.interruptionDate) = :month
+        WHERE (o.repositionDate IS NULL OR o.repositionDate > :now)
+        AND o.fetchedAt > :since
+        AND o.interruptionDate IS NOT NULL
         ORDER BY o.interruptionDate DESC
-    """)
-    List<EnelOutage> findByYearAndMonth(@Param("year") int year, @Param("month") int month);
+        """)
+    List<EnelOutage> findCurrentlyActive(@Param("now") LocalDateTime now, @Param("since") LocalDateTime since);
 
-    @Query("SELECT o FROM EnelOutage o WHERE EXTRACT(YEAR FROM o.interruptionDate) = :year ORDER BY o.interruptionDate DESC")
+    // Monthly aggregation for charts: count outages by month and neighborhood.
+    @Query("""
+        SELECT MONTH(o.interruptionDate), o.neighborhoodName, COUNT(o)
+        FROM EnelOutage o
+        WHERE YEAR(o.interruptionDate) = :year
+        AND o.neighborhoodName IS NOT NULL
+        GROUP BY MONTH(o.interruptionDate), o.neighborhoodName
+        ORDER BY MONTH(o.interruptionDate), o.neighborhoodName
+        """)
+    List<Object[]> aggregateByMonthAndNeighborhood(@Param("year") int year);
+
+    @Query("SELECT o FROM EnelOutage o WHERE YEAR(o.interruptionDate) = :year ORDER BY o.interruptionDate DESC")
     List<EnelOutage> findByYear(@Param("year") int year);
 
-    Optional<EnelOutage> findByNeighborhoodNameAndInterruptionDateAndServiceType(
-            String neighborhoodName,
-            LocalDateTime interruptionDate,
-            String serviceType);
+    @Query("SELECT o FROM EnelOutage o WHERE YEAR(o.interruptionDate) = :year")
+    Page<EnelOutage> findByYear(@Param("year") int year, Pageable pageable);
+
+    @Query("""
+        SELECT o FROM EnelOutage o
+        WHERE YEAR(o.interruptionDate) = :year
+        AND MONTH(o.interruptionDate) = :month
+        ORDER BY o.interruptionDate DESC
+        """)
+    List<EnelOutage> findByYearAndMonth(@Param("year") int year, @Param("month") int month);
+
+    @Query("SELECT o FROM EnelOutage o WHERE YEAR(o.interruptionDate) = :year AND MONTH(o.interruptionDate) = :month")
+    Page<EnelOutage> findByYearAndMonth(@Param("year") int year, @Param("month") int month, Pageable pageable);
 }
