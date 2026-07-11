@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -16,6 +17,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
+@Import(EnelOutageRepositoryImpl.class)
 class EnelOutageRepositoryTest {
 
     @Autowired
@@ -26,32 +28,32 @@ class EnelOutageRepositoryTest {
 
     @Test
     void shouldFindByObjectId() {
-        EnelOutage outage = outage(100L, LocalDateTime.of(2026, 7, 10, 8, 30));
+        EnelOutage outage = outage("100", LocalDateTime.of(2026, 7, 10, 8, 30));
         em.persist(outage);
 
-        Optional<EnelOutage> found = repository.findByObjectId(100L);
+        Optional<EnelOutage> found = repository.findByObjectId("100");
 
         assertThat(found).isPresent();
-        assertThat(found.get().getObjectId()).isEqualTo(100L);
+        assertThat(found.get().getObjectId()).isEqualTo("100");
     }
 
     @Test
     void shouldFindByYearAndMonth() {
-        EnelOutage july = outage(1L, LocalDateTime.of(2026, 7, 10, 8, 30));
-        EnelOutage august = outage(2L, LocalDateTime.of(2026, 8, 5, 14, 0));
+        EnelOutage july = outage("1", LocalDateTime.of(2026, 7, 10, 8, 30));
+        EnelOutage august = outage("2", LocalDateTime.of(2026, 8, 5, 14, 0));
         em.persist(july);
         em.persist(august);
 
         List<EnelOutage> result = repository.findByYearAndMonth(2026, 7);
 
         assertThat(result).hasSize(1);
-        assertThat(result.get(0).getObjectId()).isEqualTo(1L);
+        assertThat(result.get(0).getObjectId()).isEqualTo("1");
     }
 
     @Test
     void shouldPaginateByYear() {
-        EnelOutage o1 = outage(1L, LocalDateTime.of(2026, 7, 10, 8, 30));
-        EnelOutage o2 = outage(2L, LocalDateTime.of(2026, 7, 11, 8, 30));
+        EnelOutage o1 = outage("1", LocalDateTime.of(2026, 7, 10, 8, 30));
+        EnelOutage o2 = outage("2", LocalDateTime.of(2026, 7, 11, 8, 30));
         em.persist(o1);
         em.persist(o2);
 
@@ -66,19 +68,19 @@ class EnelOutageRepositoryTest {
     void shouldFindCurrentlyActiveIncludingNullReposition() {
         LocalDateTime now = LocalDateTime.of(2026, 7, 10, 12, 0);
 
-        EnelOutage activeNullReposition = outage(1L, now.minusHours(2));
+        EnelOutage activeNullReposition = outage("1", now.minusHours(2));
         activeNullReposition.setRepositionDate(null);
         activeNullReposition.setFetchedAt(now.minusMinutes(10));
 
-        EnelOutage activeFutureReposition = outage(2L, now.minusHours(3));
+        EnelOutage activeFutureReposition = outage("2", now.minusHours(3));
         activeFutureReposition.setRepositionDate(now.plusHours(2));
         activeFutureReposition.setFetchedAt(now.minusMinutes(10));
 
-        EnelOutage old = outage(3L, now.minusDays(2));
+        EnelOutage old = outage("3", now.minusDays(2));
         old.setRepositionDate(now.minusDays(1));
         old.setFetchedAt(now.minusMinutes(10));
 
-        EnelOutage staleFetch = outage(4L, now.minusHours(1));
+        EnelOutage staleFetch = outage("4", now.minusHours(1));
         staleFetch.setRepositionDate(null);
         staleFetch.setFetchedAt(now.minusHours(10));
 
@@ -91,16 +93,16 @@ class EnelOutageRepositoryTest {
 
         assertThat(result).hasSize(2)
             .extracting(EnelOutage::getObjectId)
-            .containsExactlyInAnyOrder(1L, 2L);
+            .containsExactlyInAnyOrder("1", "2");
     }
 
     @Test
     void shouldAggregateByMonthAndNeighborhood() {
-        EnelOutage o1 = outage(1L, LocalDateTime.of(2026, 7, 10, 8, 30));
+        EnelOutage o1 = outage("1", LocalDateTime.of(2026, 7, 10, 8, 30));
         o1.setNeighborhoodName("San Pablo");
-        EnelOutage o2 = outage(2L, LocalDateTime.of(2026, 7, 15, 18, 0));
+        EnelOutage o2 = outage("2", LocalDateTime.of(2026, 7, 15, 18, 0));
         o2.setNeighborhoodName("San Pablo");
-        EnelOutage o3 = outage(3L, LocalDateTime.of(2026, 8, 1, 10, 0));
+        EnelOutage o3 = outage("3", LocalDateTime.of(2026, 8, 1, 10, 0));
         o3.setNeighborhoodName("Triana");
         em.persist(o1);
         em.persist(o2);
@@ -118,9 +120,9 @@ class EnelOutageRepositoryTest {
 
     @Test
     void shouldFilterByNeighborhoodIgnoringCase() {
-        EnelOutage o1 = outage(1L, LocalDateTime.of(2026, 7, 10, 8, 30));
+        EnelOutage o1 = outage("1", LocalDateTime.of(2026, 7, 10, 8, 30));
         o1.setNeighborhoodName("San Pablo");
-        EnelOutage o2 = outage(2L, LocalDateTime.of(2026, 7, 11, 8, 30));
+        EnelOutage o2 = outage("2", LocalDateTime.of(2026, 7, 11, 8, 30));
         o2.setNeighborhoodName("Triana");
         em.persist(o1);
         em.persist(o2);
@@ -132,7 +134,80 @@ class EnelOutageRepositoryTest {
         assertThat(page.getContent().get(0).getNeighborhoodName()).isEqualTo("San Pablo");
     }
 
-    private EnelOutage outage(Long objectId, LocalDateTime interruptionDate) {
+    @Test
+    void shouldAtomicallyUpsertNewOutage() {
+        EnelOutage outage = outage("123", LocalDateTime.of(2026, 7, 10, 8, 30));
+        outage.setNeighborhoodName("San Pablo");
+        outage.setServiceType("AT");
+        outage.setFirstSeenAt(LocalDateTime.of(2026, 7, 10, 8, 0));
+        outage.setCreatedAt(LocalDateTime.of(2026, 7, 10, 8, 0));
+        outage.setFetchedAt(LocalDateTime.of(2026, 7, 10, 8, 0));
+        outage.setUpdatedAt(LocalDateTime.of(2026, 7, 10, 8, 0));
+
+        int rows = repository.upsert(outage);
+
+        assertThat(rows).isEqualTo(1);
+        Optional<EnelOutage> found = repository.findByNeighborhoodNameAndInterruptionDateAndServiceType(
+            "San Pablo", LocalDateTime.of(2026, 7, 10, 8, 30), "AT");
+        assertThat(found).isPresent();
+        assertThat(found.get().getObjectId()).isEqualTo("123");
+        assertThat(found.get().getFirstSeenAt()).isEqualTo(LocalDateTime.of(2026, 7, 10, 8, 0));
+    }
+
+    @Test
+    void shouldAtomicallyUpsertExistingOutageAndPreserveFirstSeenAt() {
+        EnelOutage original = outage("100", LocalDateTime.of(2026, 7, 10, 8, 30));
+        original.setNeighborhoodName("San Pablo");
+        original.setServiceType("AT");
+        original.setFirstSeenAt(LocalDateTime.of(2026, 7, 1, 0, 0));
+        original.setCreatedAt(LocalDateTime.of(2026, 7, 1, 0, 0));
+        original.setFetchedAt(LocalDateTime.of(2026, 7, 1, 0, 0));
+        original.setUpdatedAt(LocalDateTime.of(2026, 7, 1, 0, 0));
+        repository.upsert(original);
+
+        EnelOutage update = outage("200", LocalDateTime.of(2026, 7, 10, 8, 30));
+        update.setNeighborhoodName("San Pablo");
+        update.setServiceType("AT");
+        update.setFirstSeenAt(LocalDateTime.of(2026, 7, 10, 12, 0));
+        update.setCreatedAt(LocalDateTime.of(2026, 7, 10, 12, 0));
+        update.setFetchedAt(LocalDateTime.of(2026, 7, 10, 12, 0));
+        update.setUpdatedAt(LocalDateTime.of(2026, 7, 10, 12, 0));
+
+        int rows = repository.upsert(update);
+
+        assertThat(rows).isEqualTo(1);
+        em.flush();
+        em.clear();
+        Optional<EnelOutage> found = repository.findByNeighborhoodNameAndInterruptionDateAndServiceType(
+            "San Pablo", LocalDateTime.of(2026, 7, 10, 8, 30), "AT");
+        assertThat(found).isPresent();
+        assertThat(found.get().getObjectId()).isEqualTo("200");
+        assertThat(found.get().getFirstSeenAt()).isEqualTo(LocalDateTime.of(2026, 7, 1, 0, 0));
+        assertThat(found.get().getCreatedAt()).isEqualTo(LocalDateTime.of(2026, 7, 1, 0, 0));
+        assertThat(found.get().getFetchedAt()).isEqualTo(LocalDateTime.of(2026, 7, 10, 12, 0));
+        assertThat(found.get().getUpdatedAt()).isEqualTo(LocalDateTime.of(2026, 7, 10, 12, 0));
+    }
+
+    @Test
+    void shouldPreventDuplicateNaturalKeyOnConcurrentUpsert() {
+        EnelOutage outage = outage("1", LocalDateTime.of(2026, 7, 10, 8, 30));
+        outage.setNeighborhoodName("San Pablo");
+        outage.setServiceType("AT");
+
+        repository.upsert(outage);
+        repository.upsert(outage);
+
+        long count = em.getEntityManager().createQuery(
+                "SELECT COUNT(o) FROM EnelOutage o WHERE o.neighborhoodName = :name " +
+                "AND o.interruptionDate = :date AND o.serviceType = :type", Long.class)
+            .setParameter("name", "San Pablo")
+            .setParameter("date", LocalDateTime.of(2026, 7, 10, 8, 30))
+            .setParameter("type", "AT")
+            .getSingleResult();
+        assertThat(count).isEqualTo(1);
+    }
+
+    private EnelOutage outage(String objectId, LocalDateTime interruptionDate) {
         LocalDateTime now = LocalDateTime.now();
         return EnelOutage.builder()
             .objectId(objectId)

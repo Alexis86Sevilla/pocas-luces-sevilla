@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 @Entity
 @Table(name = "enel_outages",
@@ -29,7 +30,7 @@ public class EnelOutage {
     private Long id;
 
     @Column(name = "object_id", nullable = false, length = 50)
-    private Long objectId;
+    private String objectId;
 
     private Double latitude;
     private Double longitude;
@@ -69,4 +70,18 @@ public class EnelOutage {
 
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof EnelOutage that)) return false;
+        return Objects.equals(neighborhoodName, that.neighborhoodName)
+            && Objects.equals(interruptionDate, that.interruptionDate)
+            && Objects.equals(serviceType, that.serviceType);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(neighborhoodName, interruptionDate, serviceType);
+    }
 }

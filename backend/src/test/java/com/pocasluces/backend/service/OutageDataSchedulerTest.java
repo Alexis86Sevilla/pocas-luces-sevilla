@@ -1,7 +1,6 @@
 package com.pocasluces.backend.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.pocasluces.backend.dto.EnelApiFetchResult;
+import com.pocasluces.backend.dto.EnelApiFeatureWithEvidence;
 import com.pocasluces.backend.dto.EnelApiResponse;
 import com.pocasluces.backend.entity.EnelOutage;
 import com.pocasluces.backend.repository.EnelOutageRepository;
@@ -35,35 +34,29 @@ class OutageDataSchedulerTest {
     @Mock
     private NeighborhoodLocator locator;
 
-    @Mock
-    private ObjectMapper objectMapper;
-
     private final Clock clock = Clock.fixed(Instant.parse("2026-07-10T12:00:00Z"), ZoneId.of("UTC"));
     private OutageDataScheduler scheduler;
 
     @BeforeEach
     void setUp() {
-        scheduler = new OutageDataScheduler(enelApiService, repository, locator, objectMapper, clock);
+        scheduler = new OutageDataScheduler(enelApiService, repository, locator, clock);
     }
 
     @Test
-    void shouldInsertNewOutageAndSetFirstSeenAt() throws Exception {
-        EnelApiResponse.Feature feature = feature(123L, "10/07/2026 08:30", 37.3970, -5.9800, "AT");
+    void shouldInsertNewOutageAndSetFirstSeenAt() {
+        EnelApiResponse.Feature feature = feature("123", "10/07/2026 08:30", 37.3970, -5.9800, "AT");
 
         when(enelApiService.fetchSevillaOutages())
-            .thenReturn(new EnelApiFetchResult("http://source", "{}", List.of(feature)));
+            .thenReturn(List.of(new EnelApiFeatureWithEvidence(feature, "http://source", "{\"raw\":\"data\"}")));
         when(locator.findNeighborhood(37.3970, -5.9800)).thenReturn("San Pablo");
-        when(objectMapper.writeValueAsString(any())).thenReturn("{\"raw\":\"data\"}");
-        when(repository.findByNeighborhoodNameAndInterruptionDateAndServiceType("San Pablo", LocalDateTime.of(2026, 7, 10, 8, 30), "AT"))
-            .thenReturn(Optional.empty());
 
         scheduler.fetchAndSaveOutages();
 
         ArgumentCaptor<EnelOutage> captor = ArgumentCaptor.forClass(EnelOutage.class);
-        verify(repository).save(captor.capture());
+        verify(repository).upsert(captor.capture());
         EnelOutage saved = captor.getValue();
 
-        assertThat(saved.getObjectId()).isEqualTo(123L);
+        assertThat(saved.getObjectId()).isEqualTo("123");
         assertThat(saved.getNeighborhoodName()).isEqualTo("San Pablo");
         assertThat(saved.getServiceType()).isEqualTo("AT");
         assertThat(saved.getInterruptionDate()).isEqualTo(LocalDateTime.of(2026, 7, 10, 8, 30));
@@ -76,55 +69,48 @@ class OutageDataSchedulerTest {
     }
 
     @Test
-    void shouldUpdateExistingOutageWithoutChangingFirstSeenAt() throws Exception {
-        EnelApiResponse.Feature feature = feature(456L, "10/07/2026 08:30", 37.3970, -5.9800, "AT");
-        EnelOutage existing = EnelOutage.builder()
-            .id(1L)
-            .objectId(123L)
-            .serviceType("AT")
-            .neighborhoodName("San Pablo")
-            .interruptionDate(LocalDateTime.of(2026, 7, 10, 8, 30))
-            .firstSeenAt(LocalDateTime.of(2026, 7, 1, 0, 0))
-            .createdAt(LocalDateTime.of(2026, 7, 1, 0, 0))
-            .build();
+    void shouldPassCurrentTimestampsToAtomicUpsert() {
+        EnelApiResponse.Feature feature = feature("456", "10/07/2026 08:30", 37.3970, -5.9800, "AT");
 
         when(enelApiService.fetchSevillaOutages())
-            .thenReturn(new EnelApiFetchResult("http://source", "{}", List.of(feature)));
+            .thenReturn(List.of(new EnelApiFeatureWithEvidence(feature, "http://source", "{\"raw\":\"data\"}")));
         when(locator.findNeighborhood(37.3970, -5.9800)).thenReturn("San Pablo");
-        when(objectMapper.writeValueAsString(any())).thenReturn("{\"raw\":\"data\"}");
-        when(repository.findByNeighborhoodNameAndInterruptionDateAndServiceType("San Pablo", LocalDateTime.of(2026, 7, 10, 8, 30), "AT"))
-            .thenReturn(Optional.of(existing));
 
         scheduler.fetchAndSaveOutages();
 
-        assertThat(existing.getFirstSeenAt()).isEqualTo(LocalDateTime.of(2026, 7, 1, 0, 0));
-        assertThat(existing.getUpdatedAt()).isEqualTo(LocalDateTime.now(clock));
-        assertThat(existing.getFetchedAt()).isEqualTo(LocalDateTime.now(clock));
-        assertThat(existing.getObjectId()).isEqualTo(456L);
+        ArgumentCaptor<EnelOutage> captor = ArgumentCaptor.forClass(EnelOutage.class);
+        verify(repository).upsert(captor.capture());
+        EnelOutage upserted = captor.getValue();
+
+        assertThat(upserted.getObjectId()).isEqualTo("456");
+        assertThat(upserted.getFirstSeenAt()).isEqualTo(LocalDateTime.now(clock));
+        assertThat(upserted.getCreatedAt()).isEqualTo(LocalDateTime.now(clock));
+        assertThat(upserted.getUpdatedAt()).isEqualTo(LocalDateTime.now(clock));
+        assertThat(upserted.getFetchedAt()).isEqualTo(LocalDateTime.now(clock));
     }
 
     @Test
-    void shouldSkipOutageWithNullObjectId() throws Exception {
+    void shouldSkipOutageWithNullObjectId() {
         EnelApiResponse.Feature feature = feature(null, "10/07/2026 08:30", 37.0, -5.0, "AT");
 
         when(enelApiService.fetchSevillaOutages())
-            .thenReturn(new EnelApiFetchResult("http://source", "{}", List.of(feature)));
+            .thenReturn(List.of(new EnelApiFeatureWithEvidence(feature, "http://source", "{}")));
 
         scheduler.fetchAndSaveOutages();
 
-        verify(repository, never()).save(any());
+        verify(repository, never()).upsert(any());
     }
 
     @Test
-    void shouldSkipOutageWithUnparseableInterruptionDate() throws Exception {
-        EnelApiResponse.Feature feature = feature(123L, "not-a-date", 37.0, -5.0, "AT");
+    void shouldSkipOutageWithUnparseableInterruptionDate() {
+        EnelApiResponse.Feature feature = feature("123", "not-a-date", 37.0, -5.0, "AT");
 
         when(enelApiService.fetchSevillaOutages())
-            .thenReturn(new EnelApiFetchResult("http://source", "{}", List.of(feature)));
+            .thenReturn(List.of(new EnelApiFeatureWithEvidence(feature, "http://source", "{}")));
 
         scheduler.fetchAndSaveOutages();
 
-        verify(repository, never()).save(any());
+        verify(repository, never()).upsert(any());
     }
 
     @Test
@@ -134,10 +120,29 @@ class OutageDataSchedulerTest {
 
         scheduler.fetchAndSaveOutages();
 
-        verify(repository, never()).save(any());
+        verify(repository, never()).upsert(any());
     }
 
-    private EnelApiResponse.Feature feature(Long objectId, String interruptionDate,
+    @Test
+    void shouldTolerateObjectIdChangeForSameNaturalKey() {
+        EnelApiResponse.Feature first = feature("100", "10/07/2026 08:30", 37.3970, -5.9800, "AT");
+        EnelApiResponse.Feature second = feature("200", "10/07/2026 08:30", 37.3970, -5.9800, "AT");
+
+        when(enelApiService.fetchSevillaOutages())
+            .thenReturn(List.of(
+                new EnelApiFeatureWithEvidence(first, "http://page1", "{\"id\":100}"),
+                new EnelApiFeatureWithEvidence(second, "http://page2", "{\"id\":200}")
+            ));
+        when(locator.findNeighborhood(37.3970, -5.9800)).thenReturn("San Pablo");
+
+        scheduler.fetchAndSaveOutages();
+
+        // Two upserts should be issued for the same natural key; the repository upsert
+        // is atomic and the second call simply updates the row to objectId 200.
+        verify(repository, times(2)).upsert(any());
+    }
+
+    private EnelApiResponse.Feature feature(String objectId, String interruptionDate,
                                             double lat, double lon, String serviceType) {
         EnelApiResponse.Feature feature = new EnelApiResponse.Feature();
         EnelApiResponse.Attributes attr = new EnelApiResponse.Attributes();

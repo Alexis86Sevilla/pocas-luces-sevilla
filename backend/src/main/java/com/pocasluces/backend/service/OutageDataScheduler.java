@@ -1,9 +1,7 @@
 package com.pocasluces.backend.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.pocasluces.backend.dto.EnelApiFetchResult;
-import com.pocasluces.backend.dto.EnelApiResponse.Feature;
+import com.pocasluces.backend.dto.EnelApiFeatureWithEvidence;
+import com.pocasluces.backend.dto.EnelApiResponse;
 import com.pocasluces.backend.entity.EnelOutage;
 import com.pocasluces.backend.repository.EnelOutageRepository;
 import lombok.RequiredArgsConstructor;
@@ -21,7 +19,6 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.HexFormat;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
@@ -39,7 +36,6 @@ public class OutageDataScheduler {
     private final EnelApiService enelApiService;
     private final EnelOutageRepository repository;
     private final NeighborhoodLocator locator;
-    private final ObjectMapper objectMapper;
     private final Clock clock;
 
     @Scheduled(fixedDelay = 30, timeUnit = TimeUnit.MINUTES)
@@ -47,20 +43,20 @@ public class OutageDataScheduler {
     public void fetchAndSaveOutages() {
         log.info("Scheduler: fetching Enel outages for Sevilla...");
 
-        EnelApiFetchResult result;
+        List<EnelApiFeatureWithEvidence> pagedFeatures;
         try {
-            result = enelApiService.fetchSevillaOutages();
+            pagedFeatures = enelApiService.fetchSevillaOutages();
         } catch (EnelApiService.EnelApiException e) {
             log.error("Scheduler: failed to fetch Enel API, will retry on next run: {}", e.getMessage());
             return;
         }
 
-        int inserted = 0;
-        int updated = 0;
+        int saved = 0;
         int skipped = 0;
         LocalDateTime now = LocalDateTime.now(clock);
 
-        for (Feature feature : result.features()) {
+        for (EnelApiFeatureWithEvidence paged : pagedFeatures) {
+            EnelApiResponse.Feature feature = paged.feature();
             var attr = feature.getAttributes();
             if (attr == null || attr.getObjectId() == null) {
                 skipped++;
@@ -80,49 +76,29 @@ public class OutageDataScheduler {
             String neighborhoodName = normalizeNeighborhood(locator.findNeighborhood(lat, lon));
             String serviceType = normalizeServiceType(attr.getServiceType());
 
-            Optional<EnelOutage> existing = repository
-                .findByNeighborhoodNameAndInterruptionDateAndServiceType(neighborhoodName, interruptionDate, serviceType);
-            EnelOutage outage = existing.orElseGet(EnelOutage::new);
-            boolean isNew = existing.isEmpty();
+            EnelOutage outage = EnelOutage.builder()
+                .objectId(attr.getObjectId())
+                .latitude(attr.getLatitude())
+                .longitude(attr.getLongitude())
+                .affectedClients(attr.getAffectedClient())
+                .serviceType(serviceType)
+                .interruptionDate(interruptionDate)
+                .repositionDate(parseDate(attr.getRepositionDate()))
+                .neighborhoodName(neighborhoodName)
+                .sourceUrl(paged.sourceUrl())
+                .rawResponse(paged.rawResponse())
+                .rawResponseHash(sha256Hex(paged.rawResponse()))
+                .firstSeenAt(now)
+                .fetchedAt(now)
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
 
-            String featureJson = serializeFeature(feature, attr.getObjectId());
-
-            outage.setObjectId(attr.getObjectId());
-            outage.setLatitude(attr.getLatitude());
-            outage.setLongitude(attr.getLongitude());
-            outage.setAffectedClients(attr.getAffectedClient());
-            outage.setServiceType(serviceType);
-            outage.setInterruptionDate(interruptionDate);
-            outage.setRepositionDate(parseDate(attr.getRepositionDate()));
-            outage.setNeighborhoodName(neighborhoodName);
-            outage.setSourceUrl(result.sourceUrl());
-            outage.setRawResponse(featureJson);
-            outage.setRawResponseHash(sha256Hex(featureJson));
-            outage.setFetchedAt(now);
-            outage.setUpdatedAt(now);
-
-            if (isNew) {
-                outage.setCreatedAt(now);
-                outage.setFirstSeenAt(now);
-                inserted++;
-            } else {
-                updated++;
-            }
-
-            repository.save(outage);
+            repository.upsert(outage);
+            saved++;
         }
 
-        log.info("Scheduler: saved {} outages ({} inserted, {} updated, {} skipped)",
-            inserted + updated, inserted, updated, skipped);
-    }
-
-    private String serializeFeature(Feature feature, Long objectId) {
-        try {
-            return objectMapper.writeValueAsString(feature);
-        } catch (JsonProcessingException e) {
-            log.warn("Failed to serialize feature objectId={}, storing empty raw response", objectId, e);
-            return "{}";
-        }
+        log.info("Scheduler: saved {} outages ({} skipped)", saved, skipped);
     }
 
     private LocalDateTime parseDate(String dateStr) {

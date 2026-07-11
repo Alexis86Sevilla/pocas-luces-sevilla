@@ -11,11 +11,11 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
-public interface EnelOutageRepository extends JpaRepository<EnelOutage, Long> {
+public interface EnelOutageRepository extends JpaRepository<EnelOutage, Long>, EnelOutageRepositoryCustom {
 
     List<EnelOutage> findAllByOrderByInterruptionDateDesc();
 
-    Optional<EnelOutage> findByObjectId(Long objectId);
+    Optional<EnelOutage> findByObjectId(String objectId);
 
     Optional<EnelOutage> findByNeighborhoodNameAndInterruptionDateAndServiceType(
             String neighborhoodName,
