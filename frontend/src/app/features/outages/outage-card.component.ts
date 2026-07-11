@@ -59,7 +59,9 @@ export class OutageCardComponent {
 
     return [...groups.entries()]
       .map(([dateKey, list]) => {
-        const sorted = [...list].sort((a, b) => b.affectedClients - a.affectedClients);
+        const sorted = [...list].sort((a, b) =>
+          new Date(a.interruptionDate).getTime() - new Date(b.interruptionDate).getTime()
+        );
         return {
           dateKey,
           date: new Date(dateKey + 'T00:00:00'),
