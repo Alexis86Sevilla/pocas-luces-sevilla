@@ -87,7 +87,7 @@ public class OutageController {
 
     @GetMapping("/outages/live")
     public List<EnelOutage> getLiveOutages() {
-        return enelOutageRepo.findAllByOrderByInterruptionDateDesc();
+        return enelOutageRepo.findCurrentlyActive();
     }
 
     // ── Gráfica (datos agregados por mes y barrio) ──
