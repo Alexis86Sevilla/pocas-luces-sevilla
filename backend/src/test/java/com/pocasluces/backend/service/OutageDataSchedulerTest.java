@@ -54,7 +54,8 @@ class OutageDataSchedulerTest {
             .thenReturn(new EnelApiFetchResult("http://source", "{}", List.of(feature)));
         when(locator.findNeighborhood(37.3970, -5.9800)).thenReturn("San Pablo");
         when(objectMapper.writeValueAsString(any())).thenReturn("{\"raw\":\"data\"}");
-        when(repository.findByObjectId(123L)).thenReturn(Optional.empty());
+        when(repository.findByNeighborhoodNameAndInterruptionDateAndServiceType("San Pablo", LocalDateTime.of(2026, 7, 10, 8, 30), "AT"))
+            .thenReturn(Optional.empty());
 
         scheduler.fetchAndSaveOutages();
 
@@ -76,10 +77,13 @@ class OutageDataSchedulerTest {
 
     @Test
     void shouldUpdateExistingOutageWithoutChangingFirstSeenAt() throws Exception {
-        EnelApiResponse.Feature feature = feature(123L, "10/07/2026 08:30", 37.3970, -5.9800, "AT");
+        EnelApiResponse.Feature feature = feature(456L, "10/07/2026 08:30", 37.3970, -5.9800, "AT");
         EnelOutage existing = EnelOutage.builder()
             .id(1L)
             .objectId(123L)
+            .serviceType("AT")
+            .neighborhoodName("San Pablo")
+            .interruptionDate(LocalDateTime.of(2026, 7, 10, 8, 30))
             .firstSeenAt(LocalDateTime.of(2026, 7, 1, 0, 0))
             .createdAt(LocalDateTime.of(2026, 7, 1, 0, 0))
             .build();
@@ -88,13 +92,15 @@ class OutageDataSchedulerTest {
             .thenReturn(new EnelApiFetchResult("http://source", "{}", List.of(feature)));
         when(locator.findNeighborhood(37.3970, -5.9800)).thenReturn("San Pablo");
         when(objectMapper.writeValueAsString(any())).thenReturn("{\"raw\":\"data\"}");
-        when(repository.findByObjectId(123L)).thenReturn(Optional.of(existing));
+        when(repository.findByNeighborhoodNameAndInterruptionDateAndServiceType("San Pablo", LocalDateTime.of(2026, 7, 10, 8, 30), "AT"))
+            .thenReturn(Optional.of(existing));
 
         scheduler.fetchAndSaveOutages();
 
         assertThat(existing.getFirstSeenAt()).isEqualTo(LocalDateTime.of(2026, 7, 1, 0, 0));
         assertThat(existing.getUpdatedAt()).isEqualTo(LocalDateTime.now(clock));
         assertThat(existing.getFetchedAt()).isEqualTo(LocalDateTime.now(clock));
+        assertThat(existing.getObjectId()).isEqualTo(456L);
     }
 
     @Test

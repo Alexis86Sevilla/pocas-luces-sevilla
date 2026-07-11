@@ -70,7 +70,7 @@ class EnelOutageRepositoryTest {
         activeNullReposition.setRepositionDate(null);
         activeNullReposition.setFetchedAt(now.minusMinutes(10));
 
-        EnelOutage activeFutureReposition = outage(2L, now.minusHours(2));
+        EnelOutage activeFutureReposition = outage(2L, now.minusHours(3));
         activeFutureReposition.setRepositionDate(now.plusHours(2));
         activeFutureReposition.setFetchedAt(now.minusMinutes(10));
 
@@ -137,6 +137,8 @@ class EnelOutageRepositoryTest {
         return EnelOutage.builder()
             .objectId(objectId)
             .interruptionDate(interruptionDate)
+            .serviceType("GB")
+            .neighborhoodName("San Pablo")
             .fetchedAt(now)
             .firstSeenAt(now)
             .createdAt(now)
