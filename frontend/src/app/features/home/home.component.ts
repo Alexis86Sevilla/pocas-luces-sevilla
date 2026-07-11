@@ -31,9 +31,9 @@ export class HomeComponent implements OnInit {
   readonly api = inject(ApiOutageService);
 
   protected readonly neighborhoods = this.api.derivedNeighborhoods;
-  protected readonly yearlyOutages = this.api.yearlyOutages;
-  protected readonly monthlyOutages = this.api.monthlyOutages;
-  protected readonly liveOutages = this.api.liveOutages;
+  protected readonly yearlyOutages = this.api.deduplicatedYearlyOutages;
+  protected readonly monthlyOutages = this.api.deduplicatedMonthlyOutages;
+  protected readonly liveOutages = this.api.deduplicatedLiveOutages;
   protected readonly videoTestimonials: readonly VideoTestimonial[] = [
     {
       id: 'ig-reel-DafWrbQNbXH',

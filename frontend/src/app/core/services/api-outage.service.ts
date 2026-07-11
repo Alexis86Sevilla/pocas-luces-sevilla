@@ -12,6 +12,7 @@ export interface EnelOutage {
   interruptionDate: string;
   repositionDate: string;
   neighborhoodName: string | null;
+  fetchedAt: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -27,6 +28,11 @@ export class ApiOutageService {
   readonly yearlyOutages = this._yearlyOutages.asReadonly();
   readonly monthlyOutages = this._monthlyOutages.asReadonly();
   readonly liveOutages = this._liveOutages.asReadonly();
+
+  // Deduplicated views for the UI: keep the most recent fetched record per natural key.
+  readonly deduplicatedYearlyOutages = computed(() => this.deduplicate(this._yearlyOutages()));
+  readonly deduplicatedMonthlyOutages = computed(() => this.deduplicate(this._monthlyOutages()));
+  readonly deduplicatedLiveOutages = computed(() => this.deduplicate(this._liveOutages()));
 
   private readonly _selectedYear = signal(new Date().getFullYear());
   private readonly _selectedMonth = signal(new Date().getMonth() + 1);
@@ -89,5 +95,17 @@ export class ApiOutageService {
     this._selectedYear.set(year);
     this._selectedMonth.set(month);
     this.loadMonthlyOutages(year, month);
+  }
+
+  private deduplicate(outages: readonly EnelOutage[]): EnelOutage[] {
+    const map = new Map<string, EnelOutage>();
+    for (const outage of outages) {
+      const key = `${outage.neighborhoodName ?? 'Zona no identificada'}|${outage.interruptionDate}|${outage.serviceType ?? 'UNKNOWN'}|${outage.affectedClients}`;
+      const existing = map.get(key);
+      if (!existing || new Date(outage.fetchedAt).getTime() > new Date(existing.fetchedAt).getTime()) {
+        map.set(key, outage);
+      }
+    }
+    return [...map.values()];
   }
 }
