@@ -58,11 +58,11 @@ spring:
     url: jdbc:postgresql://localhost:5432/sevillasinluz
     driver-class-name: org.postgresql.Driver
     username: sevillasinluz_user
-    password: sevillanos40SinLuces
+    password: ${DB_PASSWORD}
 
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     show-sql: false
     properties:
       hibernate:
