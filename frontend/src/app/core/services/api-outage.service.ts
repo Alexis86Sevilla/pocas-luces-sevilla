@@ -1,9 +1,10 @@
 import { HttpClient } from '@angular/common/http';
 import { computed, Injectable, signal } from '@angular/core';
-import { tap } from 'rxjs';
+import { finalize } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
 import type { Neighborhood } from '../models';
+import { ErrorLogService } from './error-log.service';
 
 export interface EnelOutage {
   objectId: number;
@@ -40,18 +41,24 @@ export class ApiOutageService {
   readonly selectedYear = this._selectedYear.asReadonly();
   readonly selectedMonth = this._selectedMonth.asReadonly();
 
-  readonly loading = signal(false);
+  private readonly _activeRequests = signal(0);
+  readonly loading = computed(() => this._activeRequests() > 0);
 
-  // Derive neighborhoods from yearly data
+  // Derive neighborhoods from yearly data using a stable id derived from the name.
   readonly derivedNeighborhoods = computed(() => {
     const names = [...new Set(this._yearlyOutages().map(o => o.neighborhoodName).filter(Boolean))];
-    return names.map((name, i) => ({ id: String(i), name: name! }));
+    return names
+      .map(name => name!)
+      .sort((a, b) => a.localeCompare(b))
+      .map(name => ({ id: this.neighborhoodId(name), name }));
   });
 
-  constructor(private http: HttpClient) {}
+  constructor(
+    private http: HttpClient,
+    private errorLog: ErrorLogService,
+  ) {}
 
   loadAll(): void {
-    this.loading.set(true);
     this.loadYearlyOutages();
     this.loadMonthlyOutages();
     this.loadLiveOutages();
@@ -60,12 +67,11 @@ export class ApiOutageService {
   // ── Yearly (for chart) ──
   loadYearlyOutages(year?: number): void {
     const y = year ?? this._selectedYear();
-    this.http.get<EnelOutage[]>(`${this.apiUrl}/outages/yearly?year=${y}`).subscribe({
-      next: data => {
-        this._yearlyOutages.set(data);
-        console.log('[API] Yearly outages:', data.length);
-      },
-      error: err => console.error('[API] Yearly:', err.message),
+    this.trackRequest(
+      this.http.get<EnelOutage[]>(`${this.apiUrl}/outages/yearly?year=${y}`)
+    ).subscribe({
+      next: data => this._yearlyOutages.set(data),
+      error: err => this.errorLog.log('API Yearly', err),
     });
   }
 
@@ -73,22 +79,27 @@ export class ApiOutageService {
   loadMonthlyOutages(year?: number, month?: number): void {
     const y = year ?? this._selectedYear();
     const m = month ?? this._selectedMonth();
-    this.http.get<EnelOutage[]>(`${this.apiUrl}/outages/monthly?year=${y}&month=${m}`).pipe(
-      tap(data => console.log('[API] Monthly:', data.length))
+    this.trackRequest(
+      this.http.get<EnelOutage[]>(`${this.apiUrl}/outages/monthly?year=${y}&month=${m}`)
     ).subscribe({
       next: data => this._monthlyOutages.set(data),
-      error: err => console.error('[API] Monthly:', err.message),
+      error: err => this.errorLog.log('API Monthly', err),
     });
   }
 
   // ── Live ──
   loadLiveOutages(): void {
-    this.http.get<EnelOutage[]>(`${this.apiUrl}/outages/live`).pipe(
-      tap(data => console.log('[API] Live:', data.length))
+    this.trackRequest(
+      this.http.get<EnelOutage[]>(`${this.apiUrl}/outages/live`)
     ).subscribe({
-      next: data => { this._liveOutages.set(data); this.loading.set(false); },
-      error: err => { console.error('[API] Live:', err.message); this.loading.set(false); },
+      next: data => this._liveOutages.set(data),
+      error: err => this.errorLog.log('API Live', err),
     });
+  }
+
+  private trackRequest<T>(request: import('rxjs').Observable<T>) {
+    this._activeRequests.update(count => count + 1);
+    return request.pipe(finalize(() => this._activeRequests.update(count => count - 1)));
   }
 
   setMonthFilter(year: number, month: number): void {
@@ -100,12 +111,21 @@ export class ApiOutageService {
   private deduplicate(outages: readonly EnelOutage[]): EnelOutage[] {
     const map = new Map<string, EnelOutage>();
     for (const outage of outages) {
-      const key = `${outage.neighborhoodName ?? 'Zona no identificada'}|${outage.interruptionDate}|${outage.serviceType ?? 'UNKNOWN'}|${outage.affectedClients}`;
+      const key = `${outage.neighborhoodName ?? 'Zona no identificada'}|${outage.interruptionDate}|${outage.serviceType ?? 'UNKNOWN'}`;
       const existing = map.get(key);
       if (!existing || new Date(outage.fetchedAt).getTime() > new Date(existing.fetchedAt).getTime()) {
         map.set(key, outage);
       }
     }
     return [...map.values()];
+  }
+
+  private neighborhoodId(name: string): string {
+    return name
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
   }
 }
