@@ -1,26 +1,23 @@
 package com.pocasluces.backend.controller;
 
-import com.pocasluces.backend.dto.EnelApiFetchResult;
 import com.pocasluces.backend.service.EnelApiService;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
-import java.util.List;
-
 import static org.hamcrest.Matchers.*;
-import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@TestPropertySource(properties = "admin.api.key=test-secret")
 class OutageControllerTest {
 
     @Autowired
@@ -28,12 +25,6 @@ class OutageControllerTest {
 
     @MockBean
     private EnelApiService enelApiService;
-
-    @BeforeEach
-    void setUp() {
-        when(enelApiService.fetchSevillaOutages())
-            .thenReturn(new EnelApiFetchResult("http://test", "{}", List.of()));
-    }
 
     @Test
     void shouldReturnNeighborhoods() throws Exception {
@@ -93,10 +84,18 @@ class OutageControllerTest {
     }
 
     @Test
-    void shouldTriggerFetch() throws Exception {
+    void shouldTriggerFetchWithValidApiKey() throws Exception {
         mockMvc.perform(post("/api/outages/fetch")
+                .header("X-API-Key", "test-secret")
                 .contentType(MediaType.APPLICATION_JSON))
             .andExpect(status().isOk())
             .andExpect(content().string("Fetch triggered. Check /api/outages/live"));
+    }
+
+    @Test
+    void shouldRejectFetchWithoutApiKey() throws Exception {
+        mockMvc.perform(post("/api/outages/fetch")
+                .contentType(MediaType.APPLICATION_JSON))
+            .andExpect(status().isUnauthorized());
     }
 }
