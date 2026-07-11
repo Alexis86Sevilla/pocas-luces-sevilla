@@ -1,59 +1,61 @@
 # Frontend
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.0.3.
+Angular 21 dashboard for **Sevilla Sin Luz**. It visualizes power outage data consumed from the Spring Boot backend.
+
+## Requirements
+
+- Node.js 22
+- pnpm 10
 
 ## Development server
 
-To start a local development server, run:
+Install dependencies:
 
 ```bash
-ng serve
+pnpm install
 ```
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
-
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+Start the dev server with the configured proxy to the backend:
 
 ```bash
-ng generate component component-name
+pnpm start
 ```
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+Open http://localhost:4200. The proxy configuration forwards `/api/**` requests to `http://localhost:8080`.
+
+## Build
+
+Production build:
 
 ```bash
-ng generate --help
+pnpm build
 ```
 
-## Building
+Artifacts are written to `dist/frontend/browser/`.
 
-To build the project run:
+## Project structure
 
-```bash
-ng build
+```
+src/app/
+├── core/           Models and API services
+├── features/
+│   ├── context/    Context and citizen demands section
+│   ├── hero/       Landing hero
+│   ├── home/       Main dashboard page
+│   ├── outages/    Chart, cards and date filter
+│   └── testimonials/ Video carousel
+└── ...
 ```
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
+## Environment configuration
 
-## Running unit tests
+- `src/environments/environment.ts` — development values
+- `src/environments/environment.prod.ts` — production values (API base URL)
 
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
+The production file is swapped in automatically by the Angular CLI build configuration in `angular.json`.
 
-```bash
-ng test
-```
+## Notes
 
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+- The chart uses Chart.js with a 12-color stable palette, one color per neighborhood.
+- The monthly filter defaults to the current month and year.
+- Live outages are grouped by neighborhood in the UI.
