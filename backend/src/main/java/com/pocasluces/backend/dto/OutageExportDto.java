@@ -6,7 +6,7 @@ import java.time.format.DateTimeFormatter;
 
 public record OutageExportDto(
     Long id,
-    Long objectId,
+    String objectId,
     String neighborhoodName,
     String serviceType,
     String interruptionDate,

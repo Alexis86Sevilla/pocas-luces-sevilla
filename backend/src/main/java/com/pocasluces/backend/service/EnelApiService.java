@@ -1,7 +1,8 @@
 package com.pocasluces.backend.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.pocasluces.backend.dto.EnelApiFetchResult;
+import com.pocasluces.backend.dto.EnelApiFeatureWithEvidence;
 import com.pocasluces.backend.dto.EnelApiResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -38,23 +39,20 @@ public class EnelApiService {
         this.restTemplate = restTemplate;
     }
 
-    public EnelApiFetchResult fetchSevillaOutages() {
-        List<EnelApiResponse.Feature> allFeatures = new ArrayList<>();
+    public List<EnelApiFeatureWithEvidence> fetchSevillaOutages() {
+        List<EnelApiFeatureWithEvidence> allFeatures = new ArrayList<>();
         int offset = 0;
         int pages = 0;
-        String sourceUrl = null;
-        String lastRawResponse = null;
 
         while (pages < MAX_PAGES) {
-            sourceUrl = buildUrl(offset);
+            String sourceUrl = buildUrl(offset);
             FetchPageResult page = fetchPage(sourceUrl);
-            lastRawResponse = page.rawResponse();
 
             if (page.features().isEmpty()) {
                 break;
             }
 
-            allFeatures.addAll(page.features());
+            allFeatures.addAll(wrapWithEvidence(sourceUrl, page.rawResponse(), page.features()));
             pages++;
 
             if (page.features().size() < PAGE_SIZE) {
@@ -63,7 +61,7 @@ public class EnelApiService {
             offset += PAGE_SIZE;
         }
 
-        return new EnelApiFetchResult(sourceUrl, lastRawResponse, Collections.unmodifiableList(allFeatures));
+        return Collections.unmodifiableList(allFeatures);
     }
 
     private String buildUrl(int resultOffset) {
@@ -77,6 +75,37 @@ public class EnelApiService {
             .queryParam("orderByFields", "interruption_date DESC")
             .build()
             .toUriString();
+    }
+
+    private List<EnelApiFeatureWithEvidence> wrapWithEvidence(String sourceUrl, String rawResponse,
+                                                              List<EnelApiResponse.Feature> features) {
+        if (features.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<String> rawFragments = extractFeatureFragments(rawResponse, features.size());
+        List<EnelApiFeatureWithEvidence> result = new ArrayList<>(features.size());
+        for (int i = 0; i < features.size(); i++) {
+            result.add(new EnelApiFeatureWithEvidence(features.get(i), sourceUrl, rawFragments.get(i)));
+        }
+        return result;
+    }
+
+    private List<String> extractFeatureFragments(String rawResponse, int featureCount) {
+        try {
+            JsonNode root = objectMapper.readTree(rawResponse);
+            JsonNode featuresNode = root.get("features");
+            if (featuresNode != null && featuresNode.isArray()) {
+                List<String> fragments = new ArrayList<>(featureCount);
+                for (JsonNode featureNode : featuresNode) {
+                    fragments.add(objectMapper.writeValueAsString(featureNode));
+                }
+                return fragments;
+            }
+        } catch (Exception e) {
+            log.warn("Failed to extract raw feature fragments, falling back to full response: {}", e.getMessage());
+        }
+        return Collections.nCopies(featureCount, rawResponse);
     }
 
     private FetchPageResult fetchPage(String sourceUrl) {
@@ -110,6 +139,8 @@ public class EnelApiService {
                     throw new EnelApiException("Enel API returned HTTP error after " + MAX_RETRIES + " attempts: " + e.getStatusCode(), e);
                 }
                 sleep(RETRY_DELAY_MS);
+            } catch (EnelApiException e) {
+                throw e;
             } catch (Exception e) {
                 log.error("Enel API fetch failed on attempt {}/{}: {}", attempt, MAX_RETRIES, e.getMessage(), e);
                 if (attempt == MAX_RETRIES) {
@@ -128,8 +159,27 @@ public class EnelApiService {
         if (body == null || body.isBlank()) {
             throw new EnelApiException("Empty response body from Enel API");
         }
-        if (body.contains("\"error\"")) {
-            throw new EnelApiException("Enel API returned error in body: " + body.substring(0, Math.min(200, body.length())));
+        parseArcGisError(body).ifPresent(error -> {
+            throw new EnelApiException("Enel API returned ArcGIS error: " + error);
+        });
+    }
+
+    private java.util.Optional<String> parseArcGisError(String body) {
+        try {
+            JsonNode root = objectMapper.readTree(body);
+            JsonNode error = root.get("error");
+            if (error == null || error.isNull()) {
+                return java.util.Optional.empty();
+            }
+            int code = error.has("code") ? error.get("code").asInt(0) : 0;
+            String message = error.has("message") ? error.get("message").asText("") : "";
+            String details = error.has("details") ? error.get("details").toString() : "[]";
+            return java.util.Optional.of("code=" + code + ", message=" + message + ", details=" + details);
+        } catch (Exception e) {
+            if (body.contains("\"error\"")) {
+                return java.util.Optional.of("raw body: " + body.substring(0, Math.min(200, body.length())));
+            }
+            return java.util.Optional.empty();
         }
     }
 

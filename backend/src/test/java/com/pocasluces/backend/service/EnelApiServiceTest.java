@@ -1,7 +1,7 @@
 package com.pocasluces.backend.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.pocasluces.backend.dto.EnelApiFetchResult;
+import com.pocasluces.backend.dto.EnelApiFeatureWithEvidence;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -12,6 +12,8 @@ import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.test.web.client.match.MockRestRequestMatchers;
 import org.springframework.test.web.client.response.MockRestResponseCreators;
 import org.springframework.web.client.RestTemplate;
+
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -50,12 +52,12 @@ class EnelApiServiceTest {
             .andExpect(MockRestRequestMatchers.method(HttpMethod.GET))
             .andRespond(MockRestResponseCreators.withSuccess(json, MediaType.APPLICATION_JSON));
 
-        EnelApiFetchResult result = service.fetchSevillaOutages();
+        List<EnelApiFeatureWithEvidence> result = service.fetchSevillaOutages();
 
-        assertThat(result.features()).hasSize(1);
-        assertThat(result.features().get(0).getAttributes().getObjectId()).isEqualTo(123);
-        assertThat(result.sourceUrl()).startsWith(EnelApiService.ENEL_API_URL);
-        assertThat(result.rawResponse()).contains("objectid1");
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).feature().getAttributes().getObjectId()).isEqualTo("123");
+        assertThat(result.get(0).sourceUrl()).startsWith(EnelApiService.ENEL_API_URL);
+        assertThat(result.get(0).rawResponse()).contains("objectid1");
     }
 
     @Test
@@ -65,9 +67,9 @@ class EnelApiServiceTest {
         server.expect(MockRestRequestMatchers.requestTo(Matchers.startsWith(EnelApiService.ENEL_API_URL)))
             .andRespond(MockRestResponseCreators.withSuccess(json, MediaType.APPLICATION_JSON));
 
-        EnelApiFetchResult result = service.fetchSevillaOutages();
+        List<EnelApiFeatureWithEvidence> result = service.fetchSevillaOutages();
 
-        assertThat(result.features()).isEmpty();
+        assertThat(result).isEmpty();
     }
 
     @Test
@@ -77,9 +79,9 @@ class EnelApiServiceTest {
         server.expect(MockRestRequestMatchers.requestTo(Matchers.startsWith(EnelApiService.ENEL_API_URL)))
             .andRespond(MockRestResponseCreators.withSuccess(json, MediaType.APPLICATION_JSON));
 
-        EnelApiFetchResult result = service.fetchSevillaOutages();
+        List<EnelApiFeatureWithEvidence> result = service.fetchSevillaOutages();
 
-        assertThat(result.features()).isEmpty();
+        assertThat(result).isEmpty();
     }
 
     @Test
@@ -91,13 +93,15 @@ class EnelApiServiceTest {
     }
 
     @Test
-    void shouldThrowOnApiErrorInBody() {
-        String json = "{\"error\": {\"code\": 500, \"message\": \"Internal error\"}}";
+    void shouldThrowOnParsedArcGisErrorInBody() {
+        String json = "{\"error\": {\"code\": 500, \"message\": \"Internal error\", \"details\": [\"detail\"]}}";
 
         server.expect(ExpectedCount.times(3), MockRestRequestMatchers.requestTo(Matchers.startsWith(EnelApiService.ENEL_API_URL)))
             .andRespond(MockRestResponseCreators.withSuccess(json, MediaType.APPLICATION_JSON));
 
-        assertThrows(EnelApiService.EnelApiException.class, () -> service.fetchSevillaOutages());
+        EnelApiService.EnelApiException ex = assertThrows(EnelApiService.EnelApiException.class,
+            () -> service.fetchSevillaOutages());
+        assertThat(ex.getMessage()).contains("code=500").contains("Internal error");
     }
 
     @Test

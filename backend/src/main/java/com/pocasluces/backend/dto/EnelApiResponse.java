@@ -21,7 +21,7 @@ public class EnelApiResponse {
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class Attributes {
         @JsonProperty("objectid1")
-        private Long objectId;
+        private String objectId;
 
         private String municipality;
 
