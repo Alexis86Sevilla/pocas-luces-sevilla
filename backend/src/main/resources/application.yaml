@@ -5,6 +5,11 @@ spring:
   profiles:
     active: dev
 
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    time-zone: Europe/Madrid
+
 ---
 spring:
   config:
@@ -27,6 +32,10 @@ spring:
       ddl-auto: update
     show-sql: false
     defer-datasource-initialization: true
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: Europe/Madrid
 
   sql:
     init:
@@ -58,6 +67,8 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+        jdbc:
+          time_zone: Europe/Madrid
 
   sql:
     init:
