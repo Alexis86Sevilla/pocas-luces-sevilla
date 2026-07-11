@@ -3,10 +3,12 @@ import { DatePipe } from '@angular/common';
 
 import type { EnelOutage } from '../../core/services/api-outage.service';
 import type { Neighborhood } from '../../core/models';
+import { formatMadridDate, parseMadridDate, toMadridDateKey } from '../../core/utils/madrid-date';
 
 export interface DailyOutageGroup {
   readonly dateKey: string;
   readonly date: Date;
+  readonly displayDate: string;
   readonly count: number;
   readonly totalAffected: number;
   readonly outages: readonly EnelOutage[];
@@ -16,7 +18,6 @@ export interface DailyOutageGroup {
   selector: 'app-outage-card',
   imports: [DatePipe],
   templateUrl: './outage-card.component.html',
-  styleUrl: './outage-card.component.css',
 })
 export class OutageCardComponent {
   readonly neighborhood = input.required<Neighborhood>();
@@ -37,8 +38,8 @@ export class OutageCardComponent {
     let total = 0;
     let count = 0;
     for (const o of list) {
-      const start = new Date(o.interruptionDate).getTime();
-      const end = new Date(o.repositionDate).getTime();
+      const start = parseMadridDate(o.interruptionDate).getTime();
+      const end = o.repositionDate ? parseMadridDate(o.repositionDate).getTime() : 0;
       if (start && end && end > start) {
         total += (end - start) / 60000;
         count++;
@@ -50,8 +51,7 @@ export class OutageCardComponent {
   protected readonly dailyGroups = computed((): readonly DailyOutageGroup[] => {
     const groups = new Map<string, EnelOutage[]>();
     for (const outage of this.outages()) {
-      const date = new Date(outage.interruptionDate);
-      const key = date.toISOString().split('T')[0];
+      const key = toMadridDateKey(outage.interruptionDate);
       const list = groups.get(key) ?? [];
       list.push(outage);
       groups.set(key, list);
@@ -60,11 +60,13 @@ export class OutageCardComponent {
     return [...groups.entries()]
       .map(([dateKey, list]) => {
         const sorted = [...list].sort((a, b) =>
-          new Date(a.interruptionDate).getTime() - new Date(b.interruptionDate).getTime()
+          parseMadridDate(a.interruptionDate).getTime() - parseMadridDate(b.interruptionDate).getTime()
         );
+        const date = parseMadridDate(dateKey + 'T00:00:00');
         return {
           dateKey,
-          date: new Date(dateKey + 'T00:00:00'),
+          date,
+          displayDate: formatMadridDate(date, 'dd/MM'),
           count: sorted.length,
           totalAffected: sorted.reduce((sum, o) => sum + o.affectedClients, 0),
           outages: sorted,
@@ -81,3 +83,5 @@ export class OutageCardComponent {
     this.expandedDay.update(current => current === dateKey ? null : dateKey);
   }
 }
+
+

@@ -25,7 +25,11 @@
       </details>
 
       <div class="mb-14">
-        <app-outage-chart [neighborhoods]="neighborhoods()" [outages]="yearlyOutages()" />
+        @defer (on viewport) {
+          <app-outage-chart [neighborhoods]="neighborhoods()" [outages]="yearlyOutages()" />
+        } @placeholder {
+          <div class="h-80 rounded-3xl border border-gray-100 bg-gradient-to-br from-gray-50 to-white sm:h-96"></div>
+        }
       </div>
 
       <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -50,7 +54,7 @@
           @for (neighborhood of neighborhoods(); track neighborhood.id) {
             <app-outage-card
               [neighborhood]="neighborhood"
-              [outages]="monthlyOutagesForNeighborhood(neighborhood.name)"
+              [outages]="monthlyOutagesForNeighborhood(neighborhood.id)"
             />
           }
         </div>

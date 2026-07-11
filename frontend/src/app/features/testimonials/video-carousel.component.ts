@@ -1,4 +1,4 @@
-import { Component, ElementRef, input, signal, viewChild } from '@angular/core';
+import { afterNextRender, Component, ElementRef, input, signal, viewChild } from '@angular/core';
 
 import { VideoCardComponent } from './video-card.component';
 import type { VideoTestimonial } from '../../core/models';
@@ -15,7 +15,11 @@ export class VideoCarouselComponent {
   private readonly scrollContainer = viewChild<ElementRef<HTMLDivElement>>('scrollContainer');
 
   protected readonly canScrollLeft = signal(false);
-  protected readonly canScrollRight = signal(true);
+  protected readonly canScrollRight = signal(false);
+
+  constructor() {
+    afterNextRender(() => this.updateScrollState());
+  }
 
   protected scrollLeft(): void {
     const container = this.scrollContainer()?.nativeElement;
@@ -30,6 +34,10 @@ export class VideoCarouselComponent {
   }
 
   protected onScroll(): void {
+    this.updateScrollState();
+  }
+
+  private updateScrollState(): void {
     const container = this.scrollContainer()?.nativeElement;
     if (!container) return;
     this.canScrollLeft.set(container.scrollLeft > 10);

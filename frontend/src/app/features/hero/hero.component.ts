@@ -1,4 +1,4 @@
-import { Component, signal } from '@angular/core';
+import { Component, OnDestroy, signal } from '@angular/core';
 
 @Component({
   selector: 'app-hero',
@@ -6,8 +6,10 @@ import { Component, signal } from '@angular/core';
   templateUrl: './hero.component.html',
   styleUrl: './hero.component.css',
 })
-export class HeroComponent {
+export class HeroComponent implements OnDestroy {
   protected readonly isGrayscale = signal(false);
+
+  private timerId: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
     const reducedMotion = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
@@ -15,7 +17,13 @@ export class HeroComponent {
     if (reducedMotion) {
       this.isGrayscale.set(true);
     } else {
-      globalThis.setTimeout(() => this.isGrayscale.set(true), 4000);
+      this.timerId = globalThis.setTimeout(() => this.isGrayscale.set(true), 4000);
+    }
+  }
+
+  ngOnDestroy(): void {
+    if (this.timerId !== null) {
+      clearTimeout(this.timerId);
     }
   }
 

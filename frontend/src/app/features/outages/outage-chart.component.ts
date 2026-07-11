@@ -1,15 +1,29 @@
 import {
   afterNextRender,
   Component,
+  effect,
   ElementRef,
   input,
   signal,
   viewChild,
 } from '@angular/core';
-import { Chart, type ChartOptions } from 'chart.js/auto';
+import {
+  Chart,
+  CategoryScale,
+  Legend,
+  LinearScale,
+  LineController,
+  LineElement,
+  PointElement,
+  Tooltip,
+  type ChartOptions,
+} from 'chart.js';
+
+Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale, Tooltip, Legend);
 
 import type { Neighborhood } from '../../core/models';
 import type { EnelOutage } from '../../core/services/api-outage.service';
+import { parseMadridDate } from '../../core/utils/madrid-date';
 
 const MONTHS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 const COLORS = [
@@ -37,6 +51,13 @@ export class OutageChartComponent {
       const first = this.neighborhoods()[0];
       if (first) this.selectedIds.set(new Set([first.id]));
       this.initChart();
+    });
+
+    effect(() => {
+      // Re-evaluate whenever the inputs change so the chart stays in sync.
+      this.outages();
+      this.selectedIds();
+      this.updateChart();
     });
   }
 
@@ -68,7 +89,7 @@ export class OutageChartComponent {
       .map(n => {
         const globalIndex = neighborhoods.indexOf(n);
         const monthlyCounts = MONTHS.map((_, monthIdx) =>
-          outages.filter(o => o.neighborhoodName === n.name && new Date(o.interruptionDate).getMonth() === monthIdx).length
+          outages.filter(o => o.neighborhoodName === n.name && parseMadridDate(o.interruptionDate).getMonth() === monthIdx).length
         );
         const color = COLORS[globalIndex % COLORS.length];
         return {

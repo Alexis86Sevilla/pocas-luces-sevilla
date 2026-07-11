@@ -10,6 +10,7 @@ import { ContextSectionComponent } from '../context/context-section.component';
 import { VideoCarouselComponent } from '../testimonials/video-carousel.component';
 import { FooterComponent } from '../footer/footer.component';
 import type { VideoTestimonial } from '../../core/models';
+import { parseMadridDate } from '../../core/utils/madrid-date';
 
 export interface LiveGroup {
   readonly neighborhoodName: string;
@@ -79,18 +80,47 @@ export class HomeComponent implements OnInit {
       groups.set(key, list);
     }
     return [...groups.entries()].map(([neighborhoodName, outages]) => {
-      const starts = outages.map(o => new Date(o.interruptionDate).getTime()).filter(t => !isNaN(t));
-      const ends = outages.map(o => new Date(o.repositionDate).getTime()).filter(t => !isNaN(t));
+      const starts = outages.map(o => parseMadridDate(o.interruptionDate).getTime()).filter(t => !isNaN(t));
+      const ends = outages
+        .filter(o => o.repositionDate)
+        .map(o => parseMadridDate(o.repositionDate).getTime())
+        .filter(t => !isNaN(t));
       return {
         neighborhoodName,
         count: outages.length,
         affectedClients: outages.reduce((sum, o) => sum + o.affectedClients, 0),
         serviceCategories: [...new Set(outages.map(o => o.serviceType === 'LV' ? 'Programado' : 'Avería'))],
-        earliestStart: new Date(Math.min(...starts)),
-        latestEnd: new Date(Math.max(...ends)),
+        earliestStart: starts.length > 0 ? new Date(Math.min(...starts)) : new Date(),
+        latestEnd: ends.length > 0 ? new Date(Math.max(...ends)) : new Date(),
       } as LiveGroup;
     }).sort((a, b) => b.affectedClients - a.affectedClients);
   });
+
+  // Memoized selector: map neighborhood id -> outages for the current month.
+  protected readonly monthlyOutagesByNeighborhoodId = computed(() => {
+    const map = new Map<string, EnelOutage[]>();
+    for (const outage of this.monthlyOutages()) {
+      const name = outage.neighborhoodName ?? 'Zona no identificada';
+      const id = this.neighborhoodId(name);
+      const list = map.get(id) ?? [];
+      list.push(outage);
+      map.set(id, list);
+    }
+    return map;
+  });
+
+  protected monthlyOutagesForNeighborhood(id: string): EnelOutage[] {
+    return this.monthlyOutagesByNeighborhoodId().get(id) ?? [];
+  }
+
+  private neighborhoodId(name: string): string {
+    return name
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+  }
 
   ngOnInit(): void {
     this.api.loadAll();
@@ -98,9 +128,5 @@ export class HomeComponent implements OnInit {
 
   protected onFilterChange(value: DateFilterValue): void {
     this.api.setMonthFilter(value.year, value.month);
-  }
-
-  protected monthlyOutagesForNeighborhood(name: string) {
-    return this.monthlyOutages().filter(o => o.neighborhoodName === name);
   }
 }
