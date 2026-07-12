@@ -71,6 +71,10 @@ public class EnelOutage {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean active = true;
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

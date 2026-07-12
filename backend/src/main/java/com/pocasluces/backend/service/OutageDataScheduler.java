@@ -55,6 +55,8 @@ public class OutageDataScheduler {
         int skipped = 0;
         LocalDateTime now = LocalDateTime.now(clock);
 
+        repository.setAllInactive();
+
         for (EnelApiFeatureWithEvidence paged : pagedFeatures) {
             EnelApiResponse.Feature feature = paged.feature();
             var attr = feature.getAttributes();

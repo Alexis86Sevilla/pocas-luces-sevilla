@@ -8,6 +8,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -120,6 +121,36 @@ class OutageDataSchedulerTest {
 
         scheduler.fetchAndSaveOutages();
 
+        verify(repository, never()).setAllInactive();
+        verify(repository, never()).upsert(any());
+    }
+
+    @Test
+    void shouldMarkAllInactiveBeforeUpsertingFetchedOutages() {
+        EnelApiResponse.Feature feature = feature("123", "10/07/2026 08:30", 37.3970, -5.9800, "AT");
+
+        when(enelApiService.fetchSevillaOutages())
+            .thenReturn(List.of(new EnelApiFeatureWithEvidence(feature, "http://source", "{}")));
+        when(locator.findNeighborhood(37.3970, -5.9800)).thenReturn("San Pablo");
+
+        scheduler.fetchAndSaveOutages();
+
+        InOrder inOrder = inOrder(repository);
+        inOrder.verify(repository).setAllInactive();
+        inOrder.verify(repository).upsert(any());
+
+        ArgumentCaptor<EnelOutage> captor = ArgumentCaptor.forClass(EnelOutage.class);
+        verify(repository).upsert(captor.capture());
+        assertThat(captor.getValue().isActive()).isTrue();
+    }
+
+    @Test
+    void shouldMarkAllInactiveWhenFetchReturnsNoOutages() {
+        when(enelApiService.fetchSevillaOutages()).thenReturn(List.of());
+
+        scheduler.fetchAndSaveOutages();
+
+        verify(repository).setAllInactive();
         verify(repository, never()).upsert(any());
     }
 

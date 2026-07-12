@@ -54,6 +54,7 @@ class EnelOutageRepositoryPostgresTest {
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getObjectId()).isEqualTo("1");
         assertThat(result.get(0).getRepositionDate()).isEqualTo(now.plusHours(2));
+        assertThat(result.get(0).isActive()).isTrue();
 
         EnelOutage update = outage("1-updated", now.minusHours(2));
         update.setRepositionDate(now.plusHours(4));
@@ -75,6 +76,27 @@ class EnelOutageRepositoryPostgresTest {
 
         assertThat(repository.count()).isEqualTo(1);
         assertThat(repository.findCurrentlyActive(now, now.minusHours(6))).isEmpty();
+    }
+
+    @Test
+    void shouldExcludeInactiveRowsFromCurrentlyActive() {
+        LocalDateTime now = LocalDateTime.of(2026, 7, 10, 12, 0);
+
+        EnelOutage active = outage("1", now.minusHours(2));
+        active.setRepositionDate(now.plusHours(2));
+        active.setFetchedAt(now.minusMinutes(10));
+
+        EnelOutage inactive = outage("2", now.minusHours(1));
+        inactive.setRepositionDate(now.plusHours(1));
+        inactive.setFetchedAt(now.minusMinutes(5));
+        inactive.setActive(false);
+
+        repository.upsert(active);
+        repository.upsert(inactive);
+
+        List<EnelOutage> result = repository.findCurrentlyActive(now, now.minusHours(6));
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getObjectId()).isEqualTo("1");
     }
 
     @Test

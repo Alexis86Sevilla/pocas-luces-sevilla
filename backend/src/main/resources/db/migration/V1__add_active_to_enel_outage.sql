@@ -1,0 +1,1 @@
+ALTER TABLE enel_outages ADD COLUMN active BOOLEAN NOT NULL DEFAULT true;

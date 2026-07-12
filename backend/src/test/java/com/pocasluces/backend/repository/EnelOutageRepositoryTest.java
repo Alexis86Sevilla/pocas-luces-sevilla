@@ -84,10 +84,16 @@ class EnelOutageRepositoryTest {
         staleFetch.setRepositionDate(null);
         staleFetch.setFetchedAt(now.minusHours(10));
 
+        EnelOutage inactive = outage("5", now.minusHours(4));
+        inactive.setRepositionDate(null);
+        inactive.setFetchedAt(now.minusMinutes(10));
+        inactive.setActive(false);
+
         em.persist(activeNullReposition);
         em.persist(activeFutureReposition);
         em.persist(old);
         em.persist(staleFetch);
+        em.persist(inactive);
 
         List<EnelOutage> result = repository.findCurrentlyActive(now, now.minusHours(6));
 
@@ -205,6 +211,41 @@ class EnelOutageRepositoryTest {
             .setParameter("type", "AT")
             .getSingleResult();
         assertThat(count).isEqualTo(1);
+    }
+
+    @Test
+    void shouldSetAllInactive() {
+        EnelOutage o1 = outage("1", LocalDateTime.of(2026, 7, 10, 8, 30));
+        EnelOutage o2 = outage("2", LocalDateTime.of(2026, 7, 11, 8, 30));
+        em.persist(o1);
+        em.persist(o2);
+
+        repository.setAllInactive();
+        em.flush();
+        em.clear();
+
+        assertThat(repository.findAll()).extracting(EnelOutage::isActive).containsOnly(false);
+    }
+
+    @Test
+    void shouldSetActiveByObjectIds() {
+        EnelOutage o1 = outage("1", LocalDateTime.of(2026, 7, 10, 8, 30));
+        EnelOutage o2 = outage("2", LocalDateTime.of(2026, 7, 11, 8, 30));
+        o2.setActive(false);
+        em.persist(o1);
+        em.persist(o2);
+
+        repository.setActiveByObjectIds(List.of("2"), true);
+        em.flush();
+        em.clear();
+
+        assertThat(repository.findByObjectId("1")).isPresent().hasValueSatisfying(o -> assertThat(o.isActive()).isTrue());
+        assertThat(repository.findByObjectId("2")).isPresent().hasValueSatisfying(o -> assertThat(o.isActive()).isTrue());
+    }
+
+    @Test
+    void shouldTolerateEmptyObjectIdListWhenSettingActive() {
+        repository.setActiveByObjectIds(List.of(), true);
     }
 
     private EnelOutage outage(String objectId, LocalDateTime interruptionDate) {
