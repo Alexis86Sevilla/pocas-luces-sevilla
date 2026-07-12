@@ -11,7 +11,21 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.jpa.repository.Modifying;
+import java.util.Collection;
+import org.springframework.transaction.annotation.Transactional;
+
 public interface EnelOutageRepository extends JpaRepository<EnelOutage, Long>, EnelOutageRepositoryCustom {
+
+    @Modifying
+    @Transactional
+    @Query("UPDATE EnelOutage o SET o.active = false")
+    void setAllInactive();
+
+    @Modifying
+    @Transactional
+    @Query("UPDATE EnelOutage o SET o.active = :active WHERE o.objectId IN :objectIds")
+    void setActiveByObjectIds(@Param("objectIds") Collection<String> objectIds, @Param("active") boolean active);
 
     List<EnelOutage> findAllByOrderByInterruptionDateDesc();
 
