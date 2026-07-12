@@ -16,7 +16,10 @@ export function parseMadridDate(dateTime: string): Date {
   const [year, month, day] = datePart.split('-').map(Number);
   const [hour, minute, secondRaw = '0'] = timePart.split(':');
   const second = Number(secondRaw.split('.')[0]);
-  return new Date(Date.UTC(year, month - 1, day, Number(hour), Number(minute), second));
+  // Interpret the Madrid wall-clock components as a local Date so that
+  // DatePipe (which formats in the browser's local timezone) shows the
+  // same Madrid time regardless of the user's system timezone.
+  return new Date(year, month - 1, day, Number(hour), Number(minute), second);
 }
 
 /**

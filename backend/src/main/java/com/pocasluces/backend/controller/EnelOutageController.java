@@ -14,10 +14,13 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/outages")
 @RequiredArgsConstructor
@@ -41,9 +44,13 @@ public class EnelOutageController {
     @GetMapping("/live")
     public List<EnelOutageResponse> getLiveOutages() {
         LocalDateTime now = LocalDateTime.now(clock);
-        return enelOutageRepo.findCurrentlyActive(now, now.minusHours(6)).stream()
+        LocalDateTime since = now.minusHours(6);
+        log.info("Live query: now={}, since={}", now, since);
+        List<EnelOutageResponse> result = enelOutageRepo.findCurrentlyActive(now, since).stream()
             .map(EnelOutageResponse::from)
             .toList();
+        log.info("Live query result: {} outages", result.size());
+        return result;
     }
 
     @GetMapping("/monthly")
