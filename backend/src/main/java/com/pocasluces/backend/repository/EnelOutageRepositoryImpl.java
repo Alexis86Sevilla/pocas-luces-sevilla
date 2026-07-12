@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Repository
@@ -124,6 +125,47 @@ public class EnelOutageRepositoryImpl implements EnelOutageRepositoryCustom {
         params.put("createdAt", toTimestamp(outage.getCreatedAt()));
         params.put("updatedAt", toTimestamp(outage.getUpdatedAt()));
         return params;
+    }
+
+    @Override
+    public List<EnelOutage> findCurrentlyActive(LocalDateTime now, LocalDateTime since) {
+        String sql = """
+            SELECT id, object_id, latitude, longitude, affected_clients, service_type,
+                   interruption_date, reposition_date, neighborhood_name, source_url,
+                   raw_response_hash, raw_response, first_seen_at, fetched_at, created_at, updated_at
+            FROM enel_outages
+            WHERE (reposition_date IS NULL OR reposition_date > :now)
+            AND fetched_at > :since
+            AND interruption_date IS NOT NULL
+            ORDER BY interruption_date DESC
+            """;
+        Map<String, Object> params = Map.of("now", now, "since", since);
+        return jdbcTemplate.query(sql, params, (rs, rowNum) -> mapRowToEnelOutage(rs));
+    }
+
+    private EnelOutage mapRowToEnelOutage(java.sql.ResultSet rs) throws java.sql.SQLException {
+        EnelOutage o = new EnelOutage();
+        o.setId(rs.getLong("id"));
+        o.setObjectId(rs.getString("object_id"));
+        o.setLatitude(rs.getObject("latitude") != null ? rs.getDouble("latitude") : null);
+        o.setLongitude(rs.getObject("longitude") != null ? rs.getDouble("longitude") : null);
+        o.setAffectedClients(rs.getObject("affected_clients") != null ? rs.getInt("affected_clients") : null);
+        o.setServiceType(rs.getString("service_type"));
+        o.setInterruptionDate(toLocalDateTime(rs.getTimestamp("interruption_date")));
+        o.setRepositionDate(toLocalDateTime(rs.getTimestamp("reposition_date")));
+        o.setNeighborhoodName(rs.getString("neighborhood_name"));
+        o.setSourceUrl(rs.getString("source_url"));
+        o.setRawResponseHash(rs.getString("raw_response_hash"));
+        o.setRawResponse(rs.getString("raw_response"));
+        o.setFirstSeenAt(toLocalDateTime(rs.getTimestamp("first_seen_at")));
+        o.setFetchedAt(toLocalDateTime(rs.getTimestamp("fetched_at")));
+        o.setCreatedAt(toLocalDateTime(rs.getTimestamp("created_at")));
+        o.setUpdatedAt(toLocalDateTime(rs.getTimestamp("updated_at")));
+        return o;
+    }
+
+    private LocalDateTime toLocalDateTime(Timestamp timestamp) {
+        return timestamp == null ? null : timestamp.toLocalDateTime();
     }
 
     private Timestamp toTimestamp(java.time.LocalDateTime dateTime) {

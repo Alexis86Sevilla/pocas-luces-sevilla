@@ -24,17 +24,6 @@ public interface EnelOutageRepository extends JpaRepository<EnelOutage, Long>, E
 
     Page<EnelOutage> findByNeighborhoodNameIgnoreCase(String neighborhoodName, Pageable pageable);
 
-    // Currently active outages: no reposition date yet, or reposition is in the future,
-    // and we fetched it recently enough to trust it is still ongoing.
-    @Query("""
-        SELECT o FROM EnelOutage o
-        WHERE (o.repositionDate IS NULL OR o.repositionDate > :now)
-        AND o.fetchedAt > :since
-        AND o.interruptionDate IS NOT NULL
-        ORDER BY o.interruptionDate DESC
-        """)
-    List<EnelOutage> findCurrentlyActive(@Param("now") LocalDateTime now, @Param("since") LocalDateTime since);
-
     // Monthly aggregation for charts: count outages by month and neighborhood.
     @Query("""
         SELECT MONTH(o.interruptionDate), o.neighborhoodName, COUNT(o)

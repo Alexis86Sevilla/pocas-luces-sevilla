@@ -2,6 +2,9 @@ package com.pocasluces.backend.repository;
 
 import com.pocasluces.backend.entity.EnelOutage;
 
+import java.time.LocalDateTime;
+import java.util.List;
+
 public interface EnelOutageRepositoryCustom {
 
     /**
@@ -14,4 +17,10 @@ public interface EnelOutageRepositoryCustom {
      * @return the number of rows affected (1)
      */
     int upsert(EnelOutage outage);
+
+    /**
+     * Returns outages that are still active: reposition is in the future (or null),
+     * and the record was fetched recently enough to be trusted.
+     */
+    List<EnelOutage> findCurrentlyActive(LocalDateTime now, LocalDateTime since);
 }
