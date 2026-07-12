@@ -66,6 +66,18 @@ export class HomeComponent implements OnInit {
       embedUrl: 'https://www.youtube.com/embed/A7JM8Oh8fhc',
       platform: 'youtube',
     },
+    {
+      id: 'yt-short-7FqLxT14-7U',
+      authorName: 'Vecino/a Sevilla (YouTube Short 1)',
+      embedUrl: 'https://www.youtube.com/embed/7FqLxT14-7U',
+      platform: 'youtube',
+    },
+    {
+      id: 'yt-short-QEAVO7UW_XY',
+      authorName: 'Vecino/a Sevilla (YouTube Short 2)',
+      embedUrl: 'https://www.youtube.com/embed/QEAVO7UW_XY',
+      platform: 'youtube',
+    },
   ];
 
   protected readonly selectedMonth = this.api.selectedMonth;
