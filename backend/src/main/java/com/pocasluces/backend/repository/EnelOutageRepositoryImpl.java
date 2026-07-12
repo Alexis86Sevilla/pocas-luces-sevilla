@@ -90,7 +90,7 @@ public class EnelOutageRepositoryImpl implements EnelOutageRepositoryCustom {
                 :interruptionDate, :repositionDate, :neighborhoodName, :sourceUrl,
                 :rawResponseHash, :rawResponse, :firstSeenAt, :fetchedAt, :createdAt, :updatedAt
             )
-            ON CONFLICT (uk_enel_outage_natural_key)
+            ON CONFLICT (neighborhood_name, interruption_date, service_type)
             DO UPDATE SET
                 object_id = EXCLUDED.object_id,
                 latitude = EXCLUDED.latitude,
