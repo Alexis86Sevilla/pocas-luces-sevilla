@@ -38,7 +38,7 @@ public class OutageDataScheduler {
     private final NeighborhoodLocator locator;
     private final Clock clock;
 
-    @Scheduled(fixedDelay = 30, timeUnit = TimeUnit.MINUTES)
+    @Scheduled(fixedDelay = 5, timeUnit = TimeUnit.MINUTES)
     @Transactional
     public void fetchAndSaveOutages() {
         log.info("Scheduler: fetching Enel outages for Sevilla...");
