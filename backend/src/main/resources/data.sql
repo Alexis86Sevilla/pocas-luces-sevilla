@@ -44,6 +44,9 @@ INSERT INTO outages (neighborhood_id, date, duration_minutes) VALUES
 
 -- Testimonios
 INSERT INTO testimonials (author_name, embed_url, platform) VALUES
-('María López', 'https://www.youtube.com/embed/dQw4w9WgXcQ', 'youtube'),
-('Antonio Ruiz', 'https://www.youtube.com/embed/9bZkp7q19f0', 'youtube'),
-('Carmen Vega', 'https://www.instagram.com/p/ABC123/embed/', 'instagram');
+('@soy_rociomartin - San Pablo resiste. Nueve días sin luz no son una avería: son abandono.', 'https://www.instagram.com/reel/DafWrbQNbXH/', 'instagram'),
+('Manifestación Barrios Hartos — 27 jun 2025', 'https://www.youtube.com/embed/c64M0NsCAns', 'youtube'),
+('Nueva protesta contra los apagones — Barrios Hartos', 'https://www.youtube.com/embed/07zNGlQJM0w', 'youtube'),
+('Trailer documental: A Dos Velas', 'https://www.youtube.com/embed/-LMI8thfU-0', 'youtube'),
+('Torreblanca se echa a la calle de nuevo por los cortes de luz - 6 de julio', 'https://www.youtube.com/embed/A7JM8Oh8fhc', 'youtube'),
+('Manifestación cortes de luz - 8 julio 2025', 'https://www.youtube.com/embed/7FqLxT14-7U', 'youtube');

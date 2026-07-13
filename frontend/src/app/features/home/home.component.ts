@@ -9,26 +9,15 @@ import { HeroComponent } from '../hero/hero.component';
 import { ContextSectionComponent } from '../context/context-section.component';
 import { VideoCarouselComponent } from '../testimonials/video-carousel.component';
 import { FooterComponent } from '../footer/footer.component';
-import type { VideoTestimonial } from '../../core/models';
+import { LiveSectionComponent, type LiveGroup } from '../live/live-section.component';
 import { parseMadridDate } from '../../core/utils/madrid-date';
-// TODO: habilitar cuando la pasarela de pago esté configurada
-// import { DonationSectionComponent } from '../donation-section/donation-section';
-
-export interface LiveGroup {
-  readonly neighborhoodName: string;
-  readonly count: number;
-  readonly affectedClients: number;
-  readonly serviceCategories: readonly string[];
-  readonly earliestDate: Date;
-  readonly earliestDateStr: string;
-  readonly latestDate: Date;
-  readonly latestDateStr: string;
-}
+import { DonationSectionComponent } from '../donation-section/donation-section';
 
 @Component({
   selector: 'app-home',
   imports: [HeroComponent, ContextSectionComponent, DateFilterComponent, OutageChartComponent,
-            OutageCardComponent, VideoCarouselComponent, FooterComponent, DatePipe],
+            OutageCardComponent, VideoCarouselComponent, FooterComponent, DonationSectionComponent,
+            LiveSectionComponent, DatePipe],
   templateUrl: './home.component.html',
   styleUrl: './home.component.css',
 })
@@ -39,50 +28,6 @@ export class HomeComponent implements OnInit {
   protected readonly yearlyOutages = this.api.deduplicatedYearlyOutages;
   protected readonly monthlyOutages = this.api.deduplicatedMonthlyOutages;
   protected readonly liveOutages = this.api.deduplicatedLiveOutages;
-  protected readonly videoTestimonials: readonly VideoTestimonial[] = [
-    {
-      id: 'ig-reel-DafWrbQNbXH',
-      authorName: 'Reel de vecino/a (Instagram)',
-      embedUrl: 'https://www.instagram.com/reel/DafWrbQNbXH/',
-      platform: 'instagram',
-    },
-    {
-      id: 'yt-barrios-hartos-2025',
-      authorName: 'Manifestación Barrios Hartos — 27 jun 2025',
-      embedUrl: 'https://www.youtube.com/embed/c64M0NsCAns',
-      platform: 'youtube',
-    },
-    {
-      id: 'yt-nueva-protesta',
-      authorName: 'Nueva protesta contra los apagones — Barrios Hartos',
-      embedUrl: 'https://www.youtube.com/embed/07zNGlQJM0w',
-      platform: 'youtube',
-    },
-    {
-      id: 'yt-extra-1',
-      authorName: 'Trailer documental: A Dos Velas',
-      embedUrl: 'https://www.youtube.com/embed/-LMI8thfU-0',
-      platform: 'youtube',
-    },
-    {
-      id: 'yt-extra-2',
-      authorName: 'Vecinos afectados por cortes de luz',
-      embedUrl: 'https://www.youtube.com/embed/A7JM8Oh8fhc',
-      platform: 'youtube',
-    },
-    {
-      id: 'yt-short-7FqLxT14-7U',
-      authorName: 'Vecino/a Sevilla (YouTube Short 1)',
-      embedUrl: 'https://www.youtube.com/embed/7FqLxT14-7U',
-      platform: 'youtube',
-    },
-    {
-      id: 'yt-short-QEAVO7UW_XY',
-      authorName: 'Vecino/a Sevilla (YouTube Short 2)',
-      embedUrl: 'https://www.youtube.com/embed/QEAVO7UW_XY',
-      platform: 'youtube',
-    },
-  ];
 
   protected readonly selectedMonth = this.api.selectedMonth;
   protected readonly selectedYear = this.api.selectedYear;
@@ -96,12 +41,6 @@ export class HomeComponent implements OnInit {
       groups.set(key, list);
     }
     return [...groups.entries()].map(([neighborhoodName, outages]) => {
-      const starts = outages.map(o => parseMadridDate(o.interruptionDate).getTime()).filter(t => !isNaN(t));
-      const ends = outages
-        .filter(o => o.repositionDate)
-        .map(o => parseMadridDate(o.repositionDate).getTime())
-        .filter(t => !isNaN(t));
-
       // Find the actual outage with the earliest start (for raw string display).
       const earliest = outages.reduce((a, b) =>
         parseMadridDate(a.interruptionDate).getTime() < parseMadridDate(b.interruptionDate).getTime() ? a : b
@@ -118,9 +57,7 @@ export class HomeComponent implements OnInit {
         count: outages.length,
         affectedClients: outages.reduce((sum, o) => sum + o.affectedClients, 0),
         serviceCategories: [...new Set(outages.map(o => o.serviceType === 'LV' ? 'Programado' : 'Avería'))],
-        earliestDate: starts.length > 0 ? new Date(Math.min(...starts)) : new Date(),
         earliestDateStr: earliest.interruptionDate,
-        latestDate: ends.length > 0 ? new Date(Math.max(...ends)) : new Date(),
         latestDateStr: latest?.repositionDate ?? '',
       } as LiveGroup;
     }).sort((a, b) => b.affectedClients - a.affectedClients);

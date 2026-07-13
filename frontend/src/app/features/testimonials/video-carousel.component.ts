@@ -1,7 +1,9 @@
-import { afterNextRender, Component, ElementRef, input, signal, viewChild } from '@angular/core';
+import { afterNextRender, Component, ElementRef, inject, OnInit, signal, viewChild } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 
 import { VideoCardComponent } from './video-card.component';
 import type { VideoTestimonial } from '../../core/models';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-video-carousel',
@@ -9,18 +11,24 @@ import type { VideoTestimonial } from '../../core/models';
   templateUrl: './video-carousel.component.html',
   styleUrl: './video-carousel.component.css',
 })
-export class VideoCarouselComponent {
-  readonly testimonials = input.required<readonly VideoTestimonial[]>();
+export class VideoCarouselComponent implements OnInit {
+  private readonly http = inject(HttpClient);
+
+  protected readonly testimonials = signal<readonly VideoTestimonial[]>([]);
 
   private readonly scrollContainer = viewChild<ElementRef<HTMLDivElement>>('scrollContainer');
 
   protected readonly canScrollLeft = signal(false);
   protected readonly canScrollRight = signal(false);
 
+  ngOnInit(): void {
+    this.http.get<VideoTestimonial[]>(`${environment.apiBaseUrl}/testimonials`)
+      .subscribe(data => this.testimonials.set(data));
+  }
+
   constructor() {
     afterNextRender(() => {
       this.updateScrollState();
-      // Recalculate when the container's dimensions settle (flexbox, images, etc.).
       const container = this.scrollContainer()?.nativeElement;
       if (container) {
         const observer = new ResizeObserver(() => this.updateScrollState());

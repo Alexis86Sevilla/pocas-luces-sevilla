@@ -62,63 +62,15 @@
     </div>
   </section>
 
-  <section class="bg-gray-900 py-16 text-white">
-    <div class="mx-auto max-w-6xl px-6">
-      <div class="mb-10 text-center">
-        <span class="mb-3 inline-flex items-center gap-2 rounded-full bg-red-500/20 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-red-300">
-          <span class="relative flex h-2.5 w-2.5">
-            <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75"></span>
-            <span class="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500"></span>
-          </span>
-          En directo • Cada 5 min
-        </span>
-        <h2 class="text-3xl font-extrabold text-white">Ahora mismo en Sevilla</h2>
-        <p class="mt-3 text-gray-400">Datos en tiempo real de Endesa. <button type="button" class="ml-2 cursor-pointer rounded-lg bg-amber-500 px-3 py-1 text-sm font-semibold text-gray-900 transition hover:bg-amber-400" (click)="api.loadLiveOutages()">Actualizar ahora</button></p>
-      </div>
-      @if (liveGroups().length === 0) {
-        <p class="rounded-xl bg-gray-800 px-8 py-12 text-center text-lg text-gray-500">No hay cortes activos.</p>
-      } @else {
-        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          @for (group of liveGroups(); track group.neighborhoodName) {
-            <div class="rounded-2xl border border-gray-700 bg-gray-800/50 p-5">
-              <div class="mb-3 flex items-start justify-between">
-                <div class="flex flex-wrap gap-2">
-                  @for (category of group.serviceCategories; track category) {
-                    <span class="rounded-full bg-amber-400/20 px-2.5 py-0.5 text-xs font-semibold text-amber-300">{{ category }}</span>
-                  }
-                </div>
-                <span class="text-sm font-bold text-white">{{ group.affectedClients }} afect.</span>
-              </div>
-              <p class="text-base font-semibold text-white">{{ group.neighborhoodName }}</p>
-              <p class="mb-3 text-sm text-gray-400">{{ group.count }} corte{{ group.count > 1 ? 's' : '' }} activo{{ group.count > 1 ? 's' : '' }}</p>
-              <div class="mt-3 space-y-1 text-sm text-gray-400">
-                <div class="flex justify-between"><span>Desde</span><span class="text-gray-200">{{ group.earliestDateStr | date: 'dd/MM HH:mm' : 'Europe/Madrid' }}</span></div>
-                <div class="flex justify-between"><span>Hasta</span><span class="text-gray-200">{{ group.latestDateStr | date: 'dd/MM HH:mm' : 'Europe/Madrid' }}</span></div>
-              </div>
-            </div>
-          }
-        </div>
-      }
-    </div>
-  </section>
+  <app-live-section [liveGroups]="liveGroups()" />
 
   <section class="bg-gray-50 py-16">
     <div class="mx-auto max-w-6xl px-6">
-      <app-video-carousel [testimonials]="videoTestimonials" />
+      <app-video-carousel />
     </div>
   </section>
 
-  <section class="bg-amber-50 py-12">
-    <div class="mx-auto max-w-2xl px-6 text-center">
-      <p class="text-lg font-semibold text-gray-800">¿Te gusta el proyecto? Apóyalo con un café</p>
-      <p class="mt-2 text-sm text-gray-500">Sin anuncios, sin trackers. Solo datos abiertos mantenidos por una persona.</p>
-      <a href="https://ko-fi.com/alexisgarciamancha" target="_blank" rel="noopener"
-         class="mt-5 inline-flex cursor-pointer items-center gap-2 rounded-xl bg-[#13C3FF] px-6 py-3 text-base font-bold text-white shadow-sm transition hover:bg-[#0fa8df]">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M23.881 8.948c-.773-4.085-4.859-4.593-4.859-4.593H.723c-.604 0-.679.798-.679.798s-.082 7.324-.022 11.822c.164 2.424 2.586 2.672 2.586 2.672s8.267-.023 11.966-.049c2.438-.426 2.683-2.566 2.658-3.734 4.352.24 7.422-2.831 6.649-6.916zm-11.062 3.511c-1.246 1.453-4.011 3.976-4.011 3.976s-.121.119-.31.023c-.076-.057-.108-.09-.108-.09-.443-.441-3.368-3.049-4.034-3.954-.709-.965-1.041-2.7-.091-3.71.951-1.01 3.005-1.086 4.363.407 0 0 1.565-1.782 3.468-.963 1.904.82 1.68 3.334.723 4.311zm6.173.478c-.928.116-1.682.028-1.682.028V7.284h1.77s1.971.206 2.219 2.137c.278 2.155-1.202 2.518-2.307 2.516z"/></svg>
-        Apoyar en Ko-fi
-      </a>
-    </div>
-  </section>
+  <app-donation-section />
 
   <app-footer />
 </main>
