@@ -11,4 +11,8 @@ import type { EnelOutage } from '../../core/services/api-outage.service';
 export class ChartSectionComponent {
   readonly neighborhoods = input.required<readonly Neighborhood[]>();
   readonly yearlyOutages = input.required<readonly EnelOutage[]>();
+
+  protected scrollTo(sectionId: string): void {
+    globalThis.document?.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth' });
+  }
 }
