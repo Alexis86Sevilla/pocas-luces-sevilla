@@ -30,6 +30,7 @@ public class NeighborhoodLocator {
         // ── Clase media ──
         new Zone("Triana",           "medio",     37.3830, -6.0050),
         new Zone("La Macarena",      "medio",     37.4050, -5.9850),
+        new Zone("Pío XII",          "medio",     37.4250, -5.9800),
         new Zone("Nervión",          "medio",     37.3850, -5.9750),
         new Zone("San Bernardo",     "medio",     37.3820, -5.9850),
         new Zone("Bellavista",       "medio",     37.3400, -5.9760),
