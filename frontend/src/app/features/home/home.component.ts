@@ -19,8 +19,10 @@ export interface LiveGroup {
   readonly count: number;
   readonly affectedClients: number;
   readonly serviceCategories: readonly string[];
-  readonly earliestStart: Date;
-  readonly latestEnd: Date;
+  readonly earliestDate: Date;
+  readonly earliestDateStr: string;
+  readonly latestDate: Date;
+  readonly latestDateStr: string;
 }
 
 @Component({
@@ -99,13 +101,27 @@ export class HomeComponent implements OnInit {
         .filter(o => o.repositionDate)
         .map(o => parseMadridDate(o.repositionDate).getTime())
         .filter(t => !isNaN(t));
+
+      // Find the actual outage with the earliest start (for raw string display).
+      const earliest = outages.reduce((a, b) =>
+        parseMadridDate(a.interruptionDate).getTime() < parseMadridDate(b.interruptionDate).getTime() ? a : b
+      );
+      const latest = outages
+        .filter(o => o.repositionDate)
+        .reduce((a, b) =>
+          parseMadridDate(a.repositionDate).getTime() > parseMadridDate(b.repositionDate).getTime() ? a : b,
+          outages.find(o => o.repositionDate) ?? outages[0]
+        );
+
       return {
         neighborhoodName,
         count: outages.length,
         affectedClients: outages.reduce((sum, o) => sum + o.affectedClients, 0),
         serviceCategories: [...new Set(outages.map(o => o.serviceType === 'LV' ? 'Programado' : 'Avería'))],
-        earliestStart: starts.length > 0 ? new Date(Math.min(...starts)) : new Date(),
-        latestEnd: ends.length > 0 ? new Date(Math.max(...ends)) : new Date(),
+        earliestDate: starts.length > 0 ? new Date(Math.min(...starts)) : new Date(),
+        earliestDateStr: earliest.interruptionDate,
+        latestDate: ends.length > 0 ? new Date(Math.max(...ends)) : new Date(),
+        latestDateStr: latest?.repositionDate ?? '',
       } as LiveGroup;
     }).sort((a, b) => b.affectedClients - a.affectedClients);
   });

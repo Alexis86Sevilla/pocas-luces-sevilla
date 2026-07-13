@@ -92,8 +92,8 @@
               <p class="text-base font-semibold text-white">{{ group.neighborhoodName }}</p>
               <p class="mb-3 text-sm text-gray-400">{{ group.count }} corte{{ group.count > 1 ? 's' : '' }} activo{{ group.count > 1 ? 's' : '' }}</p>
               <div class="mt-3 space-y-1 text-sm text-gray-400">
-                <div class="flex justify-between"><span>Desde</span><span class="text-gray-200">{{ group.earliestStart | date: 'dd/MM HH:mm' }}</span></div>
-                <div class="flex justify-between"><span>Hasta</span><span class="text-gray-200">{{ group.latestEnd | date: 'dd/MM HH:mm' }}</span></div>
+                <div class="flex justify-between"><span>Desde</span><span class="text-gray-200">{{ group.earliestDateStr | date: 'dd/MM HH:mm' : 'Europe/Madrid' }}</span></div>
+                <div class="flex justify-between"><span>Hasta</span><span class="text-gray-200">{{ group.latestDateStr | date: 'dd/MM HH:mm' : 'Europe/Madrid' }}</span></div>
               </div>
             </div>
           }
