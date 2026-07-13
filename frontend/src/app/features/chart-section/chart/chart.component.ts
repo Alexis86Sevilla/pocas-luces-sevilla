@@ -54,7 +54,6 @@ export class ChartComponent {
     });
 
     effect(() => {
-      // Re-evaluate whenever the inputs change so the chart stays in sync.
       this.outages();
       this.selectedIds();
       this.updateChart();
