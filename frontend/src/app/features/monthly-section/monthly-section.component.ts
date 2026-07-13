@@ -1,6 +1,6 @@
 import { Component, computed, input, output } from '@angular/core';
-import { DateFilterComponent, type DateFilterValue } from '../outages/date-filter.component';
-import { OutageCardComponent } from '../outages/outage-card.component';
+import { DateFilterComponent, type DateFilterValue } from '../outages/date-filter/date-filter.component';
+import { OutageCardComponent } from '../outages/outage-card/outage-card.component';
 import type { Neighborhood } from '../../core/models';
 import type { EnelOutage } from '../../core/services/api-outage.service';
 

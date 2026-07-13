@@ -21,9 +21,9 @@ import {
 
 Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale, Tooltip, Legend);
 
-import type { Neighborhood } from '../../core/models';
-import type { EnelOutage } from '../../core/services/api-outage.service';
-import { parseMadridDate } from '../../core/utils/madrid-date';
+import type { Neighborhood } from '../../../core/models';
+import type { EnelOutage } from '../../../core/services/api-outage.service';
+import { parseMadridDate } from '../../../core/utils/madrid-date';
 
 const MONTHS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 const COLORS = [

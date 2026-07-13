@@ -1,7 +1,7 @@
 import { Component, computed, inject, OnInit } from '@angular/core';
 
 import { ApiOutageService, type EnelOutage } from '../../core/services/api-outage.service';
-import { type DateFilterValue } from '../outages/date-filter.component';
+import { type DateFilterValue } from '../outages/date-filter/date-filter.component';
 import { HeroComponent } from '../hero/hero.component';
 import { ContextSectionComponent } from '../context/context-section.component';
 import { VideoCarouselComponent } from '../testimonials/video-carousel/video-carousel.component';

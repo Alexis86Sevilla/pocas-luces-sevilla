@@ -1,9 +1,9 @@
 import { Component, computed, input, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 
-import type { EnelOutage } from '../../core/services/api-outage.service';
-import type { Neighborhood } from '../../core/models';
-import { formatMadridDate, parseMadridDate, toMadridDateKey } from '../../core/utils/madrid-date';
+import type { EnelOutage } from '../../../core/services/api-outage.service';
+import type { Neighborhood } from '../../../core/models';
+import { formatMadridDate, parseMadridDate, toMadridDateKey } from '../../../core/utils/madrid-date';
 
 export interface DailyOutageGroup {
   readonly dateKey: string;
