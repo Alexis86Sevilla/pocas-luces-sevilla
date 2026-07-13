@@ -26,16 +26,29 @@
       Sacamos a la luz los cortes que la dejadez municipal esconde en los barrios humildes.
     </p>
 
-    <button
-      type="button"
-      class="inline-flex items-center gap-2 rounded-full bg-amber-400 px-8 py-3.5 text-base font-bold text-gray-900 shadow-lg shadow-amber-400/30 transition hover:bg-amber-300 hover:shadow-amber-400/50 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2 focus:ring-offset-gray-900"
-      (click)="scrollToOutages()"
-    >
-      Ver cortes
-      <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-      </svg>
-    </button>
+    <div class="flex flex-wrap justify-center gap-3">
+      <button type="button"
+        class="inline-flex items-center gap-2 rounded-full bg-amber-400 px-7 py-3 text-sm font-bold text-gray-900 shadow-lg shadow-amber-400/30 transition hover:bg-amber-300 hover:shadow-amber-400/50 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2 focus:ring-offset-gray-900"
+        (click)="scrollTo('grafico-anual')">
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/></svg>
+        Gráfico anual
+      </button>
+      <button type="button"
+        class="inline-flex items-center gap-2 rounded-full bg-white/10 px-7 py-3 text-sm font-bold text-white backdrop-blur-sm transition hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-gray-900"
+        (click)="scrollTo('cortes-mensuales')">
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" stroke-width="2"/><line x1="16" y1="2" x2="16" y2="6" stroke-width="2"/><line x1="8" y1="2" x2="8" y2="6" stroke-width="2"/><line x1="3" y1="10" x2="21" y2="10" stroke-width="2"/></svg>
+        Cortes mensuales
+      </button>
+      <button type="button"
+        class="inline-flex items-center gap-2 rounded-full bg-red-500 px-7 py-3 text-sm font-bold text-white shadow-lg shadow-red-500/30 transition hover:bg-red-400 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2 focus:ring-offset-gray-900"
+        (click)="scrollTo('en-directo')">
+        <span class="relative flex h-2 w-2">
+          <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75"></span>
+          <span class="relative inline-flex h-2 w-2 rounded-full bg-white"></span>
+        </span>
+        En directo
+      </button>
+    </div>
   </div>
 
   <span class="absolute bottom-3 right-4 z-20 select-none text-xs font-light text-white/30">

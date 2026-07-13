@@ -2,12 +2,23 @@
   <app-hero />
   <app-context-section />
 
-  <section id="outages" class="bg-white py-20">
+  <!-- Data disclaimer -->
+  <section class="border-b border-gray-200 bg-gray-50 py-8">
+    <div class="mx-auto max-w-3xl px-6 text-center">
+      <p class="text-sm leading-relaxed text-gray-500">
+        <strong class="text-gray-700">¿Desde cuándo hay datos?</strong> Empezamos a registrar los cortes el <strong class="text-gray-700">12 de julio de 2026</strong>.
+        Endesa solo publica los cortes activos en este momento — no ofrece un histórico ni permite consultar el pasado.
+        Cada dato que ves aquí se ha guardado automáticamente desde entonces para construir un registro público que antes no existía.
+      </p>
+    </div>
+  </section>
+
+  <section id="grafico-anual" class="bg-white py-20">
     <div class="mx-auto max-w-6xl px-6">
       <div class="mb-14 text-center">
         <span class="mb-4 inline-block rounded-full bg-amber-100 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-amber-700">Los datos</span>
         <h2 class="mx-auto mb-5 max-w-2xl text-4xl font-extrabold leading-tight text-gray-900">Los barrios que más sufren los cortes de luz</h2>
-        <p class="mx-auto max-w-xl text-lg leading-relaxed text-gray-500">Datos reales de Endesa del año en curso. Seleccioná los barrios arriba del gráfico para compararlos mes a mes.</p>
+        <p class="mx-auto max-w-xl text-lg leading-relaxed text-gray-500">Datos reales de Endesa del año en curso. Selecciona los barrios arriba del gráfico para compararlos mes a mes.</p>
       </div>
 
       <details class="group mb-10 rounded-2xl border border-gray-100 bg-gray-50/50 open:bg-white">
@@ -32,7 +43,7 @@
         }
       </div>
 
-      <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div id="cortes-mensuales" class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <span class="mb-1 inline-block rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-gray-500">Detalle mensual</span>
           <h3 class="mt-2 text-2xl font-bold text-gray-900">¿Cómo fue el mes?</h3>
@@ -62,7 +73,9 @@
     </div>
   </section>
 
-  <app-live-section [liveGroups]="liveGroups()" />
+  <div id="en-directo">
+    <app-live-section [liveGroups]="liveGroups()" />
+  </div>
 
   <section class="bg-gray-50 py-16">
     <div class="mx-auto max-w-6xl px-6">

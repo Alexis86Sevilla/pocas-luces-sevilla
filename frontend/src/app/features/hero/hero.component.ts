@@ -27,7 +27,7 @@ export class HeroComponent implements OnDestroy {
     }
   }
 
-  protected scrollToOutages(): void {
-    globalThis.document?.getElementById('outages')?.scrollIntoView({ behavior: 'smooth' });
+  protected scrollTo(sectionId: string): void {
+    globalThis.document?.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth' });
   }
 }
