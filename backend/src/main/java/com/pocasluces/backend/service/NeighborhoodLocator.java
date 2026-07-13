@@ -30,6 +30,7 @@ public class NeighborhoodLocator {
         new Zone("La Macarena",      "medio",     37.4050, -5.9850),
         new Zone("Nervión",          "medio",     37.3850, -5.9750),
         new Zone("San Bernardo",     "medio",     37.3820, -5.9850),
+        new Zone("Bellavista",       "medio",     37.3400, -5.9760),
 
         // ── Acomodados ──
         new Zone("Los Remedios",     "acomodado", 37.3750, -6.0050),
