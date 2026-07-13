@@ -22,7 +22,7 @@
 
 <div class="mb-14">
   @defer (on viewport) {
-    <app-outage-chart [neighborhoods]="neighborhoods()" [outages]="yearlyOutages()" />
+        <app-chart [neighborhoods]="neighborhoods()" [outages]="yearlyOutages()" />
   } @placeholder {
     <div class="h-80 rounded-3xl border border-gray-100 bg-gradient-to-br from-gray-50 to-white sm:h-96"></div>
   }

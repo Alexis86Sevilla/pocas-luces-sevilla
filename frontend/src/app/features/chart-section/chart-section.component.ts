@@ -1,11 +1,11 @@
 import { Component, input } from '@angular/core';
-import { OutageChartComponent } from './outage-chart/outage-chart.component';
+import { ChartComponent } from './chart/chart.component';
 import type { Neighborhood } from '../../core/models';
 import type { EnelOutage } from '../../core/services/api-outage.service';
 
 @Component({
   selector: 'app-chart-section',
-  imports: [OutageChartComponent],
+  imports: [ChartComponent],
   templateUrl: './chart-section.component.html',
 })
 export class ChartSectionComponent {

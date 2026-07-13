@@ -33,11 +33,11 @@ const COLORS = [
 ];
 
 @Component({
-  selector: 'app-outage-chart',
+  selector: 'app-chart',
   imports: [],
-  templateUrl: './outage-chart.component.html',
+  templateUrl: './chart.component.html',
 })
-export class OutageChartComponent {
+export class ChartComponent {
   readonly neighborhoods = input.required<readonly Neighborhood[]>();
   readonly outages = input.required<readonly EnelOutage[]>();
 
