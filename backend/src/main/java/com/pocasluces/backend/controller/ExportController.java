@@ -1,9 +1,11 @@
 package com.pocasluces.backend.controller;
 
+import com.pocasluces.backend.config.ApiKeyAuth;
 import com.pocasluces.backend.controller.validation.RequestValidation;
 import com.pocasluces.backend.dto.OutageExportDto;
 import com.pocasluces.backend.entity.EnelOutage;
 import com.pocasluces.backend.repository.EnelOutageRepository;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -27,13 +29,16 @@ public class ExportController {
     private static final int EXPORT_PAGE_SIZE = 500;
 
     private final EnelOutageRepository enelOutageRepo;
+    private final ApiKeyAuth apiKeyAuth;
 
     @GetMapping("/csv")
     public void exportCsv(
             @RequestParam(required = false) Integer year,
             @RequestParam(required = false) Integer month,
+            HttpServletRequest request,
             HttpServletResponse response) throws IOException {
 
+        apiKeyAuth.requireValidKey(request);
         response.setContentType("text/csv; charset=UTF-8");
         response.setHeader("Content-Disposition", "attachment; filename=\"cortes_endesa.csv\"");
         response.setCharacterEncoding(StandardCharsets.UTF_8.name());

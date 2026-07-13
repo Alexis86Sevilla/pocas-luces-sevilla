@@ -2,6 +2,9 @@ package com.pocasluces.backend.dto;
 
 import com.pocasluces.backend.entity.EnelOutage;
 
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 
 public record OutageExportDto(
@@ -21,6 +24,7 @@ public record OutageExportDto(
 ) {
 
     private static final DateTimeFormatter ISO = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
+    private static final ZoneId MADRID = ZoneId.of("Europe/Madrid");
 
     public static OutageExportDto from(EnelOutage o) {
         return new OutageExportDto(
@@ -28,20 +32,29 @@ public record OutageExportDto(
             o.getObjectId(),
             o.getNeighborhoodName(),
             o.getServiceType(),
-            format(o, o.getInterruptionDate()),
-            format(o, o.getRepositionDate()),
+            toMadridWallClock(o.getInterruptionDate()),
+            toMadridWallClock(o.getRepositionDate()),
             o.getAffectedClients(),
             o.getLatitude(),
             o.getLongitude(),
             o.getSourceUrl(),
             o.getRawResponseHash(),
-            format(o, o.getFirstSeenAt()),
-            format(o, o.getFetchedAt())
+            toMadridWallClock(o.getFirstSeenAt()),
+            toMadridWallClock(o.getFetchedAt())
         );
     }
 
-    private static String format(EnelOutage o, java.time.LocalDateTime dateTime) {
-        return dateTime != null ? dateTime.format(ISO) : "";
+    /**
+     * The repository stores UTC-equivalent instants in LocalDateTime columns
+     * (due to Timestamp.valueOf → JDBC timezone conversion). Convert to
+     * Europe/Madrid wall-clock so the CSV shows the times people expect.
+     */
+    private static String toMadridWallClock(LocalDateTime dateTime) {
+        if (dateTime == null) return "";
+        return dateTime.atOffset(ZoneOffset.UTC)
+            .atZoneSameInstant(MADRID)
+            .toLocalDateTime()
+            .format(ISO);
     }
 
     public static String header() {

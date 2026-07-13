@@ -18,7 +18,15 @@ export class VideoCarouselComponent {
   protected readonly canScrollRight = signal(false);
 
   constructor() {
-    afterNextRender(() => this.updateScrollState());
+    afterNextRender(() => {
+      this.updateScrollState();
+      // Recalculate when the container's dimensions settle (flexbox, images, etc.).
+      const container = this.scrollContainer()?.nativeElement;
+      if (container) {
+        const observer = new ResizeObserver(() => this.updateScrollState());
+        observer.observe(container);
+      }
+    });
   }
 
   protected scrollLeft(): void {
