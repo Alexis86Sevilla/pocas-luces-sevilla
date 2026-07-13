@@ -18,47 +18,36 @@ export class VideoCarouselComponent implements OnInit {
 
   private readonly scrollContainer = viewChild<ElementRef<HTMLDivElement>>('scrollContainer');
 
-  protected readonly canScrollLeft = signal(false);
-  protected readonly canScrollRight = signal(false);
+  protected readonly hasContent = signal(false);
 
   ngOnInit(): void {
     this.http.get<VideoTestimonial[]>(`${environment.apiBaseUrl}/testimonials`)
-      .subscribe(data => this.testimonials.set(data));
+      .subscribe(data => {
+        this.testimonials.set(data);
+        this.hasContent.set(data.length > 0);
+      });
   }
 
   constructor() {
     afterNextRender(() => {
-      this.updateScrollState();
       const container = this.scrollContainer()?.nativeElement;
       if (container) {
-        const observer = new ResizeObserver(() => this.updateScrollState());
-        observer.observe(container);
+        new ResizeObserver(() => {
+          // Check if content actually overflows for gradient hints
+          this.hasContent.set(
+            this.testimonials().length > 0
+            && container.scrollWidth > container.clientWidth + 5
+          );
+        }).observe(container);
       }
     });
   }
 
   protected scrollLeft(): void {
-    const container = this.scrollContainer()?.nativeElement;
-    if (!container) return;
-    container.scrollBy({ left: -container.clientWidth * 0.85, behavior: 'smooth' });
+    this.scrollContainer()?.nativeElement?.scrollBy({ left: -360, behavior: 'smooth' });
   }
 
   protected scrollRight(): void {
-    const container = this.scrollContainer()?.nativeElement;
-    if (!container) return;
-    container.scrollBy({ left: container.clientWidth * 0.85, behavior: 'smooth' });
-  }
-
-  protected onScroll(): void {
-    this.updateScrollState();
-  }
-
-  private updateScrollState(): void {
-    const container = this.scrollContainer()?.nativeElement;
-    if (!container) return;
-    this.canScrollLeft.set(container.scrollLeft > 10);
-    this.canScrollRight.set(
-      container.scrollLeft + container.clientWidth < container.scrollWidth - 10,
-    );
+    this.scrollContainer()?.nativeElement?.scrollBy({ left: 360, behavior: 'smooth' });
   }
 }

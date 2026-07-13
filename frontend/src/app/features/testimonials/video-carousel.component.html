@@ -7,24 +7,22 @@
       </h2>
     </div>
 
-    <div class="hidden gap-2 sm:flex">
-      <button
-        type="button"
-        class="rounded-full border border-gray-300 bg-white p-2.5 text-gray-700 shadow-sm transition hover:bg-gray-900 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
-        [disabled]="!canScrollLeft()"
-        (click)="scrollLeft()"
-        aria-label="Anterior">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-      </button>
-      <button
-        type="button"
-        class="rounded-full border border-gray-300 bg-white p-2.5 text-gray-700 shadow-sm transition hover:bg-gray-900 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
-        [disabled]="!canScrollRight()"
-        (click)="scrollRight()"
-        aria-label="Siguiente">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
-      </button>
-    </div>
+    @if (hasContent()) {
+      <div class="hidden gap-2 sm:flex">
+        <button type="button"
+          class="cursor-pointer rounded-full border border-gray-300 bg-white p-2.5 text-gray-700 shadow-sm transition hover:bg-gray-900 hover:text-white"
+          (click)="scrollLeft()"
+          aria-label="Anterior">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        </button>
+        <button type="button"
+          class="cursor-pointer rounded-full border border-gray-300 bg-white p-2.5 text-gray-700 shadow-sm transition hover:bg-gray-900 hover:text-white"
+          (click)="scrollRight()"
+          aria-label="Siguiente">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+        </button>
+      </div>
+    }
   </div>
 
   @if (testimonials().length === 0) {
@@ -35,8 +33,7 @@
     <div class="relative">
       <div
         #scrollContainer
-        class="flex snap-x snap-mandatory gap-5 overflow-x-auto pb-6 scrollbar-hide"
-        (scroll)="onScroll()">
+        class="flex snap-x snap-mandatory gap-5 overflow-x-auto pb-6 scrollbar-hide">
         @for (video of testimonials(); track video.id) {
           <div class="w-[85vw] shrink-0 snap-start sm:w-[400px]">
             <app-video-card [video]="video" />
@@ -44,9 +41,10 @@
         }
       </div>
 
-      <!-- Gradient hints -->
-      <div class="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-gray-50 to-transparent" [class.opacity-0]="!canScrollLeft()"></div>
-      <div class="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-gray-50 to-transparent" [class.opacity-0]="!canScrollRight()"></div>
+      @if (hasContent()) {
+        <div class="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-gray-50 to-transparent"></div>
+        <div class="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-gray-50 to-transparent"></div>
+      }
     </div>
 
     <p class="mt-2 text-center text-sm text-gray-400 sm:hidden">Desliza para ver más</p>
