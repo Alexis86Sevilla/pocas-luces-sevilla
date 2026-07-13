@@ -1,9 +1,9 @@
 import { afterNextRender, Component, ElementRef, inject, OnInit, signal, viewChild } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 
-import { VideoCardComponent } from './video-card.component';
-import type { VideoTestimonial } from '../../core/models';
-import { environment } from '../../../environments/environment';
+import { VideoCardComponent } from '../video-card/video-card.component';
+import type { VideoTestimonial } from '../../../core/models';
+import { environment } from '../../../../environments/environment';
 
 @Component({
   selector: 'app-video-carousel',
@@ -33,7 +33,6 @@ export class VideoCarouselComponent implements OnInit {
       const container = this.scrollContainer()?.nativeElement;
       if (container) {
         new ResizeObserver(() => {
-          // Check if content actually overflows for gradient hints
           this.hasContent.set(
             this.testimonials().length > 0
             && container.scrollWidth > container.clientWidth + 5
