@@ -2,17 +2,12 @@
   <app-hero />
   <app-context-section />
 
-  <!-- Data disclaimer -->
-  <section class="border-b border-gray-200 bg-gray-50 py-8">
-    <div class="mx-auto max-w-3xl px-6 text-center">
-      <p class="text-sm leading-relaxed text-gray-500">
-        <strong class="text-gray-700">¿Desde cuándo hay datos?</strong> Empezamos a registrar los cortes el <strong class="text-gray-700">12 de julio de 2026</strong>.
-        Endesa solo publica los cortes activos en este momento — no ofrece un histórico ni permite consultar el pasado.
-        Cada dato que ves aquí se ha guardado automáticamente desde entonces para construir un registro público que antes no existía.
-      </p>
-    </div>
-  </section>
+  <!-- En directo: lo urgente arriba -->
+  <div id="en-directo">
+    <app-live-section [liveGroups]="liveGroups()" />
+  </div>
 
+  <!-- Gráfico anual + detalle mensual -->
   <section id="grafico-anual" class="bg-white py-20">
     <div class="mx-auto max-w-6xl px-6">
       <div class="mb-14 text-center">
@@ -32,6 +27,8 @@
         <div class="space-y-3 px-6 pb-6 text-sm leading-relaxed text-gray-600">
           <p><strong class="text-gray-900">Fácil:</strong> cada línea del gráfico es un barrio de Sevilla. El eje horizontal son los meses del año y el vertical es la <strong class="text-gray-900">cantidad de cortes</strong> registrados. Cuanto más arriba esté la línea, más veces se quedó sin luz ese barrio.</p>
           <p><strong class="text-gray-900">Un poco más técnico:</strong> los datos provienen del portal público de Endesa (red eléctrica), actualizados automáticamente. Cada punto representa un incidente que afectó a ese barrio. No muestra usuarios individuales, sino la frecuencia de fallos por zona. Los cortes programados y las averías se cuentan por igual porque ambos impactan a los vecinos.</p>
+          <hr class="border-gray-200">
+          <p><strong class="text-gray-900">¿Desde cuándo hay datos?</strong> Empiezo a registrar los cortes el <strong class="text-gray-700">12 de julio de 2026</strong>. Endesa solo publica los cortes activos en este momento — no ofrece un histórico ni permite consultar el pasado. Cada dato que ves aquí se ha guardado automáticamente desde entonces para construir un registro público que antes no existía.</p>
         </div>
       </details>
 
@@ -72,10 +69,6 @@
       }
     </div>
   </section>
-
-  <div id="en-directo">
-    <app-live-section [liveGroups]="liveGroups()" />
-  </div>
 
   <section class="bg-gray-50 py-16">
     <div class="mx-auto max-w-6xl px-6">
