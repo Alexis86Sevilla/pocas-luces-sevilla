@@ -1,5 +1,5 @@
 import { Component, input } from '@angular/core';
-import { OutageChartComponent } from '../outages/outage-chart/outage-chart.component';
+import { OutageChartComponent } from './outage-chart/outage-chart.component';
 import type { Neighborhood } from '../../core/models';
 import type { EnelOutage } from '../../core/services/api-outage.service';
 

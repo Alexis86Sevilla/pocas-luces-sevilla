@@ -1,7 +1,6 @@
 import { Component, computed, inject, input } from '@angular/core';
 import { DomSanitizer } from '@angular/platform-browser';
-
-import type { VideoTestimonial } from '../../core/models';
+import { VideoTestimonial } from '../../../core/models/video-testimonial.model';
 
 @Component({
   selector: 'app-video-card',
