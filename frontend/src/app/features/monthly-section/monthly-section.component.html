@@ -1,0 +1,31 @@
+<div id="cortes-mensuales" class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+  <div>
+    <span class="mb-1 inline-block rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-gray-500">Detalle mensual</span>
+    <h3 class="mt-2 text-2xl font-bold text-gray-900">¿Cómo fue el mes?</h3>
+  </div>
+  <app-date-filter
+    [selectedMonth]="selectedMonth()"
+    [selectedYear]="selectedYear()"
+    (filterChange)="filterChange.emit($event)" />
+</div>
+
+<p class="mb-6 max-w-2xl text-base leading-relaxed text-gray-500">
+  Cada tarjeta muestra un barrio con los <strong class="text-gray-700">minutos de media</strong> que duran los cortes
+  y el <strong class="text-gray-700">número de cortes</strong> del mes. Pulsa <em>«Ver historial»</em> para ver cada apagón.
+</p>
+
+@if (isEmpty()) {
+  <div class="rounded-2xl border border-dashed border-gray-200 bg-gray-50/50 px-8 py-16 text-center">
+    <p class="text-lg text-gray-400">No hay cortes registrados este mes.</p>
+  </div>
+} @else {
+  <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+    @for (neighborhood of neighborhoods(); track neighborhood.id) {
+      @if (outagesFor(neighborhood.id); as outages) {
+        <app-outage-card
+          [neighborhood]="neighborhood"
+          [outages]="outages" />
+      }
+    }
+  </div>
+}
