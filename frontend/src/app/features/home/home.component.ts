@@ -11,6 +11,8 @@ import { VideoCarouselComponent } from '../testimonials/video-carousel.component
 import { FooterComponent } from '../footer/footer.component';
 import type { VideoTestimonial } from '../../core/models';
 import { parseMadridDate } from '../../core/utils/madrid-date';
+// TODO: habilitar cuando la pasarela de pago esté configurada
+// import { DonationSectionComponent } from '../donation-section/donation-section';
 
 export interface LiveGroup {
   readonly neighborhoodName: string;

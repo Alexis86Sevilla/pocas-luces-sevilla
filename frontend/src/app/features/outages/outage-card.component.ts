@@ -79,6 +79,10 @@ export class OutageCardComponent {
     this.expanded.update(v => !v);
   }
 
+  protected parseDate(dateStr: string): Date {
+    return parseMadridDate(dateStr);
+  }
+
   toggleDay(dateKey: string): void {
     this.expandedDay.update(current => current === dateKey ? null : dateKey);
   }

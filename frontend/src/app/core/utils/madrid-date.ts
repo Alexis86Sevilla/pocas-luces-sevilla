@@ -1,25 +1,25 @@
 /**
  * Helpers for interpreting backend LocalDateTime strings as Europe/Madrid
- * wall-clock time. The server stores outage timestamps in Europe/Madrid, so
- * the UI must group/sort/display them using that timezone regardless of the
- * browser's locale.
+ * wall-clock time.
+ *
+ * IMPORTANT: The backend stores UTC-equivalent instants in LocalDateTime
+ * columns (the scheduler converts Endesa API times from CEST to UTC before
+ * persisting). These helpers treat the stored components as UTC and convert
+ * to Europe/Madrid for display, grouping, and sorting.
  */
 
 /**
- * Parse an ISO-like datetime string (e.g. "2026-07-10T08:30:00") as
- * Europe/Madrid wall-clock time and return a Date whose UTC components equal
- * that wall-clock value. This makes Date.getHours/getDate return the Madrid
- * values without being shifted by the browser timezone.
+ * Parse an ISO-like datetime string from the backend (e.g. "2026-07-13T05:13:00")
+ * as a UTC instant and return a Date. Combined with {@link formatMadridDate},
+ * this produces the correct Europe/Madrid wall-clock display.
  */
 export function parseMadridDate(dateTime: string): Date {
-  const [datePart, timePart = '00:00:00'] = dateTime.split('T');
-  const [year, month, day] = datePart.split('-').map(Number);
-  const [hour, minute, secondRaw = '0'] = timePart.split(':');
-  const second = Number(secondRaw.split('.')[0]);
-  // Interpret the Madrid wall-clock components as a local Date so that
-  // DatePipe (which formats in the browser's local timezone) shows the
-  // same Madrid time regardless of the user's system timezone.
-  return new Date(year, month - 1, day, Number(hour), Number(minute), second);
+  // The backend stores UTC-equivalent instants in LocalDateTime columns
+  // (e.g. Endesa API "07:13 CEST" → stored as "05:13:00"). We treat the
+  // stored components as UTC so formatMadridDate can correctly convert to
+  // Europe/Madrid wall-clock for display.
+  const utcString = dateTime.endsWith('Z') || dateTime.includes('+') ? dateTime : `${dateTime}Z`;
+  return new Date(utcString);
 }
 
 /**
