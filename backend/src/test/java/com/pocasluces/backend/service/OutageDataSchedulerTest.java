@@ -35,12 +35,15 @@ class OutageDataSchedulerTest {
     @Mock
     private NeighborhoodLocator locator;
 
+    @Mock
+    private DistrictLocator districtLocator;
+
     private final Clock clock = Clock.fixed(Instant.parse("2026-07-10T12:00:00Z"), ZoneId.of("UTC"));
     private OutageDataScheduler scheduler;
 
     @BeforeEach
     void setUp() {
-        scheduler = new OutageDataScheduler(enelApiService, repository, locator, clock);
+        scheduler = new OutageDataScheduler(enelApiService, repository, locator, districtLocator, clock);
     }
 
     @Test
@@ -50,6 +53,7 @@ class OutageDataSchedulerTest {
         when(enelApiService.fetchSevillaOutages())
             .thenReturn(List.of(new EnelApiFeatureWithEvidence(feature, "http://source", "{\"raw\":\"data\"}")));
         when(locator.findNeighborhood(37.3970, -5.9800)).thenReturn("San Pablo");
+        when(districtLocator.findDistrict(37.3970, -5.9800, "San Pablo")).thenReturn("San Pablo-Santa Justa");
 
         scheduler.fetchAndSaveOutages();
 
@@ -59,6 +63,7 @@ class OutageDataSchedulerTest {
 
         assertThat(saved.getObjectId()).isEqualTo("123");
         assertThat(saved.getNeighborhoodName()).isEqualTo("San Pablo");
+        assertThat(saved.getDistrictName()).isEqualTo("San Pablo-Santa Justa");
         assertThat(saved.getServiceType()).isEqualTo("AT");
         assertThat(saved.getInterruptionDate()).isEqualTo(LocalDateTime.of(2026, 7, 10, 8, 30));
         assertThat(saved.getFetchedAt()).isEqualTo(LocalDateTime.now(clock));
@@ -76,6 +81,7 @@ class OutageDataSchedulerTest {
         when(enelApiService.fetchSevillaOutages())
             .thenReturn(List.of(new EnelApiFeatureWithEvidence(feature, "http://source", "{\"raw\":\"data\"}")));
         when(locator.findNeighborhood(37.3970, -5.9800)).thenReturn("San Pablo");
+        when(districtLocator.findDistrict(37.3970, -5.9800, "San Pablo")).thenReturn("San Pablo-Santa Justa");
 
         scheduler.fetchAndSaveOutages();
 
@@ -132,6 +138,7 @@ class OutageDataSchedulerTest {
         when(enelApiService.fetchSevillaOutages())
             .thenReturn(List.of(new EnelApiFeatureWithEvidence(feature, "http://source", "{}")));
         when(locator.findNeighborhood(37.3970, -5.9800)).thenReturn("San Pablo");
+        when(districtLocator.findDistrict(37.3970, -5.9800, "San Pablo")).thenReturn("San Pablo-Santa Justa");
 
         scheduler.fetchAndSaveOutages();
 
@@ -165,12 +172,43 @@ class OutageDataSchedulerTest {
                 new EnelApiFeatureWithEvidence(second, "http://page2", "{\"id\":200}")
             ));
         when(locator.findNeighborhood(37.3970, -5.9800)).thenReturn("San Pablo");
+        when(districtLocator.findDistrict(37.3970, -5.9800, "San Pablo")).thenReturn("San Pablo-Santa Justa");
 
         scheduler.fetchAndSaveOutages();
 
         // Two upserts should be issued for the same natural key; the repository upsert
         // is atomic and the second call simply updates the row to objectId 200.
         verify(repository, times(2)).upsert(any());
+    }
+
+    @Test
+    void shouldFallbackToUnknownDistrictWhenLocatorReturnsNull() {
+        EnelApiResponse.Feature feature = feature("123", "10/07/2026 08:30", 37.3970, -5.9800, "AT");
+
+        when(enelApiService.fetchSevillaOutages())
+            .thenReturn(List.of(new EnelApiFeatureWithEvidence(feature, "http://source", "{}")));
+        when(locator.findNeighborhood(37.3970, -5.9800)).thenReturn("San Pablo");
+        when(districtLocator.findDistrict(37.3970, -5.9800, "San Pablo")).thenReturn(null);
+
+        scheduler.fetchAndSaveOutages();
+
+        ArgumentCaptor<EnelOutage> captor = ArgumentCaptor.forClass(EnelOutage.class);
+        verify(repository).upsert(captor.capture());
+        assertThat(captor.getValue().getDistrictName()).isEqualTo("Zona no identificada");
+    }
+
+    @Test
+    void shouldFallbackToUnknownDistrictForZeroCoordinates() {
+        EnelApiResponse.Feature feature = feature("123", "10/07/2026 08:30", 0.0, 0.0, "AT");
+
+        when(enelApiService.fetchSevillaOutages())
+            .thenReturn(List.of(new EnelApiFeatureWithEvidence(feature, "http://source", "{}")));
+
+        scheduler.fetchAndSaveOutages();
+
+        ArgumentCaptor<EnelOutage> captor = ArgumentCaptor.forClass(EnelOutage.class);
+        verify(repository).upsert(captor.capture());
+        assertThat(captor.getValue().getDistrictName()).isEqualTo("Zona no identificada");
     }
 
     private EnelApiResponse.Feature feature(String objectId, String interruptionDate,

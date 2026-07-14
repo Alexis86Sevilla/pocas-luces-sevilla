@@ -19,10 +19,10 @@ public interface OutageEventRepository extends JpaRepository<OutageEvent, Long> 
     List<OutageEvent> findByYearAndMonth(@Param("year") int year, @Param("month") int month);
 
     @Query("""
-        SELECT n.id, n.name, n.category, COUNT(o), AVG(o.durationMinutes)
+        SELECT n.id, n.name, COUNT(o), AVG(o.durationMinutes)
         FROM OutageEvent o JOIN o.neighborhood n
         WHERE YEAR(o.date) = :year
-        GROUP BY n.id, n.name, n.category
+        GROUP BY n.id, n.name
         """)
     List<Object[]> findStatsByYear(@Param("year") int year);
 }

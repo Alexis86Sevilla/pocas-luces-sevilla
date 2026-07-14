@@ -1,5 +1,6 @@
 package com.pocasluces.backend.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pocasluces.backend.service.EnelApiService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,8 +10,13 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+
+import java.util.List;
+import java.util.Map;
 
 import static org.hamcrest.Matchers.*;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -22,6 +28,9 @@ class OutageControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @MockBean
     private EnelApiService enelApiService;
@@ -36,10 +45,29 @@ class OutageControllerTest {
     }
 
     @Test
-    void shouldReturnStats() throws Exception {
-        mockMvc.perform(get("/api/stats?year=2026"))
+    @SuppressWarnings("unchecked")
+    void shouldReturnDistrictStats() throws Exception {
+        MvcResult result = mockMvc.perform(get("/api/stats?year=2026"))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$").isArray());
+            .andExpect(jsonPath("$").isArray())
+            .andExpect(jsonPath("$.length()").value(greaterThanOrEqualTo(1)))
+            .andExpect(jsonPath("$[0].districtName").value("Cerro-Amate"))
+            .andExpect(jsonPath("$[0].outageCount").value(greaterThan(0)))
+            .andExpect(jsonPath("$[0].averageMinutes").value(greaterThan(0.0)))
+            .andExpect(jsonPath("$[*].neighborhoodName").doesNotExist())
+            .andExpect(jsonPath("$[*].neighborhoodId").doesNotExist())
+            .andReturn();
+
+        List<Map<String, Object>> stats = objectMapper.readValue(
+            result.getResponse().getContentAsString(), List.class);
+
+        long previous = Long.MAX_VALUE;
+        for (Map<String, Object> district : stats) {
+            long count = ((Number) district.get("outageCount")).longValue();
+            assertTrue(count <= previous,
+                "District stats should be sorted by outage count descending");
+            previous = count;
+        }
     }
 
     @Test
@@ -76,11 +104,12 @@ class OutageControllerTest {
 
     @Test
     void shouldExportCsv() throws Exception {
-        mockMvc.perform(get("/api/outages/export/csv?year=2099"))
+        mockMvc.perform(get("/api/outages/export/csv?year=2099")
+                .header("X-API-Key", "test-secret"))
             .andExpect(status().isOk())
             .andExpect(content().contentType("text/csv;charset=UTF-8"))
             .andExpect(header().string("Content-Disposition", containsString("cortes_endesa.csv")))
-            .andExpect(content().string(containsString("id,objectId,neighborhoodName")));
+            .andExpect(content().string(containsString("id,objectId,neighborhoodName,districtName")));
     }
 
     @Test

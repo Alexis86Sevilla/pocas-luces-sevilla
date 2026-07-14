@@ -7,6 +7,6 @@ import lombok.Data;
 @AllArgsConstructor
 public class ChartDataPoint {
     private int month;
-    private String neighborhoodName;
+    private String districtName;
     private long count;
 }

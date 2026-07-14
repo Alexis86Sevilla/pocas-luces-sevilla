@@ -103,23 +103,26 @@ class EnelOutageRepositoryTest {
     }
 
     @Test
-    void shouldAggregateByMonthAndNeighborhood() {
+    void shouldAggregateByMonthAndDistrict() {
         EnelOutage o1 = outage("1", LocalDateTime.of(2026, 7, 10, 8, 30));
         o1.setNeighborhoodName("San Pablo");
+        o1.setDistrictName("San Pablo-Santa Justa");
         EnelOutage o2 = outage("2", LocalDateTime.of(2026, 7, 15, 18, 0));
         o2.setNeighborhoodName("San Pablo");
+        o2.setDistrictName("San Pablo-Santa Justa");
         EnelOutage o3 = outage("3", LocalDateTime.of(2026, 8, 1, 10, 0));
         o3.setNeighborhoodName("Triana");
+        o3.setDistrictName("Triana");
         em.persist(o1);
         em.persist(o2);
         em.persist(o3);
 
-        List<Object[]> rows = repository.aggregateByMonthAndNeighborhood(2026);
+        List<Object[]> rows = repository.aggregateByMonthAndDistrict(2026);
 
         assertThat(rows).hasSize(2);
         assertThat(rows).anySatisfy(row -> {
             assertThat(row[0]).isEqualTo(7);
-            assertThat(row[1]).isEqualTo("San Pablo");
+            assertThat(row[1]).isEqualTo("San Pablo-Santa Justa");
             assertThat(row[2]).isEqualTo(2L);
         });
     }
@@ -144,6 +147,7 @@ class EnelOutageRepositoryTest {
     void shouldAtomicallyUpsertNewOutage() {
         EnelOutage outage = outage("123", LocalDateTime.of(2026, 7, 10, 8, 30));
         outage.setNeighborhoodName("San Pablo");
+        outage.setDistrictName("San Pablo-Santa Justa");
         outage.setServiceType("AT");
         outage.setFirstSeenAt(LocalDateTime.of(2026, 7, 10, 8, 0));
         outage.setCreatedAt(LocalDateTime.of(2026, 7, 10, 8, 0));
@@ -157,6 +161,7 @@ class EnelOutageRepositoryTest {
             "San Pablo", LocalDateTime.of(2026, 7, 10, 8, 30), "AT");
         assertThat(found).isPresent();
         assertThat(found.get().getObjectId()).isEqualTo("123");
+        assertThat(found.get().getDistrictName()).isEqualTo("San Pablo-Santa Justa");
         assertThat(found.get().getFirstSeenAt()).isEqualTo(LocalDateTime.of(2026, 7, 10, 8, 0));
     }
 
@@ -164,6 +169,7 @@ class EnelOutageRepositoryTest {
     void shouldAtomicallyUpsertExistingOutageAndPreserveFirstSeenAt() {
         EnelOutage original = outage("100", LocalDateTime.of(2026, 7, 10, 8, 30));
         original.setNeighborhoodName("San Pablo");
+        original.setDistrictName("San Pablo-Santa Justa");
         original.setServiceType("AT");
         original.setFirstSeenAt(LocalDateTime.of(2026, 7, 1, 0, 0));
         original.setCreatedAt(LocalDateTime.of(2026, 7, 1, 0, 0));
@@ -173,6 +179,7 @@ class EnelOutageRepositoryTest {
 
         EnelOutage update = outage("200", LocalDateTime.of(2026, 7, 10, 8, 30));
         update.setNeighborhoodName("San Pablo");
+        update.setDistrictName("Triana");
         update.setServiceType("AT");
         update.setFirstSeenAt(LocalDateTime.of(2026, 7, 10, 12, 0));
         update.setCreatedAt(LocalDateTime.of(2026, 7, 10, 12, 0));
@@ -188,6 +195,7 @@ class EnelOutageRepositoryTest {
             "San Pablo", LocalDateTime.of(2026, 7, 10, 8, 30), "AT");
         assertThat(found).isPresent();
         assertThat(found.get().getObjectId()).isEqualTo("200");
+        assertThat(found.get().getDistrictName()).isEqualTo("Triana");
         assertThat(found.get().getFirstSeenAt()).isEqualTo(LocalDateTime.of(2026, 7, 1, 0, 0));
         assertThat(found.get().getCreatedAt()).isEqualTo(LocalDateTime.of(2026, 7, 1, 0, 0));
         assertThat(found.get().getFetchedAt()).isEqualTo(LocalDateTime.of(2026, 7, 10, 12, 0));

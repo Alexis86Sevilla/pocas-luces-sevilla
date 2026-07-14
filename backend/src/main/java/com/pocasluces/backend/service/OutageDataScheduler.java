@@ -36,6 +36,7 @@ public class OutageDataScheduler {
     private final EnelApiService enelApiService;
     private final EnelOutageRepository repository;
     private final NeighborhoodLocator locator;
+    private final DistrictLocator districtLocator;
     private final Clock clock;
 
     @Scheduled(fixedDelay = 5, timeUnit = TimeUnit.MINUTES)
@@ -76,6 +77,7 @@ public class OutageDataScheduler {
             double lat = attr.getLatitude() != null ? attr.getLatitude() : 0.0;
             double lon = attr.getLongitude() != null ? attr.getLongitude() : 0.0;
             String neighborhoodName = normalizeNeighborhood(locator.findNeighborhood(lat, lon));
+            String districtName = normalizeDistrict(districtLocator.findDistrict(lat, lon, neighborhoodName));
             String serviceType = normalizeServiceType(attr.getServiceType());
 
             EnelOutage outage = EnelOutage.builder()
@@ -87,6 +89,7 @@ public class OutageDataScheduler {
                 .interruptionDate(interruptionDate)
                 .repositionDate(parseDate(attr.getRepositionDate()))
                 .neighborhoodName(neighborhoodName)
+                .districtName(districtName)
                 .sourceUrl(paged.sourceUrl())
                 .rawResponse(paged.rawResponse())
                 .rawResponseHash(sha256Hex(paged.rawResponse()))
@@ -121,6 +124,10 @@ public class OutageDataScheduler {
 
     private String normalizeNeighborhood(String neighborhoodName) {
         return neighborhoodName == null || neighborhoodName.isBlank() ? "Zona no identificada" : neighborhoodName;
+    }
+
+    private String normalizeDistrict(String districtName) {
+        return districtName == null || districtName.isBlank() ? "Zona no identificada" : districtName;
     }
 
     private String normalizeServiceType(String serviceType) {

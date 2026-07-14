@@ -38,16 +38,25 @@ public interface EnelOutageRepository extends JpaRepository<EnelOutage, Long>, E
 
     Page<EnelOutage> findByNeighborhoodNameIgnoreCase(String neighborhoodName, Pageable pageable);
 
-    // Monthly aggregation for charts: count outages by month and neighborhood.
+    long countByDistrictNameIsNull();
+
     @Query("""
-        SELECT MONTH(o.interruptionDate), o.neighborhoodName, COUNT(o)
+        SELECT o FROM EnelOutage o
+        WHERE o.districtName IS NULL AND o.id > :afterId
+        ORDER BY o.id ASC
+        """)
+    List<EnelOutage> findTopBatchWithNullDistrict(@Param("afterId") long afterId, Pageable pageable);
+
+    // Monthly aggregation for charts: count outages by month and district.
+    @Query("""
+        SELECT MONTH(o.interruptionDate), o.districtName, COUNT(o)
         FROM EnelOutage o
         WHERE YEAR(o.interruptionDate) = :year
-        AND o.neighborhoodName IS NOT NULL
-        GROUP BY MONTH(o.interruptionDate), o.neighborhoodName
-        ORDER BY MONTH(o.interruptionDate), o.neighborhoodName
+        AND o.districtName IS NOT NULL
+        GROUP BY MONTH(o.interruptionDate), o.districtName
+        ORDER BY MONTH(o.interruptionDate), o.districtName
         """)
-    List<Object[]> aggregateByMonthAndNeighborhood(@Param("year") int year);
+    List<Object[]> aggregateByMonthAndDistrict(@Param("year") int year);
 
     @Query("SELECT o FROM EnelOutage o WHERE YEAR(o.interruptionDate) = :year ORDER BY o.interruptionDate DESC")
     List<EnelOutage> findByYear(@Param("year") int year);

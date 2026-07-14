@@ -67,7 +67,7 @@ public class EnelOutageController {
     @GetMapping("/chart")
     public List<ChartDataPoint> getChartData(@RequestParam int year) {
         RequestValidation.requireYear(year);
-        List<Object[]> rows = enelOutageRepo.aggregateByMonthAndNeighborhood(year);
+        List<Object[]> rows = enelOutageRepo.aggregateByMonthAndDistrict(year);
         return rows.stream()
             .map(row -> new ChartDataPoint(
                 (Integer) row[0],

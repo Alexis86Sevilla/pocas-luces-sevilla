@@ -11,6 +11,7 @@ public record OutageExportDto(
     Long id,
     String objectId,
     String neighborhoodName,
+    String districtName,
     String serviceType,
     String interruptionDate,
     String repositionDate,
@@ -31,6 +32,7 @@ public record OutageExportDto(
             o.getId(),
             o.getObjectId(),
             o.getNeighborhoodName(),
+            o.getDistrictName(),
             o.getServiceType(),
             toMadridWallClock(o.getInterruptionDate()),
             toMadridWallClock(o.getRepositionDate()),
@@ -58,7 +60,7 @@ public record OutageExportDto(
     }
 
     public static String header() {
-        return "id,objectId,neighborhoodName,serviceType,interruptionDate,repositionDate," +
+        return "id,objectId,neighborhoodName,districtName,serviceType,interruptionDate,repositionDate," +
                "affectedClients,latitude,longitude,sourceUrl,rawResponseHash,firstSeenAt,fetchedAt";
     }
 
@@ -67,6 +69,7 @@ public record OutageExportDto(
             csv(id),
             csv(objectId),
             csv(neighborhoodName),
+            csv(districtName),
             csv(serviceType),
             csv(interruptionDate),
             csv(repositionDate),
