@@ -97,7 +97,7 @@ export class ChartComponent {
           pointHoverRadius: 7, tension: 0.35, fill: true,
         };
       });
-    this.chart.update('none');
+    this.chart.update();
   }
 
   private options(): ChartOptions<'line'> {
@@ -105,6 +105,11 @@ export class ChartComponent {
       responsive: true, maintainAspectRatio: false,
       interaction: { mode: 'index', intersect: false },
       plugins: { legend: { display: false } },
+      onHover: (event, activeElements) => {
+        if (event.chart && event.chart.canvas) {
+          event.chart.canvas.style.cursor = activeElements.length ? 'pointer' : 'default';
+        }
+      },
       scales: {
         x: { grid: { color: 'rgba(209,213,219,0.4)' }, ticks: { color: '#9ca3af', font: { size: 11 } } },
         y: { beginAtZero: true, ticks: { stepSize: 1, color: '#9ca3af', font: { size: 11 } },
