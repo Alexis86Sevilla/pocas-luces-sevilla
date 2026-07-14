@@ -3,7 +3,7 @@ import { computed, Injectable, signal } from '@angular/core';
 import { finalize } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
-import type { Neighborhood } from '../models';
+import type { District, DistrictStats } from '../models';
 import { ErrorLogService } from './error-log.service';
 
 export interface EnelOutage {
@@ -13,6 +13,7 @@ export interface EnelOutage {
   interruptionDate: string;
   repositionDate: string;
   neighborhoodName: string | null;
+  districtName: string | null;
   fetchedAt: string;
 }
 
@@ -20,15 +21,15 @@ export interface EnelOutage {
 export class ApiOutageService {
   private readonly apiUrl = environment.apiBaseUrl;
 
-  private readonly _neighborhoods = signal<readonly Neighborhood[]>([]);
   private readonly _yearlyOutages = signal<readonly EnelOutage[]>([]);
   private readonly _monthlyOutages = signal<readonly EnelOutage[]>([]);
   private readonly _liveOutages = signal<readonly EnelOutage[]>([]);
+  private readonly _districtStats = signal<readonly DistrictStats[]>([]);
 
-  readonly neighborhoods = this._neighborhoods.asReadonly();
   readonly yearlyOutages = this._yearlyOutages.asReadonly();
   readonly monthlyOutages = this._monthlyOutages.asReadonly();
   readonly liveOutages = this._liveOutages.asReadonly();
+  readonly districtStats = this._districtStats.asReadonly();
 
   // Deduplicated views for the UI: keep the most recent fetched record per natural key.
   readonly deduplicatedYearlyOutages = computed(() => this.deduplicate(this._yearlyOutages()));
@@ -44,13 +45,13 @@ export class ApiOutageService {
   private readonly _activeRequests = signal(0);
   readonly loading = computed(() => this._activeRequests() > 0);
 
-  // Derive neighborhoods from yearly data using a stable id derived from the name.
-  readonly derivedNeighborhoods = computed(() => {
-    const names = [...new Set(this._yearlyOutages().map(o => o.neighborhoodName).filter(Boolean))];
+  // Derive districts from yearly data using a stable id derived from the name.
+  readonly derivedDistricts = computed((): readonly District[] => {
+    const names = [...new Set(this._yearlyOutages().map(o => o.districtName).filter(Boolean))];
     return names
       .map(name => name!)
       .sort((a, b) => a.localeCompare(b))
-      .map(name => ({ id: this.neighborhoodId(name), name }));
+      .map(name => ({ id: this.districtId(name), name }));
   });
 
   constructor(
@@ -97,6 +98,17 @@ export class ApiOutageService {
     });
   }
 
+  // ── District statistics ──
+  loadDistrictStats(year?: number): void {
+    const y = year ?? this._selectedYear();
+    this.trackRequest(
+      this.http.get<DistrictStats[]>(`${this.apiUrl}/stats?year=${y}`)
+    ).subscribe({
+      next: data => this._districtStats.set(data),
+      error: err => this.errorLog.log('API Stats', err),
+    });
+  }
+
   private trackRequest<T>(request: import('rxjs').Observable<T>) {
     this._activeRequests.update(count => count + 1);
     return request.pipe(finalize(() => this._activeRequests.update(count => count - 1)));
@@ -120,7 +132,7 @@ export class ApiOutageService {
     return [...map.values()];
   }
 
-  private neighborhoodId(name: string): string {
+  private districtId(name: string): string {
     return name
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')

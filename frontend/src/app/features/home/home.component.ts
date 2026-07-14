@@ -22,7 +22,7 @@ import { parseMadridDate } from '../../core/utils/madrid-date';
 export class HomeComponent implements OnInit {
   readonly api = inject(ApiOutageService);
 
-  protected readonly neighborhoods = this.api.derivedNeighborhoods;
+  protected readonly districts = this.api.derivedDistricts;
   protected readonly yearlyOutages = this.api.deduplicatedYearlyOutages;
   protected readonly monthlyOutages = this.api.deduplicatedMonthlyOutages;
   protected readonly liveOutages = this.api.deduplicatedLiveOutages;
@@ -33,12 +33,12 @@ export class HomeComponent implements OnInit {
   protected readonly liveGroups = computed(() => {
     const groups = new Map<string, EnelOutage[]>();
     for (const outage of this.liveOutages()) {
-      const key = outage.neighborhoodName ?? 'Zona no identificada';
+      const key = outage.districtName ?? 'Zona no identificada';
       const list = groups.get(key) ?? [];
       list.push(outage);
       groups.set(key, list);
     }
-    return [...groups.entries()].map(([neighborhoodName, outages]) => {
+    return [...groups.entries()].map(([districtName, outages]) => {
       const earliest = outages.reduce((a, b) =>
         parseMadridDate(a.interruptionDate).getTime() < parseMadridDate(b.interruptionDate).getTime() ? a : b
       );
@@ -50,7 +50,7 @@ export class HomeComponent implements OnInit {
         );
 
       return {
-        neighborhoodName,
+        districtName,
         count: outages.length,
         affectedClients: outages.reduce((sum, o) => sum + o.affectedClients, 0),
         serviceCategories: [...new Set(outages.map(o => o.serviceType === 'LV' ? 'Programado' : 'Avería'))],

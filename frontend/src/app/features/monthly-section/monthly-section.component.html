@@ -10,7 +10,7 @@
 </div>
 
 <p class="mb-6 max-w-2xl text-base leading-relaxed text-gray-500">
-  Cada tarjeta muestra un barrio con los <strong class="text-gray-700">minutos de media</strong> que duran los cortes
+  Cada tarjeta muestra un distrito con los <strong class="text-gray-700">minutos de media</strong> que duran los cortes
   y el <strong class="text-gray-700">número de cortes</strong> del mes. Pulsa <em>«Ver historial»</em> para ver cada apagón.
 </p>
 
@@ -20,10 +20,10 @@
   </div>
 } @else {
   <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-    @for (neighborhood of neighborhoods(); track neighborhood.id) {
-      @if (outagesFor(neighborhood.id); as outages) {
+    @for (district of districts(); track district.id) {
+      @if (outagesFor(district.id); as outages) {
         <app-outage-card
-          [neighborhood]="neighborhood"
+          [district]="district"
           [outages]="outages" />
       }
     }

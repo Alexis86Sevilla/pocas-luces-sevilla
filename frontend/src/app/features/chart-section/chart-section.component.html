@@ -1,7 +1,7 @@
 <div class="mb-14 text-center">
   <span class="mb-4 inline-block rounded-full bg-amber-100 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-amber-700">Los datos</span>
-  <h2 class="mx-auto mb-5 max-w-2xl text-4xl font-extrabold leading-tight text-gray-900">Los barrios que más sufren los cortes de luz</h2>
-  <p class="mx-auto max-w-xl text-lg leading-relaxed text-gray-500">Datos reales de Endesa del año en curso. Selecciona los barrios arriba del gráfico para compararlos mes a mes.</p>
+  <h2 class="mx-auto mb-5 max-w-2xl text-4xl font-extrabold leading-tight text-gray-900">Los distritos que más sufren los cortes de luz</h2>
+  <p class="mx-auto max-w-xl text-lg leading-relaxed text-gray-500">Datos reales de Endesa del año en curso. Selecciona los distritos arriba del gráfico para compararlos mes a mes.</p>
 </div>
 
 <details class="group mb-10 rounded-2xl border border-gray-100 bg-gray-50/50 open:bg-white">
@@ -13,8 +13,8 @@
     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
   </summary>
   <div class="space-y-3 px-6 pb-6 text-sm leading-relaxed text-gray-600">
-    <p><strong class="text-gray-900">Fácil:</strong> cada línea del gráfico es un barrio de Sevilla. El eje horizontal son los meses del año y el vertical es la <strong class="text-gray-900">cantidad de cortes</strong> registrados. Cuanto más arriba esté la línea, más veces se quedó sin luz ese barrio.</p>
-    <p><strong class="text-gray-900">Un poco más técnico:</strong> los datos provienen del portal público de Endesa (red eléctrica), actualizados automáticamente. Cada punto representa un incidente que afectó a ese barrio. No muestra usuarios individuales, sino la frecuencia de fallos por zona. Los cortes programados y las averías se cuentan por igual porque ambos impactan a los vecinos.</p>
+    <p><strong class="text-gray-900">Fácil:</strong> cada línea del gráfico es un distrito de Sevilla. El eje horizontal son los meses del año y el vertical es la <strong class="text-gray-900">cantidad de cortes</strong> registrados. Cuanto más arriba esté la línea, más veces se quedó sin luz ese distrito.</p>
+    <p><strong class="text-gray-900">Un poco más técnico:</strong> los datos provienen del portal público de Endesa (red eléctrica), actualizados automáticamente. Cada punto representa un incidente que afectó a ese distrito. No muestra usuarios individuales, sino la frecuencia de fallos por zona. Los cortes programados y las averías se cuentan por igual porque ambos impactan a los vecinos.</p>
     <hr class="border-gray-200">
         <p><strong class="text-gray-900">¿Desde cuándo hay datos?</strong> Empiezo a registrar los cortes el <strong class="text-gray-700">12 de julio de 2026</strong>. Endesa solo publica los cortes activos en este momento — no ofrece un histórico ni permite consultar el pasado. Cada dato que ves aquí se ha guardado automáticamente desde entonces para construir un registro público que antes no existía. <a class="cursor-pointer text-gray-400 underline hover:text-gray-600" (click)="scrollTo('apoyar')" role="button" tabindex="0">Este proyecto se mantiene sin ayudas públicas.</a></p>
   </div>
@@ -22,7 +22,7 @@
 
 <div class="mb-14">
   @defer (on viewport) {
-        <app-chart [neighborhoods]="neighborhoods()" [outages]="yearlyOutages()" />
+        <app-chart [districts]="districts()" [outages]="yearlyOutages()" />
   } @placeholder {
     <div class="h-80 rounded-3xl border border-gray-100 bg-gradient-to-br from-gray-50 to-white sm:h-96"></div>
   }

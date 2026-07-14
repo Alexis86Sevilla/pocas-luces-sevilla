@@ -1,17 +1,17 @@
 <div class="overflow-hidden rounded-3xl border border-gray-100 bg-gradient-to-br from-gray-50 to-white p-6 shadow-lg shadow-gray-100/50 sm:p-8">
   <div class="mb-6 flex flex-wrap items-center gap-2">
     <span class="mr-2 text-sm font-semibold uppercase tracking-wider text-gray-400">Comparar</span>
-    @for (neighborhood of neighborhoods(); track neighborhood.id) {
+    @for (district of districts(); track district.id) {
       <button type="button"
         class="rounded-full border px-3.5 py-1.5 text-sm font-semibold transition-all"
-        [class.border-gray-200]="!selectedIds().has(neighborhood.id)"
-        [class.bg-white]="!selectedIds().has(neighborhood.id)"
-        [class.text-gray-400]="!selectedIds().has(neighborhood.id)"
-        [class.border-transparent]="selectedIds().has(neighborhood.id)"
-        [class.bg-gray-900]="selectedIds().has(neighborhood.id)"
-        [class.text-white]="selectedIds().has(neighborhood.id)"
-        (click)="toggleNeighborhood(neighborhood.id)">
-        {{ neighborhood.name }}
+        [class.border-gray-200]="!selectedIds().has(district.id)"
+        [class.bg-white]="!selectedIds().has(district.id)"
+        [class.text-gray-400]="!selectedIds().has(district.id)"
+        [class.border-transparent]="selectedIds().has(district.id)"
+        [class.bg-gray-900]="selectedIds().has(district.id)"
+        [class.text-white]="selectedIds().has(district.id)"
+        (click)="toggleDistrict(district.id)">
+        {{ district.name }}
       </button>
     }
   </div>

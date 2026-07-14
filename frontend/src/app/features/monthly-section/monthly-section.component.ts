@@ -1,7 +1,7 @@
 import { Component, computed, input, output } from '@angular/core';
 import { DateFilterComponent, type DateFilterValue } from './date-filter/date-filter.component';
 import { OutageCardComponent } from './outage-card/outage-card.component';
-import type { Neighborhood } from '../../core/models';
+import type { District } from '../../core/models';
 import type { EnelOutage } from '../../core/services/api-outage.service';
 
 @Component({
@@ -10,17 +10,17 @@ import type { EnelOutage } from '../../core/services/api-outage.service';
   templateUrl: './monthly-section.component.html',
 })
 export class MonthlySectionComponent {
-  readonly neighborhoods = input.required<readonly Neighborhood[]>();
+  readonly districts = input.required<readonly District[]>();
   readonly monthlyOutages = input.required<readonly EnelOutage[]>();
   readonly selectedMonth = input.required<number>();
   readonly selectedYear = input.required<number>();
 
   readonly filterChange = output<DateFilterValue>();
 
-  private readonly byNeighborhood = computed(() => {
+  private readonly byDistrict = computed(() => {
     const map = new Map<string, EnelOutage[]>();
     for (const o of this.monthlyOutages()) {
-      const id = this.neighborhoodId(o.neighborhoodName ?? 'Zona no identificada');
+      const id = this.districtId(o.districtName ?? 'Zona no identificada');
       const list = map.get(id) ?? [];
       list.push(o);
       map.set(id, list);
@@ -31,10 +31,10 @@ export class MonthlySectionComponent {
   protected readonly isEmpty = computed(() => this.monthlyOutages().length === 0);
 
   protected outagesFor(id: string): EnelOutage[] {
-    return this.byNeighborhood().get(id) ?? [];
+    return this.byDistrict().get(id) ?? [];
   }
 
-  private neighborhoodId(name: string): string {
+  private districtId(name: string): string {
     return name
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')

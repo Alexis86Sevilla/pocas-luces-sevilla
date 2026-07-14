@@ -21,7 +21,7 @@ import {
 
 Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale, Tooltip, Legend);
 
-import type { Neighborhood } from '../../../core/models';
+import type { District } from '../../../core/models';
 import type { EnelOutage } from '../../../core/services/api-outage.service';
 import { parseMadridDate } from '../../../core/utils/madrid-date';
 
@@ -38,7 +38,7 @@ const COLORS = [
   templateUrl: './chart.component.html',
 })
 export class ChartComponent {
-  readonly neighborhoods = input.required<readonly Neighborhood[]>();
+  readonly districts = input.required<readonly District[]>();
   readonly outages = input.required<readonly EnelOutage[]>();
 
   private readonly canvasRef = viewChild<ElementRef<HTMLCanvasElement>>('chartCanvas');
@@ -48,7 +48,7 @@ export class ChartComponent {
 
   constructor() {
     afterNextRender(() => {
-      const first = this.neighborhoods()[0];
+      const first = this.districts()[0];
       if (first) this.selectedIds.set(new Set([first.id]));
       this.initChart();
     });
@@ -60,7 +60,7 @@ export class ChartComponent {
     });
   }
 
-  protected toggleNeighborhood(id: string): void {
+  protected toggleDistrict(id: string): void {
     this.selectedIds.update(ids => {
       const next = new Set(ids);
       if (next.has(id) && next.size > 1) next.delete(id);
@@ -79,20 +79,20 @@ export class ChartComponent {
 
   private updateChart(): void {
     if (!this.chart) return;
-    const neighborhoods = this.neighborhoods();
+    const districts = this.districts();
     const outages = this.outages();
     const selected = this.selectedIds();
 
-    this.chart.data.datasets = neighborhoods
-      .filter(n => selected.has(n.id))
-      .map(n => {
-        const globalIndex = neighborhoods.indexOf(n);
+    this.chart.data.datasets = districts
+      .filter(d => selected.has(d.id))
+      .map(d => {
+        const globalIndex = districts.indexOf(d);
         const monthlyCounts = MONTHS.map((_, monthIdx) =>
-          outages.filter(o => o.neighborhoodName === n.name && parseMadridDate(o.interruptionDate).getMonth() === monthIdx).length
+          outages.filter(o => o.districtName === d.name && parseMadridDate(o.interruptionDate).getMonth() === monthIdx).length
         );
         const color = COLORS[globalIndex % COLORS.length];
         return {
-          label: n.name, data: monthlyCounts, borderColor: color,
+          label: d.name, data: monthlyCounts, borderColor: color,
           backgroundColor: `${color}12`, borderWidth: 2.5, pointRadius: 4,
           pointHoverRadius: 7, tension: 0.35, fill: true,
         };

@@ -4,7 +4,7 @@ import { DatePipe } from '@angular/common';
 import { ApiOutageService } from '../../core/services/api-outage.service';
 
 export interface LiveGroup {
-  readonly neighborhoodName: string;
+  readonly districtName: string;
   readonly count: number;
   readonly affectedClients: number;
   readonly serviceCategories: readonly string[];

@@ -9,11 +9,11 @@
   <section id="grafico-anual" class="bg-white py-20">
     <div class="mx-auto max-w-6xl px-6">
       <app-chart-section
-        [neighborhoods]="neighborhoods()"
+        [districts]="districts()"
         [yearlyOutages]="yearlyOutages()" />
 
       <app-monthly-section
-        [neighborhoods]="neighborhoods()"
+        [districts]="districts()"
         [monthlyOutages]="monthlyOutages()"
         [selectedMonth]="selectedMonth()"
         [selectedYear]="selectedYear()"

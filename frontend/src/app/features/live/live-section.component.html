@@ -15,7 +15,7 @@
       <p class="rounded-xl bg-gray-800 px-8 py-12 text-center text-lg text-gray-500">No hay cortes activos.</p>
     } @else {
       <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        @for (group of liveGroups(); track group.neighborhoodName) {
+        @for (group of liveGroups(); track group.districtName) {
           <div class="rounded-2xl border border-gray-700 bg-gray-800/50 p-5">
             <div class="mb-3 flex items-start justify-between">
               <div class="flex flex-wrap gap-2">
@@ -25,7 +25,7 @@
               </div>
               <span class="text-sm font-bold text-white">{{ group.affectedClients }} afect.</span>
             </div>
-            <p class="text-base font-semibold text-white">{{ group.neighborhoodName }}</p>
+            <p class="text-base font-semibold text-white">{{ group.districtName }}</p>
             <p class="mb-3 text-sm text-gray-400">{{ group.count }} corte{{ group.count > 1 ? 's' : '' }} activo{{ group.count > 1 ? 's' : '' }}</p>
             <div class="mt-3 space-y-1 text-sm text-gray-400">
               <div class="flex justify-between"><span>Desde</span><span class="text-gray-200">{{ group.earliestDateStr | date: 'dd/MM HH:mm' : 'Europe/Madrid' }}</span></div>

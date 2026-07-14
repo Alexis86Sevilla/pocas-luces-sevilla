@@ -2,7 +2,7 @@ import { Component, computed, input, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 
 import type { EnelOutage } from '../../../core/services/api-outage.service';
-import type { Neighborhood } from '../../../core/models';
+import type { District } from '../../../core/models';
 import { formatMadridDate, parseMadridDate, toMadridDateKey } from '../../../core/utils/madrid-date';
 
 export interface DailyOutageGroup {
@@ -20,7 +20,7 @@ export interface DailyOutageGroup {
   templateUrl: './outage-card.component.html',
 })
 export class OutageCardComponent {
-  readonly neighborhood = input.required<Neighborhood>();
+  readonly district = input.required<District>();
   readonly outages = input.required<readonly EnelOutage[]>();
 
   protected readonly expanded = signal(false);

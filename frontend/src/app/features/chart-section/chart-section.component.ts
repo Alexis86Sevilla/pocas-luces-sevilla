@@ -1,6 +1,6 @@
 import { Component, input } from '@angular/core';
 import { ChartComponent } from './chart/chart.component';
-import type { Neighborhood } from '../../core/models';
+import type { District } from '../../core/models';
 import type { EnelOutage } from '../../core/services/api-outage.service';
 
 @Component({
@@ -9,7 +9,7 @@ import type { EnelOutage } from '../../core/services/api-outage.service';
   templateUrl: './chart-section.component.html',
 })
 export class ChartSectionComponent {
-  readonly neighborhoods = input.required<readonly Neighborhood[]>();
+  readonly districts = input.required<readonly District[]>();
   readonly yearlyOutages = input.required<readonly EnelOutage[]>();
 
   protected scrollTo(sectionId: string): void {
