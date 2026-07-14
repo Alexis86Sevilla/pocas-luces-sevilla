@@ -1,17 +1,17 @@
 -- Barrios de Sevilla
-INSERT INTO neighborhoods (name, postal_code, category) VALUES
-('San Pablo', '41015', 'humilde'),
-('Polígono Sur', '41013', 'humilde'),
-('Torreblanca', '41016', 'humilde'),
-('Los Pajaritos', '41006', 'humilde'),
-('Palmete', '41006', 'humilde'),
-('Cerro del Águila', '41006', 'humilde'),
-('Triana', '41010', 'medio'),
-('La Macarena', '41009', 'medio'),
-('Nervión', '41005', 'medio'),
-('San Bernardo', '41005', 'medio'),
-('Los Remedios', '41011', 'acomodado'),
-('Santa Cruz', '41004', 'acomodado');
+INSERT INTO neighborhoods (name, postal_code) VALUES
+('San Pablo', '41015'),
+('Polígono Sur', '41013'),
+('Torreblanca', '41016'),
+('Los Pajaritos', '41006'),
+('Palmete', '41006'),
+('Cerro del Águila', '41006'),
+('Triana', '41010'),
+('La Macarena', '41009'),
+('Nervión', '41005'),
+('San Bernardo', '41005'),
+('Los Remedios', '41011'),
+('Santa Cruz', '41004');
 
 -- Cortes 2026 — barrios humildes (muchos y largos)
 INSERT INTO outages (neighborhood_id, date, duration_minutes) VALUES

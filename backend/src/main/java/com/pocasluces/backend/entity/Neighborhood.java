@@ -21,7 +21,4 @@ public class Neighborhood {
 
     @Column(name = "postal_code", length = 5)
     private String postalCode;
-
-    @Column(length = 20)
-    private String category; // humilde, medio, acomodado
 }

@@ -12,6 +12,7 @@ import java.util.Objects;
         @Index(name = "idx_enel_outage_object_id", columnList = "object_id"),
         @Index(name = "idx_enel_outage_interruption_date", columnList = "interruption_date"),
         @Index(name = "idx_enel_outage_neighborhood", columnList = "neighborhood_name"),
+        @Index(name = "idx_enel_outage_district", columnList = "district_name"),
         @Index(name = "idx_enel_outage_fetched_at", columnList = "fetched_at")
     },
     uniqueConstraints = {
@@ -49,6 +50,9 @@ public class EnelOutage {
 
     @Column(name = "neighborhood_name", nullable = false, length = 100)
     private String neighborhoodName;
+
+    @Column(name = "district_name", length = 100)
+    private String districtName;
 
     @Column(name = "source_url", length = 500)
     private String sourceUrl;
