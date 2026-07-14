@@ -106,8 +106,9 @@ export class ChartComponent {
       interaction: { mode: 'index', intersect: false },
       plugins: { legend: { display: false } },
       onHover: (event, activeElements) => {
-        if (event.chart && event.chart.canvas) {
-          event.chart.canvas.style.cursor = activeElements.length ? 'pointer' : 'default';
+        const canvas = this.chart?.canvas;
+        if (canvas) {
+          canvas.style.cursor = activeElements.length ? 'pointer' : 'default';
         }
       },
       scales: {
