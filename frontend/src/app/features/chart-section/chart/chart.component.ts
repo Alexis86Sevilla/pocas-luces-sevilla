@@ -93,8 +93,10 @@ export class ChartComponent {
         const color = COLORS[globalIndex % COLORS.length];
         return {
           label: d.name, data: monthlyCounts, borderColor: color,
-          backgroundColor: `${color}12`, borderWidth: 2.5, pointRadius: 4,
-          pointHoverRadius: 7, tension: 0.35, fill: true,
+          backgroundColor: `${color}12`, borderWidth: 2.5, pointRadius: 5,
+          pointHoverRadius: 8, pointBackgroundColor: '#ffffff',
+          pointBorderColor: color, pointBorderWidth: 2.5,
+          tension: 0.35, fill: true,
         };
       });
     this.chart.update();
@@ -104,12 +106,19 @@ export class ChartComponent {
     return {
       responsive: true, maintainAspectRatio: false,
       interaction: { mode: 'index', intersect: false },
-      plugins: { legend: { display: false } },
-      onHover: (event, activeElements) => {
-        const canvas = this.chart?.canvas;
-        if (canvas) {
-          canvas.style.cursor = activeElements.length ? 'pointer' : 'default';
-        }
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: 'rgba(17, 24, 39, 0.95)',
+          titleFont: { size: 13, weight: 'bold' },
+          bodyFont: { size: 13 },
+          padding: 10,
+          cornerRadius: 8,
+          displayColors: true,
+          callbacks: {
+            label: (context) => `${context.dataset.label}: ${context.parsed.y} corte${context.parsed.y === 1 ? '' : 's'}`,
+          },
+        },
       },
       scales: {
         x: { grid: { color: 'rgba(209,213,219,0.4)' }, ticks: { color: '#9ca3af', font: { size: 11 } } },

@@ -145,12 +145,11 @@ public class EnelOutageRepositoryImpl implements EnelOutageRepositoryCustom {
                    raw_response_hash, raw_response, first_seen_at, fetched_at, created_at, updated_at, active
             FROM enel_outages
             WHERE active = true
-            AND (reposition_date IS NULL OR reposition_date > :now)
             AND fetched_at > :since
             AND interruption_date IS NOT NULL
             ORDER BY interruption_date DESC
             """;
-        Map<String, Object> params = Map.of("now", now, "since", since);
+        Map<String, Object> params = Map.of("since", since);
         return jdbcTemplate.query(sql, params, (rs, rowNum) -> mapRowToEnelOutage(rs));
     }
 

@@ -65,7 +65,7 @@ class EnelOutageRepositoryTest {
     }
 
     @Test
-    void shouldFindCurrentlyActiveIncludingNullReposition() {
+    void shouldFindCurrentlyActiveRecentFetches() {
         LocalDateTime now = LocalDateTime.of(2026, 7, 10, 12, 0);
 
         EnelOutage activeNullReposition = outage("1", now.minusHours(2));
@@ -76,9 +76,9 @@ class EnelOutageRepositoryTest {
         activeFutureReposition.setRepositionDate(now.plusHours(2));
         activeFutureReposition.setFetchedAt(now.minusMinutes(10));
 
-        EnelOutage old = outage("3", now.minusDays(2));
-        old.setRepositionDate(now.minusDays(1));
-        old.setFetchedAt(now.minusMinutes(10));
+        EnelOutage activePastReposition = outage("3", now.minusDays(2));
+        activePastReposition.setRepositionDate(now.minusDays(1));
+        activePastReposition.setFetchedAt(now.minusMinutes(10));
 
         EnelOutage staleFetch = outage("4", now.minusHours(1));
         staleFetch.setRepositionDate(null);
@@ -91,15 +91,15 @@ class EnelOutageRepositoryTest {
 
         em.persist(activeNullReposition);
         em.persist(activeFutureReposition);
-        em.persist(old);
+        em.persist(activePastReposition);
         em.persist(staleFetch);
         em.persist(inactive);
 
         List<EnelOutage> result = repository.findCurrentlyActive(now, now.minusHours(6));
 
-        assertThat(result).hasSize(2)
+        assertThat(result).hasSize(3)
             .extracting(EnelOutage::getObjectId)
-            .containsExactlyInAnyOrder("1", "2");
+            .containsExactlyInAnyOrder("1", "2", "3");
     }
 
     @Test

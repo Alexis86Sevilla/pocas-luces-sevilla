@@ -68,11 +68,12 @@ class EnelOutageRepositoryPostgresTest {
         assertThat(updatedResult.get(0).getObjectId()).isEqualTo("1-updated");
         assertThat(updatedResult.get(0).getRepositionDate()).isEqualTo(now.plusHours(4));
 
-        EnelOutage expired = outage("1-updated", now.minusHours(2));
-        expired.setRepositionDate(now.minusMinutes(1));
-        expired.setFetchedAt(now.minusMinutes(5));
+        EnelOutage inactive = outage("1-updated", now.minusHours(2));
+        inactive.setRepositionDate(now.plusHours(4));
+        inactive.setFetchedAt(now.minusMinutes(5));
+        inactive.setActive(false);
 
-        repository.upsert(expired);
+        repository.upsert(inactive);
 
         assertThat(repository.count()).isEqualTo(1);
         assertThat(repository.findCurrentlyActive(now, now.minusHours(6))).isEmpty();
