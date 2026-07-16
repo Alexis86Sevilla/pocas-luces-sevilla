@@ -21,7 +21,7 @@ import java.util.List;
 public class EnelApiService {
 
     static final String ENEL_API_URL =
-        "https://ineuportalgis.enel.com/server/rest/services/Hosted/ESP_Prod_power_cut_View/FeatureServer/0/query";
+        "https://dpa-portalgis.enel.com/server/rest/services/Hosted/ESP_Prod_power_cut_View/FeatureServer/0/query";
 
     private static final int PAGE_SIZE = 100;
     private static final int MAX_PAGES = 50;
