@@ -3,10 +3,13 @@
     <span class="mb-1 inline-block rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-gray-500">Detalle mensual</span>
     <h3 class="mt-2 text-2xl font-bold text-gray-900">¿Cómo fue el mes?</h3>
   </div>
-  <app-date-filter
-    [selectedMonth]="selectedMonth()"
-    [selectedYear]="selectedYear()"
-    (filterChange)="filterChange.emit($event)" />
+  <div class="flex items-center gap-3">
+    <app-date-filter
+      [selectedMonth]="selectedMonth()"
+      [selectedYear]="selectedYear()"
+      (filterChange)="filterChange.emit($event)" />
+    <app-share-button />
+  </div>
 </div>
 
 <p class="mb-6 max-w-2xl text-base leading-relaxed text-gray-500">
@@ -14,12 +17,38 @@
   y el <strong class="text-gray-700">número de cortes</strong> del mes. Pulsa <em>«Ver historial»</em> para ver cada apagón.
 </p>
 
-@if (isEmpty()) {
+@if (api.monthlyError()) {
+  <div class="rounded-2xl border border-red-200 bg-red-50 px-8 py-16 text-center">
+    <p class="mb-4 text-lg text-red-700">No hemos podido cargar los datos. Inténtalo de nuevo.</p>
+    <button type="button"
+      class="cursor-pointer rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-500"
+      (click)="retry()">
+      Reintentar
+    </button>
+  </div>
+} @else if (api.monthlyLoading() && isEmpty()) {
+  <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-hidden="true">
+    @for (i of skeletonRows; track i) {
+      <div class="motion-safe:animate-pulse rounded-2xl border border-gray-100 bg-white p-5">
+        <div class="mb-4 h-4 w-1/2 rounded bg-gray-200"></div>
+        <div class="mb-4 grid grid-cols-2 gap-3">
+          <div class="h-14 rounded-xl bg-gray-100"></div>
+          <div class="h-14 rounded-xl bg-gray-100"></div>
+        </div>
+        <div class="h-9 rounded-lg bg-gray-100"></div>
+      </div>
+    }
+  </div>
+} @else if (isEmpty()) {
   <div class="rounded-2xl border border-dashed border-gray-200 bg-gray-50/50 px-8 py-16 text-center">
     <p class="text-lg text-gray-400">No hay cortes registrados este mes.</p>
   </div>
 } @else {
-  <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+  <p class="mb-4 text-sm text-gray-600 sm:text-xs">
+    <strong class="text-gray-700">Avería:</strong> corte no planificado ·
+    <strong class="text-gray-700">Programado:</strong> corte anunciado por mantenimiento
+  </p>
+  <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
     @for (district of districts(); track district.id) {
       @if (outagesFor(district.id); as outages) {
         <app-outage-card

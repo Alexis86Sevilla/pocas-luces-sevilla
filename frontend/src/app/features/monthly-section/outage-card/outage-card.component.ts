@@ -1,9 +1,11 @@
 import { Component, computed, input, signal } from '@angular/core';
-import { DatePipe } from '@angular/common';
+import { DatePipe, DecimalPipe } from '@angular/common';
 
 import type { EnelOutage } from '../../../core/services/api-outage.service';
 import type { District } from '../../../core/models';
 import { formatMadridDate, parseMadridDate, toMadridDateKey } from '../../../core/utils/madrid-date';
+import { outageCategory } from '../../../core/utils/outage-category';
+import { pluralize } from '../../../core/utils/pluralize';
 
 export interface DailyOutageGroup {
   readonly dateKey: string;
@@ -16,13 +18,15 @@ export interface DailyOutageGroup {
 
 @Component({
   selector: 'app-outage-card',
-  imports: [DatePipe],
+  imports: [DatePipe, DecimalPipe],
   templateUrl: './outage-card.component.html',
 })
 export class OutageCardComponent {
   readonly district = input.required<District>();
   readonly outages = input.required<readonly EnelOutage[]>();
 
+  protected readonly category = outageCategory;
+  protected readonly pluralize = pluralize;
   protected readonly expanded = signal(false);
   protected readonly expandedDay = signal<string | null>(null);
 

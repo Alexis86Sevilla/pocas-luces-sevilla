@@ -6,6 +6,9 @@ export interface DateFilterValue {
   readonly month: number;
 }
 
+/** First calendar year with recorded outage data (data collection started July 2026). */
+export const FIRST_DATA_YEAR = 2026;
+
 const ALL_MONTHS = [
   { value: 1, label: 'Enero' },
   { value: 2, label: 'Febrero' },
@@ -38,7 +41,11 @@ export class DateFilterComponent {
   private readonly currentYear = this.now.getFullYear();
   private readonly currentMonth = this.now.getMonth() + 1;
 
-  protected readonly years = [this.currentYear];
+  // Descending so the current year appears first.
+  protected readonly years = Array.from(
+    { length: Math.max(1, this.currentYear - FIRST_DATA_YEAR + 1) },
+    (_, i) => this.currentYear - i,
+  );
   protected readonly months = ALL_MONTHS.filter(m => m.value <= this.currentMonth);
 
   constructor() {

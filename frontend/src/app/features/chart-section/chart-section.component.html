@@ -2,6 +2,9 @@
   <span class="mb-4 inline-block rounded-full bg-amber-100 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-amber-700">Los datos</span>
   <h2 class="mx-auto mb-5 max-w-2xl text-4xl font-extrabold leading-tight text-gray-900">Los distritos que más sufren los cortes de luz</h2>
   <p class="mx-auto max-w-xl text-lg leading-relaxed text-gray-500">Datos reales de Endesa del año en curso. Selecciona los distritos arriba del gráfico para compararlos mes a mes.</p>
+  <div class="mt-5 flex justify-center">
+    <app-share-button />
+  </div>
 </div>
 
 <details class="group mb-10 rounded-2xl border border-gray-100 bg-gray-50/50 open:bg-white">
@@ -21,9 +24,22 @@
 </details>
 
 <div class="mb-14">
-  @defer (on viewport) {
-        <app-chart [districts]="districts()" [outages]="yearlyOutages()" />
-  } @placeholder {
-    <div class="h-80 rounded-3xl border border-gray-100 bg-gradient-to-br from-gray-50 to-white sm:h-96"></div>
+  @if (api.yearlyError()) {
+    <div class="flex h-80 flex-col items-center justify-center rounded-3xl border border-red-100 bg-red-50 px-8 text-center sm:h-96">
+      <p class="mb-4 text-lg text-red-700">No hemos podido cargar los datos. Inténtalo de nuevo.</p>
+      <button type="button"
+        class="cursor-pointer rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-500"
+        (click)="api.loadYearlyOutages()">
+        Reintentar
+      </button>
+    </div>
+  } @else if (api.yearlyLoading() && yearlyOutages().length === 0) {
+    <div class="motion-safe:animate-pulse h-80 rounded-3xl border border-gray-100 bg-gray-100 sm:h-96" aria-hidden="true"></div>
+  } @else {
+    @defer (on viewport) {
+      <app-chart [districts]="districts()" [outages]="yearlyOutages()" />
+    } @placeholder {
+      <div class="h-80 rounded-3xl border border-gray-100 bg-gradient-to-br from-gray-50 to-white sm:h-96"></div>
+    }
   }
 </div>

@@ -11,15 +11,19 @@
     }
   </select>
 
-  <label class="sr-only" for="year-select">Año</label>
-  <select
-    id="year-select"
-    class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
-    [(ngModel)]="year"
-    (change)="onYearChange()"
-  >
-    @for (year of years; track year) {
-      <option [ngValue]="year">{{ year }}</option>
-    }
-  </select>
+  @if (years.length > 1) {
+    <label class="sr-only" for="year-select">Año</label>
+    <select
+      id="year-select"
+      class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
+      [(ngModel)]="year"
+      (change)="onYearChange()"
+    >
+      @for (year of years; track year) {
+        <option [ngValue]="year">{{ year }}</option>
+      }
+    </select>
+  } @else {
+    <span class="rounded-lg border border-transparent bg-gray-100 px-3 py-2 text-sm font-semibold text-gray-600">{{ years[0] }}</span>
+  }
 </div>

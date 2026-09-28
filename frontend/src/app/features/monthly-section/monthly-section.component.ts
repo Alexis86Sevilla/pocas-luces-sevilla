@@ -1,12 +1,13 @@
-import { Component, computed, input, output } from '@angular/core';
+import { Component, computed, inject, input, output } from '@angular/core';
 import { DateFilterComponent, type DateFilterValue } from './date-filter/date-filter.component';
 import { OutageCardComponent } from './outage-card/outage-card.component';
+import { ShareButtonComponent } from '../share-button/share-button.component';
 import type { District } from '../../core/models';
-import type { EnelOutage } from '../../core/services/api-outage.service';
+import { ApiOutageService, type EnelOutage } from '../../core/services/api-outage.service';
 
 @Component({
   selector: 'app-monthly-section',
-  imports: [DateFilterComponent, OutageCardComponent],
+  imports: [DateFilterComponent, OutageCardComponent, ShareButtonComponent],
   templateUrl: './monthly-section.component.html',
 })
 export class MonthlySectionComponent {
@@ -16,6 +17,11 @@ export class MonthlySectionComponent {
   readonly selectedYear = input.required<number>();
 
   readonly filterChange = output<DateFilterValue>();
+
+  protected readonly api = inject(ApiOutageService);
+
+  /** Placeholder rows for the loading skeleton (count only, values are unused). */
+  protected readonly skeletonRows = [0, 1, 2, 3] as const;
 
   private readonly byDistrict = computed(() => {
     const map = new Map<string, EnelOutage[]>();
@@ -32,6 +38,10 @@ export class MonthlySectionComponent {
 
   protected outagesFor(id: string): EnelOutage[] {
     return this.byDistrict().get(id) ?? [];
+  }
+
+  protected retry(): void {
+    this.api.loadMonthlyOutages(this.selectedYear(), this.selectedMonth());
   }
 
   private districtId(name: string): string {

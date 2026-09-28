@@ -25,7 +25,16 @@
     }
   </div>
 
-  @if (testimonials().length === 0) {
+  @if (error()) {
+    <div class="rounded-xl bg-red-50 p-6 text-center shadow-sm">
+      <p class="mb-3 text-red-700">No hemos podido cargar los testimonios. Inténtalo de nuevo.</p>
+      <button type="button"
+        class="cursor-pointer rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-500"
+        (click)="loadTestimonials()">
+        Reintentar
+      </button>
+    </div>
+  } @else if (testimonials().length === 0) {
     <p class="rounded-xl bg-white p-6 text-center text-gray-600 shadow-sm">
       Aún no hay testimonios disponibles.
     </p>

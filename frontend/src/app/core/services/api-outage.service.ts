@@ -1,6 +1,5 @@
 import { HttpClient } from '@angular/common/http';
 import { computed, Injectable, signal } from '@angular/core';
-import { finalize } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
 import type { District, DistrictStats } from '../models';
@@ -14,8 +13,15 @@ export interface EnelOutage {
   repositionDate: string;
   neighborhoodName: string | null;
   districtName: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  /** Endesa's own cause text (des_cause_es), e.g. "Avería" or "Trabajos programados". */
+  cause?: string | null;
   fetchedAt: string;
 }
+
+/** Per-resource request lifecycle, used to drive loading skeletons and error states. */
+export type LoadStatus = 'idle' | 'loading' | 'success' | 'error';
 
 @Injectable({ providedIn: 'root' })
 export class ApiOutageService {
@@ -42,8 +48,23 @@ export class ApiOutageService {
   readonly selectedYear = this._selectedYear.asReadonly();
   readonly selectedMonth = this._selectedMonth.asReadonly();
 
-  private readonly _activeRequests = signal(0);
-  readonly loading = computed(() => this._activeRequests() > 0);
+  // Per-resource request status, so each section can show its own loading skeleton
+  // or error state instead of sharing one global flag.
+  private readonly _yearlyStatus = signal<LoadStatus>('idle');
+  private readonly _monthlyStatus = signal<LoadStatus>('idle');
+  private readonly _liveStatus = signal<LoadStatus>('idle');
+
+  readonly yearlyStatus = this._yearlyStatus.asReadonly();
+  readonly monthlyStatus = this._monthlyStatus.asReadonly();
+  readonly liveStatus = this._liveStatus.asReadonly();
+
+  readonly yearlyLoading = computed(() => this._yearlyStatus() === 'loading');
+  readonly monthlyLoading = computed(() => this._monthlyStatus() === 'loading');
+  readonly liveLoading = computed(() => this._liveStatus() === 'loading');
+
+  readonly yearlyError = computed(() => this._yearlyStatus() === 'error');
+  readonly monthlyError = computed(() => this._monthlyStatus() === 'error');
+  readonly liveError = computed(() => this._liveStatus() === 'error');
 
   // Derive districts from yearly data using a stable id derived from the name.
   readonly derivedDistricts = computed((): readonly District[] => {
@@ -68,11 +89,16 @@ export class ApiOutageService {
   // ── Yearly (for chart) ──
   loadYearlyOutages(year?: number): void {
     const y = year ?? this._selectedYear();
-    this.trackRequest(
-      this.http.get<EnelOutage[]>(`${this.apiUrl}/outages/yearly?year=${y}`)
-    ).subscribe({
-      next: data => this._yearlyOutages.set(data),
-      error: err => this.errorLog.log('API Yearly', err),
+    this._yearlyStatus.set('loading');
+    this.http.get<EnelOutage[]>(`${this.apiUrl}/outages/yearly?year=${y}`).subscribe({
+      next: data => {
+        this._yearlyOutages.set(data);
+        this._yearlyStatus.set('success');
+      },
+      error: err => {
+        this._yearlyStatus.set('error');
+        this.errorLog.log('API Yearly', err);
+      },
     });
   }
 
@@ -80,38 +106,41 @@ export class ApiOutageService {
   loadMonthlyOutages(year?: number, month?: number): void {
     const y = year ?? this._selectedYear();
     const m = month ?? this._selectedMonth();
-    this.trackRequest(
-      this.http.get<EnelOutage[]>(`${this.apiUrl}/outages/monthly?year=${y}&month=${m}`)
-    ).subscribe({
-      next: data => this._monthlyOutages.set(data),
-      error: err => this.errorLog.log('API Monthly', err),
+    this._monthlyStatus.set('loading');
+    this.http.get<EnelOutage[]>(`${this.apiUrl}/outages/monthly?year=${y}&month=${m}`).subscribe({
+      next: data => {
+        this._monthlyOutages.set(data);
+        this._monthlyStatus.set('success');
+      },
+      error: err => {
+        this._monthlyStatus.set('error');
+        this.errorLog.log('API Monthly', err);
+      },
     });
   }
 
   // ── Live ──
   loadLiveOutages(): void {
-    this.trackRequest(
-      this.http.get<EnelOutage[]>(`${this.apiUrl}/outages/live`)
-    ).subscribe({
-      next: data => this._liveOutages.set(data),
-      error: err => this.errorLog.log('API Live', err),
+    this._liveStatus.set('loading');
+    this.http.get<EnelOutage[]>(`${this.apiUrl}/outages/live`).subscribe({
+      next: data => {
+        this._liveOutages.set(data);
+        this._liveStatus.set('success');
+      },
+      error: err => {
+        this._liveStatus.set('error');
+        this.errorLog.log('API Live', err);
+      },
     });
   }
 
   // ── District statistics ──
   loadDistrictStats(year?: number): void {
     const y = year ?? this._selectedYear();
-    this.trackRequest(
-      this.http.get<DistrictStats[]>(`${this.apiUrl}/stats?year=${y}`)
-    ).subscribe({
+    this.http.get<DistrictStats[]>(`${this.apiUrl}/stats?year=${y}`).subscribe({
       next: data => this._districtStats.set(data),
       error: err => this.errorLog.log('API Stats', err),
     });
-  }
-
-  private trackRequest<T>(request: import('rxjs').Observable<T>) {
-    this._activeRequests.update(count => count + 1);
-    return request.pipe(finalize(() => this._activeRequests.update(count => count - 1)));
   }
 
   setMonthFilter(year: number, month: number): void {
@@ -123,7 +152,11 @@ export class ApiOutageService {
   private deduplicate(outages: readonly EnelOutage[]): EnelOutage[] {
     const map = new Map<string, EnelOutage>();
     for (const outage of outages) {
-      const key = `${outage.neighborhoodName ?? 'Zona no identificada'}|${outage.interruptionDate}|${outage.serviceType ?? 'UNKNOWN'}`;
+      // Mirrors the backend identity key: location + start time + service type.
+      const location = outage.latitude != null && outage.longitude != null
+        ? `${outage.latitude},${outage.longitude}`
+        : outage.neighborhoodName ?? 'Zona no identificada';
+      const key = `${location}|${outage.interruptionDate}|${outage.serviceType ?? 'UNKNOWN'}`;
       const existing = map.get(key);
       if (!existing || new Date(outage.fetchedAt).getTime() > new Date(existing.fetchedAt).getTime()) {
         map.set(key, outage);
@@ -135,7 +168,7 @@ export class ApiOutageService {
   private districtId(name: string): string {
     return name
       .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[̀-ͯ]/g, '')
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '');
