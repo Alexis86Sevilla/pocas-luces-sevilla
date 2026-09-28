@@ -1,6 +1,7 @@
 import {
   afterNextRender,
   Component,
+  computed,
   effect,
   ElementRef,
   input,
@@ -26,11 +27,17 @@ import type { EnelOutage } from '../../../core/services/api-outage.service';
 import { parseMadridDate } from '../../../core/utils/madrid-date';
 
 const MONTHS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+// '#1f2937' replaces the original '#808080' (gray), which had low contrast on the light card background.
 const COLORS = [
   '#e6194b', '#3cb44b', '#4363d8', '#f58231',
   '#911eb4', '#42d4f4', '#f032e6', '#469990',
-  '#9a6324', '#800000', '#000075', '#808080',
+  '#9a6324', '#800000', '#000075', '#1f2937',
 ];
+
+export interface MonthlyTableRow {
+  readonly month: string;
+  readonly counts: readonly number[];
+}
 
 @Component({
   selector: 'app-chart',
@@ -46,6 +53,20 @@ export class ChartComponent {
 
   protected readonly selectedIds = signal<Set<string>>(new Set());
 
+  // Accessible alternative to the canvas chart: the same monthly counts as a table.
+  protected readonly selectedDistricts = computed(() =>
+    this.districts().filter(d => this.selectedIds().has(d.id))
+  );
+
+  protected readonly tableRows = computed((): readonly MonthlyTableRow[] => {
+    const districts = this.selectedDistricts();
+    const outages = this.outages();
+    return MONTHS.map((month, monthIdx) => ({
+      month,
+      counts: districts.map(d => this.monthlyCount(outages, d, monthIdx)),
+    }));
+  });
+
   constructor() {
     afterNextRender(() => {
       const first = this.districts()[0];
@@ -53,6 +74,8 @@ export class ChartComponent {
       this.initChart();
     });
 
+    // Single re-render path: this effect reacts to both outages() and selectedIds(),
+    // so toggleDistrict() must not call updateChart() itself (that caused a double render).
     effect(() => {
       this.outages();
       this.selectedIds();
@@ -67,7 +90,10 @@ export class ChartComponent {
       else next.add(id);
       return next;
     });
-    this.updateChart();
+  }
+
+  protected isSelected(id: string): boolean {
+    return this.selectedIds().has(id);
   }
 
   private initChart(): void {
@@ -75,6 +101,12 @@ export class ChartComponent {
     if (!canvas) return;
     this.chart = new Chart(canvas, { type: 'line', data: { labels: MONTHS, datasets: [] }, options: this.options() });
     this.updateChart();
+  }
+
+  private monthlyCount(outages: readonly EnelOutage[], district: District, monthIdx: number): number {
+    return outages.filter(o =>
+      o.districtName === district.name && parseMadridDate(o.interruptionDate).getMonth() === monthIdx
+    ).length;
   }
 
   private updateChart(): void {
@@ -87,9 +119,7 @@ export class ChartComponent {
       .filter(d => selected.has(d.id))
       .map(d => {
         const globalIndex = districts.indexOf(d);
-        const monthlyCounts = MONTHS.map((_, monthIdx) =>
-          outages.filter(o => o.districtName === d.name && parseMadridDate(o.interruptionDate).getMonth() === monthIdx).length
-        );
+        const monthlyCounts = MONTHS.map((_, monthIdx) => this.monthlyCount(outages, d, monthIdx));
         const color = COLORS[globalIndex % COLORS.length];
         return {
           label: d.name, data: monthlyCounts, borderColor: color,

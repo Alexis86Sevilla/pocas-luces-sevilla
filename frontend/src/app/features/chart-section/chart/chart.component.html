@@ -4,18 +4,48 @@
     @for (district of districts(); track district.id) {
       <button type="button"
         class="cursor-pointer rounded-full border px-3.5 py-1.5 text-sm font-semibold transition-all"
-        [class.border-gray-200]="!selectedIds().has(district.id)"
-        [class.bg-white]="!selectedIds().has(district.id)"
-        [class.text-gray-400]="!selectedIds().has(district.id)"
-        [class.border-transparent]="selectedIds().has(district.id)"
-        [class.bg-gray-900]="selectedIds().has(district.id)"
-        [class.text-white]="selectedIds().has(district.id)"
+        [class.border-gray-200]="!isSelected(district.id)"
+        [class.bg-white]="!isSelected(district.id)"
+        [class.text-gray-400]="!isSelected(district.id)"
+        [class.border-transparent]="isSelected(district.id)"
+        [class.bg-gray-900]="isSelected(district.id)"
+        [class.text-white]="isSelected(district.id)"
+        [attr.aria-pressed]="isSelected(district.id)"
         (click)="toggleDistrict(district.id)">
         {{ district.name }}
       </button>
     }
   </div>
   <div class="relative h-80 w-full sm:h-96">
-    <canvas #chartCanvas></canvas>
+    <canvas #chartCanvas role="img" aria-label="Gráfico de líneas con el número de cortes mensuales por distrito seleccionado. Los datos exactos están disponibles en la tabla de abajo."></canvas>
   </div>
+
+  <details class="group mt-6 rounded-xl border border-gray-100 bg-white">
+    <summary class="cursor-pointer select-none px-4 py-3 text-sm font-semibold text-gray-600 outline-none hover:text-gray-900">
+      Ver datos en tabla
+    </summary>
+    <div class="overflow-x-auto px-4 pb-4">
+      <table class="w-full min-w-[420px] border-collapse text-left text-sm">
+        <caption class="sr-only">Número de cortes por mes y distrito seleccionado</caption>
+        <thead>
+          <tr class="border-b border-gray-200 text-gray-500">
+            <th scope="col" class="py-2 pr-3 font-semibold">Mes</th>
+            @for (district of selectedDistricts(); track district.id) {
+              <th scope="col" class="py-2 pr-3 font-semibold">{{ district.name }}</th>
+            }
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of tableRows(); track row.month) {
+            <tr class="border-b border-gray-100 last:border-0">
+              <th scope="row" class="py-1.5 pr-3 font-medium text-gray-700">{{ row.month }}</th>
+              @for (count of row.counts; track $index) {
+                <td class="py-1.5 pr-3 text-gray-600">{{ count }}</td>
+              }
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </details>
 </div>
