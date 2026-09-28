@@ -3,8 +3,6 @@ package com.pocasluces.backend.dto;
 import com.pocasluces.backend.entity.EnelOutage;
 
 import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 
 public record OutageExportDto(
@@ -21,11 +19,11 @@ public record OutageExportDto(
     String sourceUrl,
     String rawResponseHash,
     String firstSeenAt,
-    String fetchedAt
+    String fetchedAt,
+    String cause
 ) {
 
     private static final DateTimeFormatter ISO = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
-    private static final ZoneId MADRID = ZoneId.of("Europe/Madrid");
 
     public static OutageExportDto from(EnelOutage o) {
         return new OutageExportDto(
@@ -34,34 +32,33 @@ public record OutageExportDto(
             o.getNeighborhoodName(),
             o.getDistrictName(),
             o.getServiceType(),
-            toMadridWallClock(o.getInterruptionDate()),
-            toMadridWallClock(o.getRepositionDate()),
+            formatWallClock(o.getInterruptionDate()),
+            formatWallClock(o.getRepositionDate()),
             o.getAffectedClients(),
             o.getLatitude(),
             o.getLongitude(),
             o.getSourceUrl(),
             o.getRawResponseHash(),
-            toMadridWallClock(o.getFirstSeenAt()),
-            toMadridWallClock(o.getFetchedAt())
+            formatWallClock(o.getFirstSeenAt()),
+            formatWallClock(o.getFetchedAt()),
+            o.getCause()
         );
     }
 
     /**
-     * The repository stores UTC-equivalent instants in LocalDateTime columns
-     * (due to Timestamp.valueOf → JDBC timezone conversion). Convert to
-     * Europe/Madrid wall-clock so the CSV shows the times people expect.
+     * The repository stores Europe/Madrid wall-clock values as-is (the app's Clock bean
+     * is fixed to Europe/Madrid and the Endesa feed's own dates are already Madrid local
+     * time). No timezone conversion is needed or correct here: just format the stored
+     * value verbatim so the CSV shows exactly the time that was recorded.
      */
-    private static String toMadridWallClock(LocalDateTime dateTime) {
+    private static String formatWallClock(LocalDateTime dateTime) {
         if (dateTime == null) return "";
-        return dateTime.atOffset(ZoneOffset.UTC)
-            .atZoneSameInstant(MADRID)
-            .toLocalDateTime()
-            .format(ISO);
+        return dateTime.format(ISO);
     }
 
     public static String header() {
         return "id,objectId,neighborhoodName,districtName,serviceType,interruptionDate,repositionDate," +
-               "affectedClients,latitude,longitude,sourceUrl,rawResponseHash,firstSeenAt,fetchedAt";
+               "affectedClients,latitude,longitude,sourceUrl,rawResponseHash,firstSeenAt,fetchedAt,cause";
     }
 
     public String toCsvRow() {
@@ -79,7 +76,8 @@ public record OutageExportDto(
             csv(sourceUrl),
             csv(rawResponseHash),
             csv(firstSeenAt),
-            csv(fetchedAt)
+            csv(fetchedAt),
+            csv(cause)
         );
     }
 

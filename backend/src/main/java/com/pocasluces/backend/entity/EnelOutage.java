@@ -16,7 +16,11 @@ import java.util.Objects;
         @Index(name = "idx_enel_outage_fetched_at", columnList = "fetched_at")
     },
     uniqueConstraints = {
-        @UniqueConstraint(name = "uk_enel_outage_natural_key", columnNames = {"neighborhood_name", "interruption_date", "service_type"})
+        // Identity is based on where and when the outage happened, not on our own
+        // neighborhood inference (derived from these same coordinates) and not on
+        // Endesa's objectId (not stable across layer republishes; abandoned as an
+        // identity source in July 2026, see commit 3de153d).
+        @UniqueConstraint(name = "uk_enel_outage_location_key", columnNames = {"latitude", "longitude", "interruption_date", "service_type"})
     }
 )
 @Getter
@@ -33,7 +37,10 @@ public class EnelOutage {
     @Column(name = "object_id", nullable = false, length = 50)
     private String objectId;
 
+    @Column(nullable = false)
     private Double latitude;
+
+    @Column(nullable = false)
     private Double longitude;
 
     @Column(name = "affected_clients")
@@ -53,6 +60,10 @@ public class EnelOutage {
 
     @Column(name = "district_name", length = 100)
     private String districtName;
+
+    /** Endesa's own cause label (feed field {@code des_cause_es}), e.g. "Avería" or "Trabajos programados". */
+    @Column(name = "cause", length = 255)
+    private String cause;
 
     @Column(name = "source_url", length = 500)
     private String sourceUrl;
@@ -83,13 +94,14 @@ public class EnelOutage {
     public boolean equals(Object o) {
         if (this == o) return true;
         if (!(o instanceof EnelOutage that)) return false;
-        return Objects.equals(neighborhoodName, that.neighborhoodName)
+        return Objects.equals(latitude, that.latitude)
+            && Objects.equals(longitude, that.longitude)
             && Objects.equals(interruptionDate, that.interruptionDate)
             && Objects.equals(serviceType, that.serviceType);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(neighborhoodName, interruptionDate, serviceType);
+        return Objects.hash(latitude, longitude, interruptionDate, serviceType);
     }
 }

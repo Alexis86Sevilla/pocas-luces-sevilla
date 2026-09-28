@@ -1,6 +1,9 @@
 package com.pocasluces.backend.dto;
 
+import com.pocasluces.backend.entity.EnelOutage;
 import org.junit.jupiter.api.Test;
+
+import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -42,7 +45,7 @@ class OutageExportDtoTest {
             -5L, "obj-1", "San Pablo", "San Pablo-Santa Justa", "GB",
             "2026-07-10T08:30:00", "2026-07-10T09:00:00",
             -3, -5.960205, -37.394512,
-            "http://source", "hash", "2026-07-10T08:00:00", "2026-07-10T08:00:00"
+            "http://source", "hash", "2026-07-10T08:00:00", "2026-07-10T08:00:00", "Avería"
         );
 
         String row = dto.toCsvRow();
@@ -55,7 +58,40 @@ class OutageExportDtoTest {
     void headerShouldListAllColumns() {
         assertThat(OutageExportDto.header())
             .isEqualTo("id,objectId,neighborhoodName,districtName,serviceType,interruptionDate,repositionDate," +
-                "affectedClients,latitude,longitude,sourceUrl,rawResponseHash,firstSeenAt,fetchedAt");
+                "affectedClients,latitude,longitude,sourceUrl,rawResponseHash,firstSeenAt,fetchedAt,cause");
+    }
+
+    @Test
+    void fromShouldNotShiftStoredWallClockTimes() {
+        LocalDateTime interruption = LocalDateTime.of(2026, 9, 28, 15, 38, 0);
+        LocalDateTime reposition = LocalDateTime.of(2026, 9, 28, 18, 0, 0);
+        LocalDateTime firstSeen = LocalDateTime.of(2026, 9, 28, 15, 40, 0);
+        LocalDateTime fetchedAt = LocalDateTime.of(2026, 9, 28, 15, 40, 0);
+
+        EnelOutage outage = EnelOutage.builder()
+            .id(1L)
+            .objectId("obj-1")
+            .neighborhoodName("San Pablo")
+            .districtName("San Pablo-Santa Justa")
+            .serviceType("GB")
+            .latitude(37.394512)
+            .longitude(-5.960205)
+            .interruptionDate(interruption)
+            .repositionDate(reposition)
+            .firstSeenAt(firstSeen)
+            .fetchedAt(fetchedAt)
+            .cause("Avería")
+            .build();
+
+        OutageExportDto dto = OutageExportDto.from(outage);
+
+        // Endesa's raw "28/09/2026 15:38" is stored and must be exported unchanged,
+        // not shifted by +2h as if the stored value were UTC.
+        assertThat(dto.interruptionDate()).isEqualTo("2026-09-28T15:38:00");
+        assertThat(dto.repositionDate()).isEqualTo("2026-09-28T18:00:00");
+        assertThat(dto.firstSeenAt()).isEqualTo("2026-09-28T15:40:00");
+        assertThat(dto.fetchedAt()).isEqualTo("2026-09-28T15:40:00");
+        assertThat(dto.cause()).isEqualTo("Avería");
     }
 
     private OutageExportDto dto(String objectId, String neighborhoodName, String serviceType) {
@@ -63,7 +99,7 @@ class OutageExportDtoTest {
             1L, objectId, neighborhoodName, "San Pablo-Santa Justa", serviceType,
             "2026-07-10T08:30:00", "2026-07-10T09:00:00",
             10, 37.394512, -5.960205,
-            "http://source", "hash", "2026-07-10T08:00:00", "2026-07-10T08:00:00"
+            "http://source", "hash", "2026-07-10T08:00:00", "2026-07-10T08:00:00", "Avería"
         );
     }
 }

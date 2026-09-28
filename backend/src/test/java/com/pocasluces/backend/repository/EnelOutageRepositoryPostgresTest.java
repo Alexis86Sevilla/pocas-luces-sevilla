@@ -117,6 +117,29 @@ class EnelOutageRepositoryPostgresTest {
         assertThat(result.get(0).getInterruptionDate()).isEqualTo(LocalDateTime.of(2026, 7, 10, 8, 30));
     }
 
+    @Test
+    void shouldTreatDifferentCoordinatesAsDistinctOutagesEvenWithSameNeighborhoodAndStart() {
+        LocalDateTime start = LocalDateTime.of(2026, 7, 10, 8, 30);
+
+        EnelOutage first = outage("1", start);
+        first.setLatitude(37.3970);
+        first.setLongitude(-5.9800);
+        first.setAffectedClients(50);
+
+        EnelOutage second = outage("2", start);
+        second.setLatitude(37.4000);
+        second.setLongitude(-5.9850);
+        second.setAffectedClients(120);
+
+        repository.upsert(first);
+        repository.upsert(second);
+
+        assertThat(repository.count()).isEqualTo(2);
+        assertThat(repository.findAll())
+            .extracting(EnelOutage::getAffectedClients)
+            .containsExactlyInAnyOrder(50, 120);
+    }
+
     private EnelOutage outage(String objectId, LocalDateTime interruptionDate) {
         LocalDateTime now = LocalDateTime.now();
         return EnelOutage.builder()
@@ -124,6 +147,8 @@ class EnelOutageRepositoryPostgresTest {
             .interruptionDate(interruptionDate)
             .serviceType("GB")
             .neighborhoodName("San Pablo")
+            .latitude(0.0)
+            .longitude(0.0)
             .fetchedAt(now)
             .firstSeenAt(now)
             .createdAt(now)

@@ -44,8 +44,9 @@ public class EnelOutageRepositoryImpl implements EnelOutageRepositoryCustom {
         // H2 does not support ON CONFLICT DO UPDATE in all versions used by tests.
         // For H2 we fall back to a JPA read-then-write within the same transaction.
         // Production PostgreSQL uses the truly atomic ON CONFLICT upsert below.
-        EnelOutage existing = findByNaturalKey(
-            outage.getNeighborhoodName(),
+        EnelOutage existing = findByLocationKey(
+            outage.getLatitude(),
+            outage.getLongitude(),
             outage.getInterruptionDate(),
             outage.getServiceType());
 
@@ -61,6 +62,7 @@ public class EnelOutageRepositoryImpl implements EnelOutageRepositoryCustom {
         existing.setRepositionDate(outage.getRepositionDate());
         existing.setNeighborhoodName(outage.getNeighborhoodName());
         existing.setDistrictName(outage.getDistrictName());
+        existing.setCause(outage.getCause());
         existing.setSourceUrl(outage.getSourceUrl());
         existing.setRawResponseHash(outage.getRawResponseHash());
         existing.setRawResponse(outage.getRawResponse());
@@ -71,15 +73,17 @@ public class EnelOutageRepositoryImpl implements EnelOutageRepositoryCustom {
         return 1;
     }
 
-    private EnelOutage findByNaturalKey(String neighborhoodName, LocalDateTime interruptionDate, String serviceType) {
+    private EnelOutage findByLocationKey(Double latitude, Double longitude, LocalDateTime interruptionDate, String serviceType) {
         var query = entityManager.createQuery(
             """
                 SELECT o FROM EnelOutage o
-                WHERE o.neighborhoodName = :neighborhoodName
+                WHERE o.latitude = :latitude
+                AND o.longitude = :longitude
                 AND o.interruptionDate = :interruptionDate
                 AND o.serviceType = :serviceType
                 """, EnelOutage.class);
-        query.setParameter("neighborhoodName", neighborhoodName);
+        query.setParameter("latitude", latitude);
+        query.setParameter("longitude", longitude);
         query.setParameter("interruptionDate", interruptionDate);
         query.setParameter("serviceType", serviceType);
         return query.getResultStream().findFirst().orElse(null);
@@ -89,22 +93,21 @@ public class EnelOutageRepositoryImpl implements EnelOutageRepositoryCustom {
         String sql = """
             INSERT INTO enel_outages (
                 object_id, latitude, longitude, affected_clients, service_type,
-                interruption_date, reposition_date, neighborhood_name, district_name, source_url,
+                interruption_date, reposition_date, neighborhood_name, district_name, cause, source_url,
                 raw_response_hash, raw_response, first_seen_at, fetched_at, created_at, updated_at, active
             ) VALUES (
                 :objectId, :latitude, :longitude, :affectedClients, :serviceType,
-                :interruptionDate, :repositionDate, :neighborhoodName, :districtName, :sourceUrl,
+                :interruptionDate, :repositionDate, :neighborhoodName, :districtName, :cause, :sourceUrl,
                 :rawResponseHash, :rawResponse, :firstSeenAt, :fetchedAt, :createdAt, :updatedAt, :active
             )
-            ON CONFLICT (neighborhood_name, interruption_date, service_type)
+            ON CONFLICT (latitude, longitude, interruption_date, service_type)
             DO UPDATE SET
                 object_id = EXCLUDED.object_id,
-                latitude = EXCLUDED.latitude,
-                longitude = EXCLUDED.longitude,
                 affected_clients = EXCLUDED.affected_clients,
                 reposition_date = EXCLUDED.reposition_date,
                 neighborhood_name = EXCLUDED.neighborhood_name,
                 district_name = EXCLUDED.district_name,
+                cause = EXCLUDED.cause,
                 source_url = EXCLUDED.source_url,
                 raw_response_hash = EXCLUDED.raw_response_hash,
                 raw_response = EXCLUDED.raw_response,
@@ -126,6 +129,7 @@ public class EnelOutageRepositoryImpl implements EnelOutageRepositoryCustom {
         params.put("repositionDate", toTimestamp(outage.getRepositionDate()));
         params.put("neighborhoodName", outage.getNeighborhoodName());
         params.put("districtName", outage.getDistrictName());
+        params.put("cause", outage.getCause());
         params.put("sourceUrl", outage.getSourceUrl());
         params.put("rawResponseHash", outage.getRawResponseHash());
         params.put("rawResponse", outage.getRawResponse());
@@ -141,7 +145,7 @@ public class EnelOutageRepositoryImpl implements EnelOutageRepositoryCustom {
     public List<EnelOutage> findCurrentlyActive(LocalDateTime now, LocalDateTime since) {
         String sql = """
             SELECT id, object_id, latitude, longitude, affected_clients, service_type,
-                   interruption_date, reposition_date, neighborhood_name, district_name, source_url,
+                   interruption_date, reposition_date, neighborhood_name, district_name, cause, source_url,
                    raw_response_hash, raw_response, first_seen_at, fetched_at, created_at, updated_at, active
             FROM enel_outages
             WHERE active = true
@@ -165,6 +169,7 @@ public class EnelOutageRepositoryImpl implements EnelOutageRepositoryCustom {
         o.setRepositionDate(toLocalDateTime(rs.getTimestamp("reposition_date")));
         o.setNeighborhoodName(rs.getString("neighborhood_name"));
         o.setDistrictName(rs.getString("district_name"));
+        o.setCause(rs.getString("cause"));
         o.setSourceUrl(rs.getString("source_url"));
         o.setRawResponseHash(rs.getString("raw_response_hash"));
         o.setRawResponse(rs.getString("raw_response"));
