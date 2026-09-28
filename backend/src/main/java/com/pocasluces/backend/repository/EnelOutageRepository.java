@@ -17,10 +17,22 @@ import org.springframework.transaction.annotation.Transactional;
 
 public interface EnelOutageRepository extends JpaRepository<EnelOutage, Long>, EnelOutageRepositoryCustom {
 
+    /**
+     * Marks as resolved every outage that is still flagged active but whose fetchedAt
+     * predates {@code now}, i.e. it was not touched by the current fetch run (the run's
+     * own upserts set fetchedAt = now, so they are excluded by the strict {@code <}).
+     * A reappearing outage is re-opened by the ordinary upsert (which clears resolvedAt),
+     * not by this method.
+     *
+     * @return the number of rows resolved
+     */
     @Modifying
     @Transactional
-    @Query("UPDATE EnelOutage o SET o.active = false")
-    void setAllInactive();
+    // resolvedAt = last poll in which Endesa still published the outage: a conservative
+    // lower bound that never inflates durations, even after gaps in our own polling.
+    @Query("UPDATE EnelOutage o SET o.active = false, o.resolvedAt = o.fetchedAt " +
+           "WHERE o.active = true AND o.fetchedAt < :now")
+    int resolveStaleActiveOutages(@Param("now") LocalDateTime now);
 
     @Modifying
     @Transactional

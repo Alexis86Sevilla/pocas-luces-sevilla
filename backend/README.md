@@ -76,9 +76,9 @@ If `ADMIN_API_KEY` is not configured, protected endpoints always return `403`.
 
 ## Scheduling
 
-`OutageDataScheduler` fetches data from Endesa every 5 minutes (fixed delay) and upserts records by the natural key `(neighborhood_name, interruption_date, service_type)`.
+`OutageDataScheduler` fetches data from Endesa every 5 minutes (fixed delay) and upserts records by the location key `(latitude, longitude, interruption_date, service_type)`.
 
-On each run all stored outages are marked inactive and the ones returned by Endesa are reactivated, so an outage no longer reported is treated as resolved. The live endpoint returns active outages fetched within the last 6 hours.
+On each run, every outage returned by Endesa is upserted as active with `resolved_at` cleared (an outage found again is re-opened). After that, any outage still marked active whose `fetched_at` predates this run is marked resolved: `active = false` and `resolved_at` set to its `fetched_at`, i.e. the last poll in which Endesa still published it. This is a conservative lower bound of the real end: it never inflates durations, even if our own polling had gaps — see [Data source](#data-source) below. A fetch that returns zero outages resolves every currently active one and is logged as a warning (an outage-free Sevilla is plausible, so it is applied, not skipped, but it is worth flagging). A failed fetch changes nothing: no upsert and no resolution happen for that run. The live endpoint returns active outages fetched within the last 6 hours.
 
 Each outage is assigned a district using the official district polygons in `src/main/resources/geojson/distritos-sevilla.json`. Outages created before the district column existed are backfilled at startup by `DistrictBackfillRunner` (non-dev profiles).
 
@@ -107,9 +107,16 @@ every 5 minutes for outages in Sevilla municipality.
 
 What is verified vs. approximate:
 
-- **Interruption/reposition times** are Endesa's own estimates, as reported by the
-  distributor — not independently verified, and reposition times in particular are
-  estimates that can change between polls.
+- **Interruption time (`interruptionDate`)** is Endesa's own reported start time, taken
+  verbatim.
+- **Reposition time (`repositionDate`)** is Endesa's own *estimate* of when supply will
+  be restored, reported while the outage is ongoing. It can change between polls and is
+  not the real end of the outage.
+- **Resolved time (`resolvedAt`)** is the last poll in which the outage was still
+  published (see Scheduling above), i.e. an *observed* end, not an estimate. Durations
+  derived from it are a minimum: the real end happened up to one polling interval
+  (~5 minutes) later, or more if our own polling had a gap, never earlier. It is NULL
+  while an outage is active. Historical rows were backfilled the same way by V5.
 - **Neighborhood (`neighborhoodName`)** is our own approximation, inferred from the
   outage's coordinates against a neighborhood boundary dataset. It is not provided by
   Endesa and can be wrong near boundaries or when the feed omits coordinates.
@@ -135,3 +142,7 @@ serviceType)`.
   practice).
 - `V4__add_cause.sql`: adds the nullable `cause` column populated from Endesa's
   `des_cause_es` field.
+- `V5__add_resolved_at.sql`: adds the nullable `resolved_at` column described above.
+  Backfills it for rows that were already inactive before this migration, using
+  `fetched_at` (their last-seen time) as the best available proxy for when they were
+  resolved.

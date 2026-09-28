@@ -45,7 +45,7 @@ class OutageExportDtoTest {
             -5L, "obj-1", "San Pablo", "San Pablo-Santa Justa", "GB",
             "2026-07-10T08:30:00", "2026-07-10T09:00:00",
             -3, -5.960205, -37.394512,
-            "http://source", "hash", "2026-07-10T08:00:00", "2026-07-10T08:00:00", "Avería"
+            "http://source", "hash", "2026-07-10T08:00:00", "2026-07-10T08:00:00", "Avería", "2026-07-10T09:05:00"
         );
 
         String row = dto.toCsvRow();
@@ -58,7 +58,7 @@ class OutageExportDtoTest {
     void headerShouldListAllColumns() {
         assertThat(OutageExportDto.header())
             .isEqualTo("id,objectId,neighborhoodName,districtName,serviceType,interruptionDate,repositionDate," +
-                "affectedClients,latitude,longitude,sourceUrl,rawResponseHash,firstSeenAt,fetchedAt,cause");
+                "affectedClients,latitude,longitude,sourceUrl,rawResponseHash,firstSeenAt,fetchedAt,cause,resolvedAt");
     }
 
     @Test
@@ -67,6 +67,7 @@ class OutageExportDtoTest {
         LocalDateTime reposition = LocalDateTime.of(2026, 9, 28, 18, 0, 0);
         LocalDateTime firstSeen = LocalDateTime.of(2026, 9, 28, 15, 40, 0);
         LocalDateTime fetchedAt = LocalDateTime.of(2026, 9, 28, 15, 40, 0);
+        LocalDateTime resolvedAt = LocalDateTime.of(2026, 9, 28, 15, 45, 0);
 
         EnelOutage outage = EnelOutage.builder()
             .id(1L)
@@ -81,6 +82,7 @@ class OutageExportDtoTest {
             .firstSeenAt(firstSeen)
             .fetchedAt(fetchedAt)
             .cause("Avería")
+            .resolvedAt(resolvedAt)
             .build();
 
         OutageExportDto dto = OutageExportDto.from(outage);
@@ -92,6 +94,23 @@ class OutageExportDtoTest {
         assertThat(dto.firstSeenAt()).isEqualTo("2026-09-28T15:40:00");
         assertThat(dto.fetchedAt()).isEqualTo("2026-09-28T15:40:00");
         assertThat(dto.cause()).isEqualTo("Avería");
+        assertThat(dto.resolvedAt()).isEqualTo("2026-09-28T15:45:00");
+    }
+
+    @Test
+    void fromShouldExportBlankResolvedAtWhenOutageStillActive() {
+        EnelOutage outage = EnelOutage.builder()
+            .id(1L)
+            .objectId("obj-1")
+            .neighborhoodName("San Pablo")
+            .serviceType("GB")
+            .latitude(37.394512)
+            .longitude(-5.960205)
+            .interruptionDate(LocalDateTime.of(2026, 9, 28, 15, 38, 0))
+            .resolvedAt(null)
+            .build();
+
+        assertThat(OutageExportDto.from(outage).resolvedAt()).isEmpty();
     }
 
     private OutageExportDto dto(String objectId, String neighborhoodName, String serviceType) {
@@ -99,7 +118,7 @@ class OutageExportDtoTest {
             1L, objectId, neighborhoodName, "San Pablo-Santa Justa", serviceType,
             "2026-07-10T08:30:00", "2026-07-10T09:00:00",
             10, 37.394512, -5.960205,
-            "http://source", "hash", "2026-07-10T08:00:00", "2026-07-10T08:00:00", "Avería"
+            "http://source", "hash", "2026-07-10T08:00:00", "2026-07-10T08:00:00", "Avería", ""
         );
     }
 }

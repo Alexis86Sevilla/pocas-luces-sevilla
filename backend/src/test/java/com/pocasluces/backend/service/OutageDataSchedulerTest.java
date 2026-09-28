@@ -127,12 +127,12 @@ class OutageDataSchedulerTest {
 
         scheduler.fetchAndSaveOutages();
 
-        verify(repository, never()).setAllInactive();
         verify(repository, never()).upsert(any());
+        verify(repository, never()).resolveStaleActiveOutages(any());
     }
 
     @Test
-    void shouldMarkAllInactiveBeforeUpsertingFetchedOutages() {
+    void shouldUpsertFetchedOutagesActiveAndUnresolvedBeforeResolvingStaleOnes() {
         EnelApiResponse.Feature feature = feature("123", "10/07/2026 08:30", 37.3970, -5.9800, "AT");
 
         when(enelApiService.fetchSevillaOutages())
@@ -143,21 +143,34 @@ class OutageDataSchedulerTest {
         scheduler.fetchAndSaveOutages();
 
         InOrder inOrder = inOrder(repository);
-        inOrder.verify(repository).setAllInactive();
         inOrder.verify(repository).upsert(any());
+        inOrder.verify(repository).resolveStaleActiveOutages(LocalDateTime.now(clock));
 
         ArgumentCaptor<EnelOutage> captor = ArgumentCaptor.forClass(EnelOutage.class);
         verify(repository).upsert(captor.capture());
         assertThat(captor.getValue().isActive()).isTrue();
+        assertThat(captor.getValue().getResolvedAt()).isNull();
     }
 
     @Test
-    void shouldMarkAllInactiveWhenFetchReturnsNoOutages() {
+    void shouldResolveStaleActiveOutagesWhenFetchReturnsNoOutages() {
         when(enelApiService.fetchSevillaOutages()).thenReturn(List.of());
+        when(repository.resolveStaleActiveOutages(LocalDateTime.now(clock))).thenReturn(2);
 
         scheduler.fetchAndSaveOutages();
 
-        verify(repository).setAllInactive();
+        verify(repository).resolveStaleActiveOutages(LocalDateTime.now(clock));
+        verify(repository, never()).upsert(any());
+    }
+
+    @Test
+    void shouldNotWarnWhenFetchReturnsNoOutagesAndNoneWereActive() {
+        when(enelApiService.fetchSevillaOutages()).thenReturn(List.of());
+        when(repository.resolveStaleActiveOutages(LocalDateTime.now(clock))).thenReturn(0);
+
+        scheduler.fetchAndSaveOutages();
+
+        verify(repository).resolveStaleActiveOutages(LocalDateTime.now(clock));
         verify(repository, never()).upsert(any());
     }
 

@@ -56,8 +56,6 @@ public class OutageDataScheduler {
         int skipped = 0;
         LocalDateTime now = LocalDateTime.now(clock);
 
-        repository.setAllInactive();
-
         for (EnelApiFeatureWithEvidence paged : pagedFeatures) {
             EnelApiResponse.Feature feature = paged.feature();
             var attr = feature.getAttributes();
@@ -104,7 +102,16 @@ public class OutageDataScheduler {
             saved++;
         }
 
-        log.info("Scheduler: saved {} outages ({} skipped)", saved, skipped);
+        // Outages not re-upserted by this run were not reported in the fetch we just
+        // processed: mark them resolved now. A zero-feature fetch is plausible (an
+        // outage-free Sevilla) and must not be treated as a fetch failure, but it is
+        // worth a WARN since it resolves every currently active outage at once.
+        int resolved = repository.resolveStaleActiveOutages(now);
+        if (pagedFeatures.isEmpty() && resolved > 0) {
+            log.warn("Scheduler: fetch returned zero outages; marking {} previously active outage(s) as resolved", resolved);
+        }
+
+        log.info("Scheduler: saved {} outages ({} skipped), resolved {} outage(s) no longer reported", saved, skipped, resolved);
     }
 
     private LocalDateTime parseDate(String dateStr) {

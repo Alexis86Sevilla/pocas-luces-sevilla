@@ -19,9 +19,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Proves that the V3 (outage identity) and V4 (cause column) Flyway migrations apply
- * cleanly to a database that already has data in the pre-migration (V2) shape — the
- * exact situation production is in, given {@code baseline-on-migrate: true}.
+ * Proves that the V3 (outage identity), V4 (cause column) and V5 (resolved_at column
+ * and backfill) Flyway migrations apply cleanly to a database that already has data in
+ * the pre-migration (V2) shape — the exact situation production is in, given
+ * {@code baseline-on-migrate: true}.
  *
  * <p>Unlike {@link com.pocasluces.backend.repository.EnelOutageRepositoryPostgresTest},
  * this test never boots Spring, so Hibernate's {@code ddl-auto} never runs and Flyway's
@@ -88,11 +89,17 @@ class OutageIdentityFlywayMigrationTest {
             // Row 4: pre-existing row with NULL coordinates (Endesa feed omitted them),
             // which the NOT NULL backfill step must handle instead of failing the migration.
             insertNullCoordinateRow(connection, "2026-07-12 10:00:00", "GB", "2026-07-12 10:00:00");
+
+            // Row 5: a pre-existing INACTIVE row (already resolved before V5 ever ran).
+            // V5's backfill must set resolved_at = fetched_at for it, since fetched_at is
+            // the only record of when it was last seen.
+            insertRow(connection, "Macarena", 37.4050, -5.9900, "2026-07-13 07:00:00", "AT",
+                "2026-07-13 07:20:00", false);
         }
     }
 
     @Test
-    void shouldApplyV3AndV4OnPreExistingData() throws SQLException {
+    void shouldApplyV3ThroughV5OnPreExistingData() throws SQLException {
         Flyway flyway = Flyway.configure()
             .dataSource(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword())
             .baselineVersion("2")
@@ -102,14 +109,14 @@ class OutageIdentityFlywayMigrationTest {
 
         MigrateResult result = flyway.migrate();
 
-        assertThat(result.migrationsExecuted).isEqualTo(2); // V3 and V4, not skipped
-        assertThat(result.targetSchemaVersion).isEqualTo("4");
+        assertThat(result.migrationsExecuted).isEqualTo(3); // V3, V4 and V5, not skipped
+        assertThat(result.targetSchemaVersion).isEqualTo("5");
 
         try (Connection connection = connect()) {
             connection.setAutoCommit(true);
 
             // The defensive dedup removed exactly the one superseded duplicate.
-            assertRowCount(connection, 3);
+            assertRowCount(connection, 4);
 
             // The more recently fetched of the two colliding rows survived.
             assertThat(neighborhoodFor(connection, 37.4100, -5.9700, "2026-07-11 09:00:00", "BT"))
@@ -142,16 +149,27 @@ class OutageIdentityFlywayMigrationTest {
                 assertThat(rs.next()).isTrue();
                 assertThat(rs.getString("cause")).isEqualTo("Avería");
             }
+
+            // V5's nullable `resolved_at` column exists, and the backfill set it to
+            // fetched_at for the pre-existing inactive row (the last time it was seen)...
+            assertThat(resolvedAtFor(connection, "Macarena")).isEqualTo("2026-07-13 07:20:00");
+            // ...while active rows, which have no resolution yet, were left NULL.
+            assertThat(resolvedAtFor(connection, "San Pablo")).isNull();
         }
     }
 
     private void insertRow(Connection connection, String neighborhood, double lat, double lon,
                             String interruptionDate, String serviceType, String fetchedAt) throws SQLException {
+        insertRow(connection, neighborhood, lat, lon, interruptionDate, serviceType, fetchedAt, true);
+    }
+
+    private void insertRow(Connection connection, String neighborhood, double lat, double lon,
+                            String interruptionDate, String serviceType, String fetchedAt, boolean active) throws SQLException {
         try (PreparedStatement ps = connection.prepareStatement("""
                 INSERT INTO enel_outages (
                     object_id, latitude, longitude, affected_clients, service_type,
                     interruption_date, neighborhood_name, first_seen_at, fetched_at, created_at, updated_at, active
-                ) VALUES (?, ?, ?, 10, ?, ?::timestamp, ?, ?::timestamp, ?::timestamp, ?::timestamp, ?::timestamp, true)
+                ) VALUES (?, ?, ?, 10, ?, ?::timestamp, ?, ?::timestamp, ?::timestamp, ?::timestamp, ?::timestamp, ?)
                 """)) {
             ps.setString(1, "obj-" + neighborhood);
             ps.setDouble(2, lat);
@@ -163,6 +181,7 @@ class OutageIdentityFlywayMigrationTest {
             ps.setString(8, fetchedAt);
             ps.setString(9, fetchedAt);
             ps.setString(10, fetchedAt);
+            ps.setBoolean(11, active);
             ps.executeUpdate();
         }
     }
@@ -220,6 +239,18 @@ class OutageIdentityFlywayMigrationTest {
             try (ResultSet rs = ps.executeQuery()) {
                 assertThat(rs.next()).isTrue();
                 return new double[] {rs.getDouble("latitude"), rs.getDouble("longitude")};
+            }
+        }
+    }
+
+    private String resolvedAtFor(Connection connection, String neighborhood) throws SQLException {
+        try (PreparedStatement ps = connection.prepareStatement(
+            "SELECT resolved_at FROM enel_outages WHERE neighborhood_name = ?")) {
+            ps.setString(1, neighborhood);
+            try (ResultSet rs = ps.executeQuery()) {
+                assertThat(rs.next()).isTrue();
+                java.sql.Timestamp resolvedAt = rs.getTimestamp("resolved_at");
+                return resolvedAt == null ? null : resolvedAt.toString().substring(0, 19);
             }
         }
     }

@@ -29,11 +29,6 @@ public interface EnelOutageRepositoryCustom {
     List<EnelOutage> findCurrentlyActive(LocalDateTime now, LocalDateTime since);
 
     /**
-     * Marks every outage row as inactive in a single bulk update.
-     */
-    void setAllInactive();
-
-    /**
      * Sets the active flag for all rows whose objectId is in the given collection.
      * Does nothing when the collection is empty.
      */

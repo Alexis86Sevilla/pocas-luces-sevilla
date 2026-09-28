@@ -103,6 +103,53 @@ class EnelOutageRepositoryPostgresTest {
     }
 
     @Test
+    void shouldResolveStaleActiveOutagesAgainstRealPostgres() {
+        LocalDateTime staleFetch = LocalDateTime.of(2026, 7, 10, 7, 55);
+        LocalDateTime now = LocalDateTime.of(2026, 7, 10, 8, 0);
+
+        EnelOutage stale = outage("1", LocalDateTime.of(2026, 7, 10, 6, 0));
+        stale.setFetchedAt(staleFetch);
+        EnelOutage fresh = outage("2", LocalDateTime.of(2026, 7, 10, 7, 0));
+        fresh.setFetchedAt(now);
+        repository.upsert(stale);
+        repository.upsert(fresh);
+
+        int resolved = repository.resolveStaleActiveOutages(now);
+
+        assertThat(resolved).isEqualTo(1);
+        List<EnelOutage> all = repository.findAll();
+        assertThat(all).filteredOn(o -> o.getObjectId().equals("1"))
+            .allSatisfy(o -> {
+                assertThat(o.isActive()).isFalse();
+                assertThat(o.getResolvedAt()).isEqualTo(staleFetch);
+            });
+        assertThat(all).filteredOn(o -> o.getObjectId().equals("2"))
+            .allSatisfy(o -> {
+                assertThat(o.isActive()).isTrue();
+                assertThat(o.getResolvedAt()).isNull();
+            });
+    }
+
+    @Test
+    void shouldClearResolvedAtWhenOutageReappearsViaAtomicUpsert() {
+        EnelOutage original = outage("1", LocalDateTime.of(2026, 7, 10, 8, 30));
+        original.setActive(false);
+        original.setResolvedAt(LocalDateTime.of(2026, 7, 10, 9, 0));
+        repository.upsert(original);
+
+        // Mirrors the scheduler's re-open path via the atomic ON CONFLICT upsert: a fresh
+        // EnelOutage for the same location key, with resolvedAt at its builder default
+        // (null) and active defaulting to true, must clear the previous resolution.
+        EnelOutage reopened = outage("1-reopened", LocalDateTime.of(2026, 7, 10, 8, 30));
+        repository.upsert(reopened);
+
+        List<EnelOutage> all = repository.findAll();
+        assertThat(all).hasSize(1);
+        assertThat(all.get(0).isActive()).isTrue();
+        assertThat(all.get(0).getResolvedAt()).isNull();
+    }
+
+    @Test
     void shouldFindByYearAndMonthUsingPostgresDateFunctions() {
         EnelOutage july = outage("1", LocalDateTime.of(2026, 7, 10, 8, 30));
         EnelOutage august = outage("2", LocalDateTime.of(2026, 8, 5, 14, 0));

@@ -13,7 +13,8 @@ import java.util.Objects;
         @Index(name = "idx_enel_outage_interruption_date", columnList = "interruption_date"),
         @Index(name = "idx_enel_outage_neighborhood", columnList = "neighborhood_name"),
         @Index(name = "idx_enel_outage_district", columnList = "district_name"),
-        @Index(name = "idx_enel_outage_fetched_at", columnList = "fetched_at")
+        @Index(name = "idx_enel_outage_fetched_at", columnList = "fetched_at"),
+        @Index(name = "idx_enel_outage_resolved_at", columnList = "resolved_at")
     },
     uniqueConstraints = {
         // Identity is based on where and when the outage happened, not on our own
@@ -79,6 +80,16 @@ public class EnelOutage {
 
     @Column(name = "fetched_at", nullable = false)
     private LocalDateTime fetchedAt;
+
+    /**
+     * When this outage was last observed to be missing from a successful Endesa fetch
+     * (i.e. when it was marked inactive). NULL while the outage is still active. Set back
+     * to NULL if the same physical outage (matched by the location key) reappears in a
+     * later fetch. The real end time lies within one polling interval (~5 minutes) before
+     * this timestamp; see {@code V5__add_resolved_at.sql}.
+     */
+    @Column(name = "resolved_at")
+    private LocalDateTime resolvedAt;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

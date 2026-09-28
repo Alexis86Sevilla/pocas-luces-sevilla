@@ -11,7 +11,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -69,6 +68,7 @@ public class EnelOutageRepositoryImpl implements EnelOutageRepositoryCustom {
         existing.setFetchedAt(outage.getFetchedAt());
         existing.setUpdatedAt(outage.getUpdatedAt());
         existing.setActive(outage.isActive());
+        existing.setResolvedAt(outage.getResolvedAt());
         entityManager.merge(existing);
         return 1;
     }
@@ -94,11 +94,11 @@ public class EnelOutageRepositoryImpl implements EnelOutageRepositoryCustom {
             INSERT INTO enel_outages (
                 object_id, latitude, longitude, affected_clients, service_type,
                 interruption_date, reposition_date, neighborhood_name, district_name, cause, source_url,
-                raw_response_hash, raw_response, first_seen_at, fetched_at, created_at, updated_at, active
+                raw_response_hash, raw_response, first_seen_at, fetched_at, created_at, updated_at, active, resolved_at
             ) VALUES (
                 :objectId, :latitude, :longitude, :affectedClients, :serviceType,
                 :interruptionDate, :repositionDate, :neighborhoodName, :districtName, :cause, :sourceUrl,
-                :rawResponseHash, :rawResponse, :firstSeenAt, :fetchedAt, :createdAt, :updatedAt, :active
+                :rawResponseHash, :rawResponse, :firstSeenAt, :fetchedAt, :createdAt, :updatedAt, :active, :resolvedAt
             )
             ON CONFLICT (latitude, longitude, interruption_date, service_type)
             DO UPDATE SET
@@ -113,7 +113,8 @@ public class EnelOutageRepositoryImpl implements EnelOutageRepositoryCustom {
                 raw_response = EXCLUDED.raw_response,
                 fetched_at = EXCLUDED.fetched_at,
                 updated_at = EXCLUDED.updated_at,
-                active = EXCLUDED.active
+                active = EXCLUDED.active,
+                resolved_at = EXCLUDED.resolved_at
             """;
         return jdbcTemplate.update(sql, toParameters(outage));
     }
@@ -138,6 +139,7 @@ public class EnelOutageRepositoryImpl implements EnelOutageRepositoryCustom {
         params.put("createdAt", toTimestamp(outage.getCreatedAt()));
         params.put("updatedAt", toTimestamp(outage.getUpdatedAt()));
         params.put("active", outage.isActive());
+        params.put("resolvedAt", toTimestamp(outage.getResolvedAt()));
         return params;
     }
 
@@ -146,7 +148,7 @@ public class EnelOutageRepositoryImpl implements EnelOutageRepositoryCustom {
         String sql = """
             SELECT id, object_id, latitude, longitude, affected_clients, service_type,
                    interruption_date, reposition_date, neighborhood_name, district_name, cause, source_url,
-                   raw_response_hash, raw_response, first_seen_at, fetched_at, created_at, updated_at, active
+                   raw_response_hash, raw_response, first_seen_at, fetched_at, created_at, updated_at, active, resolved_at
             FROM enel_outages
             WHERE active = true
             AND fetched_at > :since
@@ -178,13 +180,8 @@ public class EnelOutageRepositoryImpl implements EnelOutageRepositoryCustom {
         o.setCreatedAt(toLocalDateTime(rs.getTimestamp("created_at")));
         o.setUpdatedAt(toLocalDateTime(rs.getTimestamp("updated_at")));
         o.setActive(rs.getBoolean("active"));
+        o.setResolvedAt(toLocalDateTime(rs.getTimestamp("resolved_at")));
         return o;
-    }
-
-    @Override
-    @Transactional
-    public void setAllInactive() {
-        jdbcTemplate.update("UPDATE enel_outages SET active = false", Collections.emptyMap());
     }
 
     @Override

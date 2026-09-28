@@ -205,6 +205,28 @@ class EnelOutageRepositoryTest {
     }
 
     @Test
+    void shouldClearResolvedAtWhenOutageReappearsViaUpsert() {
+        EnelOutage original = outage("1", LocalDateTime.of(2026, 7, 10, 8, 30));
+        original.setActive(false);
+        original.setResolvedAt(LocalDateTime.of(2026, 7, 10, 9, 0));
+        repository.upsert(original);
+
+        // Mirrors the scheduler's re-open path: a fresh EnelOutage for the same location
+        // key, with resolvedAt left at its builder default (null) and active defaulting
+        // to true.
+        EnelOutage reopened = outage("1", LocalDateTime.of(2026, 7, 10, 8, 30));
+        int rows = repository.upsert(reopened);
+
+        assertThat(rows).isEqualTo(1);
+        em.flush();
+        em.clear();
+        Optional<EnelOutage> found = repository.findByObjectId("1");
+        assertThat(found).isPresent();
+        assertThat(found.get().isActive()).isTrue();
+        assertThat(found.get().getResolvedAt()).isNull();
+    }
+
+    @Test
     void shouldPreventDuplicateLocationKeyOnConcurrentUpsert() {
         EnelOutage outage = outage("1", LocalDateTime.of(2026, 7, 10, 8, 30));
         outage.setNeighborhoodName("San Pablo");
@@ -281,17 +303,48 @@ class EnelOutageRepositoryTest {
     }
 
     @Test
-    void shouldSetAllInactive() {
-        EnelOutage o1 = outage("1", LocalDateTime.of(2026, 7, 10, 8, 30));
-        EnelOutage o2 = outage("2", LocalDateTime.of(2026, 7, 11, 8, 30));
-        em.persist(o1);
-        em.persist(o2);
+    void shouldResolveStaleActiveOutagesButNotFreshlyUpsertedOnes() {
+        LocalDateTime staleFetch = LocalDateTime.of(2026, 7, 10, 7, 55);
+        LocalDateTime now = LocalDateTime.of(2026, 7, 10, 8, 0);
 
-        repository.setAllInactive();
+        EnelOutage stale = outage("1", LocalDateTime.of(2026, 7, 10, 6, 0));
+        stale.setFetchedAt(staleFetch);
+        EnelOutage fresh = outage("2", LocalDateTime.of(2026, 7, 10, 7, 0));
+        fresh.setFetchedAt(now);
+        em.persist(stale);
+        em.persist(fresh);
+
+        int resolved = repository.resolveStaleActiveOutages(now);
         em.flush();
         em.clear();
 
-        assertThat(repository.findAll()).extracting(EnelOutage::isActive).containsOnly(false);
+        assertThat(resolved).isEqualTo(1);
+        assertThat(repository.findByObjectId("1")).isPresent().hasValueSatisfying(o -> {
+            assertThat(o.isActive()).isFalse();
+            assertThat(o.getResolvedAt()).isEqualTo(staleFetch);
+        });
+        assertThat(repository.findByObjectId("2")).isPresent().hasValueSatisfying(o -> {
+            assertThat(o.isActive()).isTrue();
+            assertThat(o.getResolvedAt()).isNull();
+        });
+    }
+
+    @Test
+    void shouldNotResolveOutagesAlreadyInactive() {
+        LocalDateTime now = LocalDateTime.of(2026, 7, 10, 8, 0);
+        EnelOutage alreadyInactive = outage("1", LocalDateTime.of(2026, 7, 9, 6, 0));
+        alreadyInactive.setFetchedAt(LocalDateTime.of(2026, 7, 9, 6, 5));
+        alreadyInactive.setActive(false);
+        alreadyInactive.setResolvedAt(LocalDateTime.of(2026, 7, 9, 6, 10));
+        em.persist(alreadyInactive);
+
+        int resolved = repository.resolveStaleActiveOutages(now);
+        em.flush();
+        em.clear();
+
+        assertThat(resolved).isEqualTo(0);
+        assertThat(repository.findByObjectId("1")).isPresent()
+            .hasValueSatisfying(o -> assertThat(o.getResolvedAt()).isEqualTo(LocalDateTime.of(2026, 7, 9, 6, 10)));
     }
 
     @Test
