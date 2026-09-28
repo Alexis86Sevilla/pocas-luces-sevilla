@@ -67,22 +67,11 @@ class DistrictBackfillRunnerTest {
         assertThat(found.get().getDistrictName()).isEqualTo("San Pablo-Santa Justa");
     }
 
-    @Test
-    void shouldSaveUnknownDistrictForNullCoordinates() {
-        setUpRunner();
-        EnelOutage outage = outage("1", LocalDateTime.of(2026, 7, 10, 8, 30));
-        outage.setLatitude(null);
-        outage.setLongitude(null);
-        outage.setNeighborhoodName("San Pablo");
-        outage.setDistrictName(null);
-        repository.save(outage);
-
-        runner.backfill();
-
-        Optional<EnelOutage> found = repository.findByObjectId("1");
-        assertThat(found).isPresent();
-        assertThat(found.get().getDistrictName()).isEqualTo("Zona no identificada");
-    }
+    // A "NULL coordinates" scenario used to be covered here, but since the V3 migration
+    // (latitude/longitude are now NOT NULL, with legacy NULLs backfilled to 0.0) such a
+    // row can no longer exist; see shouldSaveUnknownDistrictForZeroZeroCoordinates below,
+    // which covers the same "unknown location" outcome via the 0.0/0.0 sentinel.
+    // DistrictBackfillRunner.resolveDistrict still null-checks defensively.
 
     @Test
     void shouldSaveUnknownDistrictForZeroZeroCoordinates() {

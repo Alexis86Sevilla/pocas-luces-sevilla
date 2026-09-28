@@ -31,8 +31,9 @@ public interface EnelOutageRepository extends JpaRepository<EnelOutage, Long>, E
 
     Optional<EnelOutage> findByObjectId(String objectId);
 
-    Optional<EnelOutage> findByNeighborhoodNameAndInterruptionDateAndServiceType(
-            String neighborhoodName,
+    Optional<EnelOutage> findByLatitudeAndLongitudeAndInterruptionDateAndServiceType(
+            Double latitude,
+            Double longitude,
             LocalDateTime interruptionDate,
             String serviceType);
 

@@ -198,6 +198,38 @@ class OutageDataSchedulerTest {
     }
 
     @Test
+    void shouldPersistCauseFromEndesaFeed() {
+        EnelApiResponse.Feature feature = feature("123", "10/07/2026 08:30", 37.3970, -5.9800, "AT");
+        feature.getAttributes().setCause("Avería");
+
+        when(enelApiService.fetchSevillaOutages())
+            .thenReturn(List.of(new EnelApiFeatureWithEvidence(feature, "http://source", "{}")));
+        when(locator.findNeighborhood(37.3970, -5.9800)).thenReturn("San Pablo");
+        when(districtLocator.findDistrict(37.3970, -5.9800, "San Pablo")).thenReturn("San Pablo-Santa Justa");
+
+        scheduler.fetchAndSaveOutages();
+
+        ArgumentCaptor<EnelOutage> captor = ArgumentCaptor.forClass(EnelOutage.class);
+        verify(repository).upsert(captor.capture());
+        assertThat(captor.getValue().getCause()).isEqualTo("Avería");
+    }
+
+    @Test
+    void shouldPersistDefaultedZeroCoordinatesInsteadOfNull() {
+        EnelApiResponse.Feature feature = feature("123", "10/07/2026 08:30", null, null, "AT");
+
+        when(enelApiService.fetchSevillaOutages())
+            .thenReturn(List.of(new EnelApiFeatureWithEvidence(feature, "http://source", "{}")));
+
+        scheduler.fetchAndSaveOutages();
+
+        ArgumentCaptor<EnelOutage> captor = ArgumentCaptor.forClass(EnelOutage.class);
+        verify(repository).upsert(captor.capture());
+        assertThat(captor.getValue().getLatitude()).isEqualTo(0.0);
+        assertThat(captor.getValue().getLongitude()).isEqualTo(0.0);
+    }
+
+    @Test
     void shouldFallbackToUnknownDistrictForZeroCoordinates() {
         EnelApiResponse.Feature feature = feature("123", "10/07/2026 08:30", 0.0, 0.0, "AT");
 
@@ -212,7 +244,7 @@ class OutageDataSchedulerTest {
     }
 
     private EnelApiResponse.Feature feature(String objectId, String interruptionDate,
-                                            double lat, double lon, String serviceType) {
+                                            Double lat, Double lon, String serviceType) {
         EnelApiResponse.Feature feature = new EnelApiResponse.Feature();
         EnelApiResponse.Attributes attr = new EnelApiResponse.Attributes();
         attr.setObjectId(objectId);

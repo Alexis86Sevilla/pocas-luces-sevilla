@@ -100,4 +100,38 @@ The JAR is produced at `target/backend-0.0.1-SNAPSHOT.jar`.
 
 ## Data source
 
-Outage data comes from Endesa's public ArcGIS feature service for the Spanish distribution network.
+Outage data comes from e-distribución/Endesa's public ArcGIS outage feature service for
+the Spanish distribution network (`ESP_Prod_power_cut_View`). It is a read-only, public
+endpoint: this application only polls it and never writes back. The scheduler polls it
+every 5 minutes for outages in Sevilla municipality.
+
+What is verified vs. approximate:
+
+- **Interruption/reposition times** are Endesa's own estimates, as reported by the
+  distributor — not independently verified, and reposition times in particular are
+  estimates that can change between polls.
+- **Neighborhood (`neighborhoodName`)** is our own approximation, inferred from the
+  outage's coordinates against a neighborhood boundary dataset. It is not provided by
+  Endesa and can be wrong near boundaries or when the feed omits coordinates.
+- **District (`districtName`)** uses official district polygons and is more reliable
+  than the neighborhood inference, but is still derived from the same coordinates.
+- **Cause (`cause`)** is taken verbatim from Endesa's own `des_cause_es` feed field
+  (e.g. "Avería" or "Trabajos programados") — it is not inferred or guessed.
+
+Before this fix, outages were identified by `(neighborhoodName, interruptionDate,
+serviceType)`. Because neighborhood is itself derived from coordinates, two distinct
+outages in the same neighborhood starting at the same minute were silently merged into
+a single row, overwriting the earlier one's `affectedClients`. Outages merged under
+that identity key **before this fix cannot be recovered** — the overwritten data was
+never stored. Outage identity is now `(latitude, longitude, interruptionDate,
+serviceType)`.
+
+### Migrations
+
+- `V3__fix_outage_identity_key.sql`: replaces the old natural-key unique constraint
+  with the new location-based one described above; backfills any legacy NULL
+  coordinates to `0.0` (required for the new `NOT NULL` columns) and defensively drops
+  any pre-existing row that would violate the new key (expected to affect zero rows in
+  practice).
+- `V4__add_cause.sql`: adds the nullable `cause` column populated from Endesa's
+  `des_cause_es` field.

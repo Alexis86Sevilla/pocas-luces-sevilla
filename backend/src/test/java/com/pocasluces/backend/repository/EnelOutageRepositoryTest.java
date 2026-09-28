@@ -159,8 +159,8 @@ class EnelOutageRepositoryTest {
         int rows = repository.upsert(outage);
 
         assertThat(rows).isEqualTo(1);
-        Optional<EnelOutage> found = repository.findByNeighborhoodNameAndInterruptionDateAndServiceType(
-            "San Pablo", LocalDateTime.of(2026, 7, 10, 8, 30), "AT");
+        Optional<EnelOutage> found = repository.findByLatitudeAndLongitudeAndInterruptionDateAndServiceType(
+            outage.getLatitude(), outage.getLongitude(), LocalDateTime.of(2026, 7, 10, 8, 30), "AT");
         assertThat(found).isPresent();
         assertThat(found.get().getObjectId()).isEqualTo("123");
         assertThat(found.get().getDistrictName()).isEqualTo("San Pablo-Santa Justa");
@@ -193,8 +193,8 @@ class EnelOutageRepositoryTest {
         assertThat(rows).isEqualTo(1);
         em.flush();
         em.clear();
-        Optional<EnelOutage> found = repository.findByNeighborhoodNameAndInterruptionDateAndServiceType(
-            "San Pablo", LocalDateTime.of(2026, 7, 10, 8, 30), "AT");
+        Optional<EnelOutage> found = repository.findByLatitudeAndLongitudeAndInterruptionDateAndServiceType(
+            update.getLatitude(), update.getLongitude(), LocalDateTime.of(2026, 7, 10, 8, 30), "AT");
         assertThat(found).isPresent();
         assertThat(found.get().getObjectId()).isEqualTo("200");
         assertThat(found.get().getDistrictName()).isEqualTo("Triana");
@@ -205,7 +205,7 @@ class EnelOutageRepositoryTest {
     }
 
     @Test
-    void shouldPreventDuplicateNaturalKeyOnConcurrentUpsert() {
+    void shouldPreventDuplicateLocationKeyOnConcurrentUpsert() {
         EnelOutage outage = outage("1", LocalDateTime.of(2026, 7, 10, 8, 30));
         outage.setNeighborhoodName("San Pablo");
         outage.setServiceType("AT");
@@ -214,13 +214,70 @@ class EnelOutageRepositoryTest {
         repository.upsert(outage);
 
         long count = em.getEntityManager().createQuery(
-                "SELECT COUNT(o) FROM EnelOutage o WHERE o.neighborhoodName = :name " +
+                "SELECT COUNT(o) FROM EnelOutage o WHERE o.latitude = :lat AND o.longitude = :lon " +
                 "AND o.interruptionDate = :date AND o.serviceType = :type", Long.class)
-            .setParameter("name", "San Pablo")
+            .setParameter("lat", outage.getLatitude())
+            .setParameter("lon", outage.getLongitude())
             .setParameter("date", LocalDateTime.of(2026, 7, 10, 8, 30))
             .setParameter("type", "AT")
             .getSingleResult();
         assertThat(count).isEqualTo(1);
+    }
+
+    @Test
+    void shouldTreatDifferentCoordinatesAsDistinctOutagesEvenWithSameNeighborhoodAndStart() {
+        LocalDateTime start = LocalDateTime.of(2026, 7, 10, 8, 30);
+
+        EnelOutage first = outage("1", start);
+        first.setNeighborhoodName("San Pablo");
+        first.setServiceType("AT");
+        first.setLatitude(37.3970);
+        first.setLongitude(-5.9800);
+        first.setAffectedClients(50);
+
+        EnelOutage second = outage("2", start);
+        second.setNeighborhoodName("San Pablo");
+        second.setServiceType("AT");
+        second.setLatitude(37.4000);
+        second.setLongitude(-5.9850);
+        second.setAffectedClients(120);
+
+        repository.upsert(first);
+        repository.upsert(second);
+        em.flush();
+        em.clear();
+
+        assertThat(repository.findAll()).hasSize(2);
+        assertThat(repository.findAll())
+            .extracting(EnelOutage::getAffectedClients)
+            .containsExactlyInAnyOrder(50, 120);
+    }
+
+    @Test
+    void shouldCollapseSameCoordinatesStartAndTypeIntoOneUpdatedRow() {
+        LocalDateTime start = LocalDateTime.of(2026, 7, 10, 8, 30);
+
+        EnelOutage first = outage("1", start);
+        first.setNeighborhoodName("San Pablo");
+        first.setServiceType("AT");
+        first.setLatitude(37.3970);
+        first.setLongitude(-5.9800);
+        first.setAffectedClients(50);
+
+        EnelOutage update = outage("1", start);
+        update.setNeighborhoodName("San Pablo");
+        update.setServiceType("AT");
+        update.setLatitude(37.3970);
+        update.setLongitude(-5.9800);
+        update.setAffectedClients(90);
+
+        repository.upsert(first);
+        repository.upsert(update);
+        em.flush();
+        em.clear();
+
+        assertThat(repository.findAll()).hasSize(1);
+        assertThat(repository.findAll().get(0).getAffectedClients()).isEqualTo(90);
     }
 
     @Test
@@ -265,6 +322,8 @@ class EnelOutageRepositoryTest {
             .interruptionDate(interruptionDate)
             .serviceType("GB")
             .neighborhoodName("San Pablo")
+            .latitude(0.0)
+            .longitude(0.0)
             .fetchedAt(now)
             .firstSeenAt(now)
             .createdAt(now)
