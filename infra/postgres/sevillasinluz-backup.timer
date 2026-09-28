@@ -1,0 +1,10 @@
+[Unit]
+Description=Run sevillasinluz PostgreSQL backup daily
+
+[Timer]
+OnCalendar=*-*-* 03:30:00 Europe/Madrid
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target
