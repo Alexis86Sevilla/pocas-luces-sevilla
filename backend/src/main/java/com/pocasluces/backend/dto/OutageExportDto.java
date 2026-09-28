@@ -87,9 +87,29 @@ public record OutageExportDto(
         if (value == null) {
             return "";
         }
-        String text = value.toString();
+        if (value instanceof Number) {
+            // Numeric columns can't start with a formula-injection character; skip sanitization.
+            return value.toString();
+        }
+        String text = neutralizeFormulaInjection(value.toString());
         if (text.contains(",") || text.contains("\"") || text.contains("\n") || text.contains("\r")) {
             return "\"" + text.replace("\"", "\"\"") + "\"";
+        }
+        return text;
+    }
+
+    /**
+     * OWASP CSV/formula injection mitigation: if a value starts with a character that
+     * spreadsheet software interprets as the start of a formula (=, +, -, @) or with a
+     * tab/carriage return, prefix it with a single quote so it is opened as plain text.
+     */
+    private static String neutralizeFormulaInjection(String text) {
+        if (text.isEmpty()) {
+            return text;
+        }
+        char first = text.charAt(0);
+        if (first == '=' || first == '+' || first == '-' || first == '@' || first == '\t' || first == '\r') {
+            return "'" + text;
         }
         return text;
     }
