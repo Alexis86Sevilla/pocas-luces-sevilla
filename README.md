@@ -7,9 +7,9 @@ A citizen dashboard that tracks and visualizes power outages in Seville neighbor
 
 ## What it does
 
-- Fetches real-time outage data from Endesa every 30 minutes.
-- Maps coordinates to Seville neighborhoods.
-- Shows an annual comparison chart, monthly detail cards and a live outage feed.
+- Fetches real-time outage data from Endesa every 5 minutes.
+- Maps coordinates to Seville neighborhoods and official districts.
+- Shows an annual comparison chart by district, monthly detail cards and a live outage feed.
 - Provides context about the situation and citizen demands.
 
 ## Repository structure

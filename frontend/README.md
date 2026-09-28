@@ -37,14 +37,23 @@ Artifacts are written to `dist/frontend/browser/`.
 
 ```
 src/app/
-├── core/           Models and API services
-├── features/
-│   ├── context/    Context and citizen demands section
-│   ├── hero/       Landing hero
-│   ├── home/       Main dashboard page
-│   ├── outages/    Chart, cards and date filter
-│   └── testimonials/ Video carousel
-└── ...
+├── core/                  Models, API services and date utilities
+└── features/
+    ├── home/              Main dashboard page composing all sections
+    ├── hero/              Landing hero
+    ├── context/           Context and citizen demands section
+    ├── live/              Live outages grouped by district
+    ├── chart-section/     Annual chart by district
+    ├── monthly-section/   Date filter and monthly outage cards
+    ├── testimonials/      Video carousel
+    ├── donation-section/  Donation section
+    └── footer/            Footer
+```
+
+## Tests
+
+```bash
+pnpm test
 ```
 
 ## Environment configuration
@@ -56,6 +65,7 @@ The production file is swapped in automatically by the Angular CLI build configu
 
 ## Notes
 
-- The chart uses Chart.js with a 12-color stable palette, one color per neighborhood.
+- The chart uses Chart.js with a 12-color stable palette, one color per district.
 - The monthly filter defaults to the current month and year.
-- Live outages are grouped by neighborhood in the UI.
+- Live outages are grouped by district in the UI.
+- The backend returns timestamps in UTC; `core/utils/madrid-date.ts` renders them in Europe/Madrid time.
