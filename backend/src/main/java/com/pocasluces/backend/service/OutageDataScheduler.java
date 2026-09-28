@@ -41,7 +41,7 @@ public class OutageDataScheduler {
 
     @Scheduled(fixedDelay = 5, timeUnit = TimeUnit.MINUTES)
     @Transactional
-    public void fetchAndSaveOutages() {
+    public synchronized void fetchAndSaveOutages() {
         log.info("Scheduler: fetching Enel outages for Sevilla...");
 
         List<EnelApiFeatureWithEvidence> pagedFeatures;

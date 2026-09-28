@@ -1,28 +1,34 @@
 package com.pocasluces.backend.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.pocasluces.backend.config.FetchCooldownGuard;
 import com.pocasluces.backend.service.EnelApiService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.Map;
 
 import static org.hamcrest.Matchers.*;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.doThrow;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@ActiveProfiles("dev")
 @TestPropertySource(properties = "admin.api.key=test-secret")
 class OutageControllerTest {
 
@@ -34,6 +40,9 @@ class OutageControllerTest {
 
     @MockBean
     private EnelApiService enelApiService;
+
+    @MockBean
+    private FetchCooldownGuard fetchCooldownGuard;
 
     @Test
     void shouldReturnNeighborhoods() throws Exception {
@@ -126,5 +135,28 @@ class OutageControllerTest {
         mockMvc.perform(post("/api/outages/fetch")
                 .contentType(MediaType.APPLICATION_JSON))
             .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void shouldRejectFetchWhenCooldownHasNotElapsed() throws Exception {
+        doThrow(new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "Fetch was triggered recently"))
+            .when(fetchCooldownGuard).requireCooldownElapsed();
+
+        mockMvc.perform(post("/api/outages/fetch")
+                .header("X-API-Key", "test-secret")
+                .contentType(MediaType.APPLICATION_JSON))
+            .andExpect(status().isTooManyRequests());
+    }
+
+    @Test
+    void shouldRejectEnelOutagesWithInvalidYear() throws Exception {
+        mockMvc.perform(get("/api/outages/enel?year=1800"))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void shouldRejectEnelOutagesWithInvalidYearAndMonth() throws Exception {
+        mockMvc.perform(get("/api/outages/enel?year=1800&month=5"))
+            .andExpect(status().isBadRequest());
     }
 }

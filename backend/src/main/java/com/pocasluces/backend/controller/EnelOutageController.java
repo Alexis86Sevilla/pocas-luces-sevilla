@@ -31,6 +31,7 @@ public class EnelOutageController {
     private final EnelOutageRepository enelOutageRepo;
     private final OutageDataScheduler scheduler;
     private final com.pocasluces.backend.config.ApiKeyAuth apiKeyAuth;
+    private final com.pocasluces.backend.config.FetchCooldownGuard fetchCooldownGuard;
     private final Clock clock;
 
     @GetMapping("/yearly")
@@ -95,10 +96,12 @@ public class EnelOutageController {
             result = enelOutageRepo.findByNeighborhoodNameIgnoreCase(neighborhood.trim(), pageable)
                 .map(EnelOutageResponse::from);
         } else if (year != null && month != null) {
+            RequestValidation.requireYear(year);
             RequestValidation.requireMonth(month);
             result = enelOutageRepo.findByYearAndMonth(year, month, pageable)
                 .map(EnelOutageResponse::from);
         } else if (year != null) {
+            RequestValidation.requireYear(year);
             result = enelOutageRepo.findByYear(year, pageable)
                 .map(EnelOutageResponse::from);
         } else {
@@ -111,6 +114,7 @@ public class EnelOutageController {
     @PostMapping("/fetch")
     public ResponseEntity<String> triggerFetch(HttpServletRequest request) {
         apiKeyAuth.requireValidKey(request);
+        fetchCooldownGuard.requireCooldownElapsed();
         scheduler.fetchAndSaveOutages();
         return ResponseEntity.ok("Fetch triggered. Check /api/outages/live");
     }
