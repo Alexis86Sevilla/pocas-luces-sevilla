@@ -21,7 +21,7 @@ public class GlobalExceptionHandler {
         log.error("Unhandled exception: {}", e.getMessage(), e);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
             .body(new ErrorResponse(LocalDateTime.now(), HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                "Internal server error", e.getMessage()));
+                "Internal server error", "An unexpected error occurred"));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
@@ -63,7 +63,7 @@ public class GlobalExceptionHandler {
         log.warn("Enel API error: {}", e.getMessage());
         return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
             .body(new ErrorResponse(LocalDateTime.now(), HttpStatus.BAD_GATEWAY.value(),
-                "Bad gateway", "Upstream Enel API error: " + e.getMessage()));
+                "Bad gateway", "Upstream Enel API error"));
     }
 
     public record ErrorResponse(LocalDateTime timestamp, int status, String error, String message) {
