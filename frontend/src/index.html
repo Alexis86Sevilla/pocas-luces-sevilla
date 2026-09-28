@@ -15,10 +15,10 @@
   <meta property="og:url" content="https://sevillasinluz.es/">
   <meta property="og:title" content="Sevilla Sin Luz">
   <meta property="og:description" content="Cortes de luz por barrios · Datos reales de Endesa">
-  <meta property="og:image" content="https://sevillasinluz.es/og-image.png">
+  <meta property="og:image" content="https://sevillasinluz.es/og-image.jpg">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
-  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:type" content="image/jpeg">
   <meta property="og:locale" content="es_ES">
 
   <!-- Twitter -->
@@ -26,10 +26,32 @@
   <meta name="twitter:url" content="https://sevillasinluz.es/">
   <meta name="twitter:title" content="Sevilla Sin Luz">
   <meta name="twitter:description" content="Cortes de luz por barrios · Datos reales de Endesa">
-  <meta name="twitter:image" content="https://sevillasinluz.es/og-image.png">
+  <meta name="twitter:image" content="https://sevillasinluz.es/og-image.jpg">
 
   <link rel="canonical" href="https://sevillasinluz.es/">
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="preload" as="image" href="alcalde-micro.webp" type="image/webp" fetchpriority="high">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Dataset",
+    "name": "Cortes de luz en Sevilla (Sevilla Sin Luz)",
+    "description": "Registro público de cortes de suministro eléctrico en los barrios de Sevilla, recopilado automáticamente a partir de los avisos publicados por Endesa desde julio de 2026.",
+    "url": "https://sevillasinluz.es",
+    "creator": {
+      "@type": "Organization",
+      "name": "Sevilla Sin Luz"
+    },
+    "spatialCoverage": {
+      "@type": "Place",
+      "name": "Sevilla, España"
+    },
+    "temporalCoverage": "2026-07/..",
+    "isAccessibleForFree": true,
+    "inLanguage": "es"
+  }
+  </script>
 </head>
 <body>
   <app-root></app-root>
