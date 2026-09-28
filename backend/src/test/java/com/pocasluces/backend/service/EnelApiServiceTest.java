@@ -109,8 +109,8 @@ class EnelApiServiceTest {
         String json = "{\"features\": []}";
 
         server.expect(MockRestRequestMatchers.requestTo(Matchers.startsWith(EnelApiService.ENEL_API_URL)))
-            .andExpect(MockRestRequestMatchers.header("Referer", "https://www.e-distribucion.com/"))
-            .andExpect(MockRestRequestMatchers.header("User-Agent", "Mozilla/5.0"))
+            .andExpect(MockRestRequestMatchers.header("User-Agent", "SevillaSinLuz/1.0 (+https://sevillasinluz.es)"))
+            .andExpect(request -> assertThat(request.getHeaders().get("Referer")).isNull())
             .andRespond(MockRestResponseCreators.withSuccess(json, MediaType.APPLICATION_JSON));
 
         service.fetchSevillaOutages();

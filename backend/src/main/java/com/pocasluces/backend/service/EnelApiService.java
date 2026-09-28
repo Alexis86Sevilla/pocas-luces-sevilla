@@ -28,8 +28,9 @@ public class EnelApiService {
     private static final int MAX_RETRIES = 3;
     private static final long RETRY_DELAY_MS = 1_000;
 
-    private static final String REFERER = "https://www.e-distribucion.com/";
-    private static final String USER_AGENT = "Mozilla/5.0";
+    // Honest identification: no spoofed Referer/User-Agent. An audit verified the
+    // endpoint responds identically without them.
+    private static final String USER_AGENT = "SevillaSinLuz/1.0 (+https://sevillasinluz.es)";
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
@@ -112,7 +113,6 @@ public class EnelApiService {
         for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
             try {
                 HttpHeaders headers = new HttpHeaders();
-                headers.set("Referer", REFERER);
                 headers.set("User-Agent", USER_AGENT);
 
                 HttpEntity<Void> entity = new HttpEntity<>(headers);
