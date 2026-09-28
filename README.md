@@ -4,6 +4,7 @@ A citizen dashboard that tracks and visualizes power outages in Seville neighbor
 
 - **Live site:** https://sevillasinluz.es
 - **API:** https://api.sevillasinluz.es
+- **Methodology:** what is exact, approximate or estimated, and known limitations — see https://sevillasinluz.es/#metodologia or [backend/README.md#data-source](backend/README.md#data-source).
 
 ## What it does
 

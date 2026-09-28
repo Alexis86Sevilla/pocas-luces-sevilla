@@ -12,13 +12,15 @@ import { LiveSectionComponent, type LiveGroup } from '../live/live-section.compo
 import { ChartSectionComponent } from '../chart-section/chart-section.component';
 import { MonthlySectionComponent } from '../monthly-section/monthly-section.component';
 import { DonationSectionComponent } from '../donation-section/donation-section';
+import { MethodologySectionComponent } from '../methodology/methodology-section.component';
 import { parseMadridDate } from '../../core/utils/madrid-date';
 import { outageCategory } from '../../core/utils/outage-category';
 
 @Component({
   selector: 'app-home',
   imports: [HeroComponent, ContextSectionComponent, VideoCarouselComponent, FooterComponent,
-            DonationSectionComponent, LiveSectionComponent, ChartSectionComponent, MonthlySectionComponent],
+            DonationSectionComponent, LiveSectionComponent, ChartSectionComponent, MonthlySectionComponent,
+            MethodologySectionComponent],
   templateUrl: './home.component.html',
   styleUrl: './home.component.css',
 })
