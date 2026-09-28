@@ -1,13 +1,12 @@
--- Track when an outage was last observed to be missing from a successful Endesa
--- fetch (the scheduler's "resolve" step), instead of only overwriting `active`
--- with no record of when the change happened.
+-- Track when an outage ended, instead of only overwriting `active` with no
+-- record of when the change happened.
 --
--- resolved_at is NULL while an outage is active. It is set to the timestamp of
--- the fetch run in which the outage stopped being reported, and cleared back
--- to NULL if the same physical outage (same location key) reappears later.
--- Because polling runs every ~5 minutes, the real end of the outage lies
--- somewhere within the interval (previous fetched_at, resolved_at] -- i.e.
--- resolved_at is accurate to within one polling interval, not exact.
+-- resolved_at is NULL while an outage is active. When an outage stops being
+-- reported, the scheduler sets resolved_at = fetched_at, i.e. the last poll in
+-- which Endesa still published it, and clears it back to NULL if the same
+-- physical outage (same location key) reappears later. This is a lower bound:
+-- the real end happened up to one polling interval (~5 minutes) later, or more
+-- if our own polling had a gap, never earlier. Durations are never inflated.
 ALTER TABLE enel_outages ADD COLUMN resolved_at TIMESTAMP;
 
 -- Backfill rows that were already inactive before this migration. The exact

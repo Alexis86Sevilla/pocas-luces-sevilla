@@ -95,6 +95,11 @@ export class OutageCardComponent {
     if (real !== null) {
       return `Duración: ${Math.round(real)} min`;
     }
+    if (outage.resolvedAt) {
+      // Ended, but last seen no later than its start (e.g. announced works that vanished):
+      // there is no observed duration to report.
+      return 'Terminado (duración no medible)';
+    }
     if (outage.repositionDate) {
       return `Reposición estimada: ${formatMadridDate(parseMadridDate(outage.repositionDate), 'HH:mm')}`;
     }

@@ -82,11 +82,11 @@ public class EnelOutage {
     private LocalDateTime fetchedAt;
 
     /**
-     * When this outage was last observed to be missing from a successful Endesa fetch
-     * (i.e. when it was marked inactive). NULL while the outage is still active. Set back
-     * to NULL if the same physical outage (matched by the location key) reappears in a
-     * later fetch. The real end time lies within one polling interval (~5 minutes) before
-     * this timestamp; see {@code V5__add_resolved_at.sql}.
+     * Last poll in which Endesa still published this outage (its {@code fetchedAt} at the
+     * moment it was marked inactive). NULL while the outage is still active. Set back to
+     * NULL if the same physical outage (matched by the location key) reappears in a later
+     * fetch. It is a lower bound: the real end happened up to one polling interval
+     * (~5 minutes) later, or more if our polling had a gap; see {@code V5__add_resolved_at.sql}.
      */
     @Column(name = "resolved_at")
     private LocalDateTime resolvedAt;

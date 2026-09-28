@@ -121,4 +121,21 @@ describe('OutageCardComponent', () => {
 
     expect(fixture.nativeElement.textContent).toContain('Reposición estimada: 09:45');
   });
+
+  it('never shows an estimate for a resolved outage without an observable duration', () => {
+    const vanished = outage({
+      objectId: 4,
+      interruptionDate: '2026-07-02T09:00:00',
+      repositionDate: '2026-07-02T09:45:00',
+      resolvedAt: '2026-07-02T08:30:00',
+    });
+    const fixture = createFixture([vanished]);
+    fixture.nativeElement.querySelector('button.bg-gray-900').click();
+    fixture.detectChanges();
+    fixture.nativeElement.querySelector('li > button').click();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('Terminado (duración no medible)');
+    expect(fixture.nativeElement.textContent).not.toContain('Reposición estimada');
+  });
 });
