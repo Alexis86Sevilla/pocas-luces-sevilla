@@ -6,6 +6,7 @@ import type { District } from '../../../core/models';
 import { formatMadridDate, parseMadridDate, toMadridDateKey } from '../../../core/utils/madrid-date';
 import { outageCategory } from '../../../core/utils/outage-category';
 import { pluralize } from '../../../core/utils/pluralize';
+import { realDurationMinutes } from '../../../core/utils/outage-duration';
 
 export interface DailyOutageGroup {
   readonly dateKey: string;
@@ -36,20 +37,18 @@ export class OutageCardComponent {
     this.outages().reduce((sum, o) => sum + o.affectedClients, 0)
   );
 
-  protected readonly avgDuration = computed(() => {
-    const list = this.outages();
-    if (list.length === 0) return 0;
-    let total = 0;
-    let count = 0;
-    for (const o of list) {
-      const start = parseMadridDate(o.interruptionDate).getTime();
-      const end = o.repositionDate ? parseMadridDate(o.repositionDate).getTime() : 0;
-      if (start && end && end > start) {
-        total += (end - start) / 60000;
-        count++;
-      }
-    }
-    return count > 0 ? Math.round(total / count) : 0;
+  /**
+   * Average REAL duration (resolvedAt - interruptionDate) of resolved outages only.
+   * Ongoing outages have no resolvedAt yet and are excluded, so this never mixes in
+   * Endesa's estimated restoration time. Null when no outage in the list is resolved.
+   */
+  protected readonly avgDuration = computed<number | null>(() => {
+    const durations = this.outages()
+      .map(o => realDurationMinutes(o))
+      .filter((d): d is number => d !== null);
+    if (durations.length === 0) return null;
+    const total = durations.reduce((sum, d) => sum + d, 0);
+    return Math.round(total / durations.length);
   });
 
   protected readonly dailyGroups = computed((): readonly DailyOutageGroup[] => {
@@ -85,6 +84,21 @@ export class OutageCardComponent {
 
   protected parseDate(dateStr: string): Date {
     return parseMadridDate(dateStr);
+  }
+
+  /**
+   * "Duración: X min" for a resolved outage (real, measured duration), or
+   * "Reposición estimada: HH:mm" while it is still ongoing (Endesa's own estimate).
+   */
+  protected durationDisplay(outage: EnelOutage): string {
+    const real = realDurationMinutes(outage);
+    if (real !== null) {
+      return `Duración: ${Math.round(real)} min`;
+    }
+    if (outage.repositionDate) {
+      return `Reposición estimada: ${formatMadridDate(parseMadridDate(outage.repositionDate), 'HH:mm')}`;
+    }
+    return 'En curso';
   }
 
   toggleDay(dateKey: string): void {

@@ -18,6 +18,7 @@ describe('OutageCardComponent', () => {
       districtName: 'Triana',
       cause: 'Avería',
       fetchedAt: '2026-07-01T10:00:00',
+      resolvedAt: null,
       ...overrides,
     };
   }
@@ -65,5 +66,59 @@ describe('OutageCardComponent', () => {
 
     expect(countTile.textContent).toContain('0');
     expect(countTile.textContent).toContain('cortes');
+  });
+
+  it('shows a dash for the average duration when no outage in the list is resolved', () => {
+    const fixture = createFixture([outage({ resolvedAt: null })]);
+    const durationTile = fixture.nativeElement.querySelectorAll('.grid > div')[2];
+
+    expect(durationTile.textContent).toContain('—');
+    expect(durationTile.textContent).toContain('min de media (real)');
+  });
+
+  it('averages only the real duration of resolved outages, ignoring ongoing ones and repositionDate', () => {
+    const resolved = outage({
+      objectId: 2,
+      interruptionDate: '2026-07-01T10:00:00',
+      resolvedAt: '2026-07-01T10:20:00',
+      repositionDate: '2026-07-01T23:00:00', // must be ignored now that it is resolved
+    });
+    const ongoing = outage({ objectId: 3, resolvedAt: null });
+    const fixture = createFixture([resolved, ongoing]);
+    const durationTile = fixture.nativeElement.querySelectorAll('.grid > div')[2];
+
+    // Only the resolved outage counts: 20 minutes, not averaged with the ongoing one.
+    expect(durationTile.textContent).toContain('20');
+  });
+
+  it('shows the real duration for a resolved outage in the daily history', () => {
+    const resolved = outage({
+      objectId: 2,
+      interruptionDate: '2026-07-01T10:00:00',
+      resolvedAt: '2026-07-01T10:15:00',
+    });
+    const fixture = createFixture([resolved]);
+    fixture.nativeElement.querySelector('button.bg-gray-900').click();
+    fixture.detectChanges();
+    fixture.nativeElement.querySelector('li > button').click();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('Duración: 15 min');
+  });
+
+  it('shows the estimated restoration time for an ongoing outage in the daily history', () => {
+    const ongoing = outage({
+      objectId: 3,
+      interruptionDate: '2026-07-02T09:00:00',
+      repositionDate: '2026-07-02T09:45:00',
+      resolvedAt: null,
+    });
+    const fixture = createFixture([ongoing]);
+    fixture.nativeElement.querySelector('button.bg-gray-900').click();
+    fixture.detectChanges();
+    fixture.nativeElement.querySelector('li > button').click();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('Reposición estimada: 09:45');
   });
 });

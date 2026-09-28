@@ -18,6 +18,12 @@ export interface EnelOutage {
   /** Endesa's own cause text (des_cause_es), e.g. "Avería" or "Trabajos programados". */
   cause?: string | null;
   fetchedAt: string;
+  /**
+   * When the outage was last observed active before it stopped being reported, or null
+   * while it is still ongoing. Accurate to within one polling interval (~5 minutes) —
+   * see core/utils/outage-duration.ts.
+   */
+  resolvedAt?: string | null;
 }
 
 /** Per-resource request lifecycle, used to drive loading skeletons and error states. */
