@@ -36,13 +36,18 @@ See the individual README files:
 
 ## Deployment
 
-Pushes to `master` trigger GitHub Actions which deploy the backend JAR and the frontend build to the VPS.
+Pushes to `main` trigger GitHub Actions which deploy the backend JAR and the frontend build to the VPS.
 
 Required repository secrets:
 
 - `VPS_HOST`
 - `VPS_USER`
 - `VPS_SSH_KEY`
+
+## Operations
+
+Infrastructure hardening runbooks (nginx, VPS, PostgreSQL, monitoring, branch rename) live in
+[`docs/operations/README.md`](docs/operations/README.md).
 
 ## License
 
