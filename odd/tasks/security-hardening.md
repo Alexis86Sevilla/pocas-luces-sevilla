@@ -49,7 +49,8 @@ Fix the verified security findings from the 2026-09-28 audit, highest severity f
   - d008673 fix(backend): default to prod profile and guard manual fetch (H1, M3, M4, L2)
   - bb8a09e ci: pin actions to commit SHAs and run tests on deploy (H3, L1)
 - VPS systemd verified by user: SPRING_PROFILES_ACTIVE=prod, DB_PASSWORD, ADMIN_API_KEY set.
-- RDD assess on master..HEAD: risk high, review due.
+- RDD assess on master..HEAD: risk high, review due. Consent granted by user. 4-lens native review: APPROVED, acknowledged (authority burned), lineage review-6fc2d02ee4c07144.
+- Non-blocking follow-ups from review: cooldown is consumed even if the fetch fails (R3/R4); `synchronized` sits inside the `@Transactional` proxy and blocks the request thread (R3/R4); TestimonialController filter lacks a controller test; remaining-seconds truncation in 429 message; deploy now depends on Testcontainers; minor readability suggestions.
 
 ## Next step
-Native review of the branch, user decides push/merge, then UX/UI improvements.
+User decides push/merge of `fix/security-hardening`; optional follow-ups above; then UX/UI improvements.
