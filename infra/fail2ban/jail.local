@@ -1,0 +1,43 @@
+# fail2ban jails for sevillasinluz's VPS.
+#
+# Install:
+#   sudo apt-get install -y fail2ban
+#   sudo cp infra/fail2ban/jail.local /etc/fail2ban/jail.local
+#   sudo systemctl enable --now fail2ban
+#   sudo systemctl restart fail2ban
+#
+# Verify:
+#   sudo fail2ban-client status
+#   sudo fail2ban-client status sshd
+#   sudo fail2ban-client status nginx-limit-req
+#
+# Rollback:
+#   sudo rm /etc/fail2ban/jail.local && sudo systemctl restart fail2ban
+#   # or to unban a specific IP without disabling the jail:
+#   sudo fail2ban-client set sshd unbanip <ip>
+
+[DEFAULT]
+bantime  = 1h
+findtime = 10m
+maxretry = 5
+backend  = systemd
+
+[sshd]
+enabled = true
+port    = ssh
+logpath = %(sshd_log)s
+backend = %(sshd_backend)s
+maxretry = 3
+bantime  = 1h
+
+# Requires the nginx "limit_req" zones from infra/nginx/rate-limit.conf to be
+# active, and nginx logging 429s to its error log (default nginx.conf already
+# logs limit_req rejections to error_log at "warn" level and above).
+[nginx-limit-req]
+enabled  = true
+port     = http,https
+filter   = nginx-limit-req
+logpath  = /var/log/nginx/error.log
+findtime = 10m
+maxretry = 10
+bantime  = 1h
