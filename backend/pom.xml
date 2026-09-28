@@ -102,6 +102,15 @@
 	<build>
 		<plugins>
 			<plugin>
+				<!-- Tests assume the JVM runs in Europe/Madrid, matching hibernate.jdbc.time_zone;
+				     native upserts use Timestamp.valueOf, which depends on the JVM default zone. -->
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<configuration>
+					<argLine>-Duser.timezone=Europe/Madrid</argLine>
+				</configuration>
+			</plugin>
+			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
 				<configuration>
