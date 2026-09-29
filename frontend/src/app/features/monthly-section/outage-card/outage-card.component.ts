@@ -17,6 +17,8 @@ export interface DailyOutageGroup {
   readonly outages: readonly EnelOutage[];
 }
 
+const HISTORY_PAGE_SIZE = 7;
+
 @Component({
   selector: 'app-outage-card',
   imports: [DatePipe, DecimalPipe],
@@ -30,6 +32,8 @@ export class OutageCardComponent {
   protected readonly pluralize = pluralize;
   protected readonly expanded = signal(false);
   protected readonly expandedDay = signal<string | null>(null);
+  /** Number of most recent days shown in the history; "Ver más" reveals another page. */
+  protected readonly visibleDayCount = signal(HISTORY_PAGE_SIZE);
 
   protected readonly count = computed(() => this.outages().length);
 
@@ -78,8 +82,21 @@ export class OutageCardComponent {
       .sort((a, b) => b.date.getTime() - a.date.getTime());
   });
 
+  protected readonly visibleGroups = computed(() =>
+    this.dailyGroups().slice(0, this.visibleDayCount())
+  );
+
+  protected readonly hiddenDayCount = computed(() =>
+    Math.max(0, this.dailyGroups().length - this.visibleDayCount())
+  );
+
   toggleExpanded(): void {
     this.expanded.update(v => !v);
+    this.visibleDayCount.set(HISTORY_PAGE_SIZE);
+  }
+
+  protected showMoreDays(): void {
+    this.visibleDayCount.update(n => n + HISTORY_PAGE_SIZE);
   }
 
   protected parseDate(dateStr: string): Date {

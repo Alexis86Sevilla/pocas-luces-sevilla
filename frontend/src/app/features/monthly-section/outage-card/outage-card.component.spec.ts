@@ -138,4 +138,33 @@ describe('OutageCardComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('Terminado (duración no medible)');
     expect(fixture.nativeElement.textContent).not.toContain('Reposición estimada');
   });
+  it('pages the history by 7 days with a show-more button that resets on collapse', () => {
+    const tenDays = Array.from({ length: 10 }, (_, i) =>
+      outage({ objectId: i + 1, interruptionDate: `2026-07-${String(i + 1).padStart(2, '0')}T10:00:00` }),
+    );
+    const fixture = createFixture(tenDays);
+    const el: HTMLElement = fixture.nativeElement;
+    const toggle = () => {
+      (el.querySelector('button.bg-gray-900') as HTMLButtonElement).click();
+      fixture.detectChanges();
+    };
+    const dayRows = () => el.querySelectorAll('ul.space-y-2 > li').length;
+    const showMore = () =>
+      [...el.querySelectorAll('button')].find(b => b.textContent?.includes('Ver más días')) as HTMLButtonElement | undefined;
+
+    toggle();
+    expect(dayRows()).toBe(7);
+    expect(showMore()?.textContent).toContain('3 restantes');
+    expect(el.textContent).toContain('10/07');
+    expect(el.textContent).not.toContain('03/07');
+
+    showMore()!.click();
+    fixture.detectChanges();
+    expect(dayRows()).toBe(10);
+    expect(showMore()).toBeUndefined();
+
+    toggle();
+    toggle();
+    expect(dayRows()).toBe(7);
+  });
 });
