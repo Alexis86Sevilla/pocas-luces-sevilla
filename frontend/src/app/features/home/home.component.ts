@@ -9,12 +9,13 @@ import { HeroComponent } from '../hero/hero.component';
 import { LiveSectionComponent, type LiveGroup } from '../live/live-section.component';
 import { ChartSectionComponent } from '../chart-section/chart-section.component';
 import { MonthlySectionComponent } from '../monthly-section/monthly-section.component';
+import { MonthlyRankingComponent } from '../monthly-ranking/monthly-ranking.component';
 import { parseMadridDate } from '../../core/utils/madrid-date';
 import { outageCategory } from '../../core/utils/outage-category';
 
 @Component({
   selector: 'app-home',
-  imports: [HeroComponent, LiveSectionComponent, ChartSectionComponent, MonthlySectionComponent],
+  imports: [HeroComponent, LiveSectionComponent, ChartSectionComponent, MonthlySectionComponent, MonthlyRankingComponent],
   templateUrl: './home.component.html',
   styleUrl: './home.component.css',
 })

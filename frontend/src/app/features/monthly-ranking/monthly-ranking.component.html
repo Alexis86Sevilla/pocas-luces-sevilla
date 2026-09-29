@@ -1,0 +1,58 @@
+<div id="ranking-distritos" class="mb-14">
+  <span class="mb-1 inline-block rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-gray-500">Comparativa</span>
+  <h3 class="mt-2 text-2xl font-bold text-gray-900">Distritos con más horas de corte este mes</h3>
+  <p class="mb-6 mt-1 text-base text-gray-500">Mes seleccionado: <span class="font-medium text-gray-700">{{ periodLabel() }}</span></p>
+
+  @if (api.monthlyError()) {
+    <div class="rounded-2xl border border-red-200 bg-red-50 px-8 py-10 text-center">
+      <p class="text-base text-red-700">No se ha podido cargar el ranking. Inténtalo de nuevo.</p>
+    </div>
+  } @else if (api.monthlyLoading() && isEmpty()) {
+    <div class="space-y-3" aria-hidden="true">
+      @for (i of [0, 1, 2, 3, 4]; track i) {
+        <div class="motion-safe:animate-pulse rounded-xl border border-gray-100 p-4">
+          <div class="mb-3 h-4 w-1/3 rounded bg-gray-200"></div>
+          <div class="h-3 rounded bg-gray-100"></div>
+        </div>
+      }
+    </div>
+  } @else if (isEmpty()) {
+    <div class="rounded-2xl border border-dashed border-gray-200 bg-gray-50/50 px-8 py-10 text-center">
+      <p class="text-base text-gray-400">No hay cortes registrados este mes.</p>
+    </div>
+  } @else {
+    <ol class="space-y-3">
+      @for (entry of visible(); track entry.districtName; let i = $index) {
+        <li class="rounded-xl border border-gray-100 bg-white p-4">
+          <div class="mb-2 flex items-baseline justify-between gap-3">
+            <p class="text-base font-semibold text-gray-900">
+              <span class="mr-2 text-sm font-bold text-gray-400">{{ i + 1 }}</span>{{ entry.districtName }}
+            </p>
+            <p class="whitespace-nowrap text-base font-bold text-gray-900">{{ entry.accumulatedHours | number: '1.1-1' : 'es-ES' }} h</p>
+          </div>
+          <div class="h-2.5 overflow-hidden rounded-full bg-gray-100" aria-hidden="true">
+            <div class="h-full rounded-full bg-amber-500" [style.width.%]="barWidth(entry.accumulatedHours)"></div>
+          </div>
+          <p class="mt-2 text-sm text-gray-500">{{ outagesLabel(entry.outageCount) }} · {{ clientsLabel(entry.affectedClients) }}</p>
+        </li>
+      }
+    </ol>
+
+    @if (canExpand()) {
+      <button type="button" (click)="toggle()" [attr.aria-expanded]="expanded()" aria-controls="ranking-distritos"
+        class="mt-4 cursor-pointer rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400">
+        @if (expanded()) {
+          Ver solo los {{ topCount }} primeros
+        } @else {
+          Ver todos los distritos ({{ ranking().length }})
+        }
+      </button>
+    }
+
+    <p class="mt-4 max-w-2xl text-xs leading-relaxed text-gray-500">
+      Horas acumuladas: suma de la duración real de los cortes terminados de cada distrito; si hay cortes a la vez,
+      sus horas se suman. Los cortes en curso no cuentan hasta que terminan.
+      <a routerLink="/datos" fragment="metodologia" class="whitespace-nowrap font-medium text-amber-700 underline hover:text-amber-600">¿Cómo se calcula?</a>
+    </p>
+  }
+</div>

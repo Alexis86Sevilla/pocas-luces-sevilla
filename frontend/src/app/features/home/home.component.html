@@ -7,6 +7,10 @@
 
   <section class="bg-white pt-20 pb-10">
     <div class="mx-auto max-w-6xl px-6">
+      <app-monthly-ranking
+        [monthlyOutages]="monthlyOutages()"
+        [selectedMonth]="selectedMonth()"
+        [selectedYear]="selectedYear()" />
       <app-monthly-section
         [districts]="districts()"
         [monthlyOutages]="monthlyOutages()"
