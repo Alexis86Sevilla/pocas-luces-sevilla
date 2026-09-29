@@ -18,12 +18,16 @@ with copy-pasteable commands, a verification step, and a rollback note.
   GitHub Actions `/`), weekly, Europe/Madrid, grouped minor+patch updates,
   `target-branch: main`. Nothing to install; GitHub picks it up once merged
   to the (renamed) default branch.
-- [ ] **T3 — nginx** ([`nginx.md`](nginx.md)): rate limiting, security headers,
+- [x] **T3 — nginx** ([`nginx.md`](nginx.md)): rate limiting, security headers,
   CSP (built from an actual inspection of the frontend, not guessed), API
-  headers. Files in `infra/nginx/`.
+  headers. Files in `infra/nginx/`. Applied 2026-09-29 (CSP still Report-Only,
+  HSTS max-age=300 until verified).
 - [ ] **T4 — VPS hardening** ([`vps-hardening.md`](vps-hardening.md)): ufw,
   SSH hardening, scoped sudo for CI, fail2ban, unattended-upgrades. Contains
-  explicit lock-out warnings — read before running.
+  explicit lock-out warnings — read before running. ufw and SSH (keys only)
+  applied 2026-09-29; fail2ban and unattended-upgrades pending.
+- **VPS access** ([`vps-access.md`](vps-access.md)): current SSH policy,
+  emergency IONOS console, adding or removing a computer.
 - [ ] **T5 — PostgreSQL** ([`postgres.md`](postgres.md)): least-privilege
   role, automated daily backups + retention, restore drill. Files in
   `infra/postgres/`.
