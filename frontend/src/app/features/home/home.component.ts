@@ -1,32 +1,27 @@
 import { Location } from '@angular/common';
 import { Component, computed, inject, OnInit } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ActivatedRoute, Router } from '@angular/router';
 
 import { ApiOutageService, type EnelOutage } from '../../core/services/api-outage.service';
 import { FIRST_DATA_YEAR, type DateFilterValue } from '../monthly-section/date-filter/date-filter.component';
 import { HeroComponent } from '../hero/hero.component';
-import { ContextSectionComponent } from '../context/context-section.component';
-import { VideoCarouselComponent } from '../testimonials/video-carousel/video-carousel.component';
-import { FooterComponent } from '../footer/footer.component';
 import { LiveSectionComponent, type LiveGroup } from '../live/live-section.component';
 import { ChartSectionComponent } from '../chart-section/chart-section.component';
 import { MonthlySectionComponent } from '../monthly-section/monthly-section.component';
-import { DonationSectionComponent } from '../donation-section/donation-section';
-import { MethodologySectionComponent } from '../methodology/methodology-section.component';
 import { parseMadridDate } from '../../core/utils/madrid-date';
 import { outageCategory } from '../../core/utils/outage-category';
 
 @Component({
   selector: 'app-home',
-  imports: [HeroComponent, ContextSectionComponent, VideoCarouselComponent, FooterComponent,
-            DonationSectionComponent, LiveSectionComponent, ChartSectionComponent, MonthlySectionComponent,
-            MethodologySectionComponent],
+  imports: [HeroComponent, LiveSectionComponent, ChartSectionComponent, MonthlySectionComponent],
   templateUrl: './home.component.html',
   styleUrl: './home.component.css',
 })
 export class HomeComponent implements OnInit {
   readonly api = inject(ApiOutageService);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly location = inject(Location);
 
   protected readonly districts = this.api.derivedDistricts;
@@ -66,6 +61,15 @@ export class HomeComponent implements OnInit {
       } as LiveGroup;
     }).sort((a, b) => b.affectedClients - a.affectedClients);
   });
+
+  constructor() {
+    // Legacy links: /#metodologia now lives on /datos. Also covers hash changes while already on home.
+    this.route.fragment.pipe(takeUntilDestroyed()).subscribe(fragment => {
+      if (fragment === 'metodologia') {
+        void this.router.navigate(['/datos'], { fragment: 'metodologia', replaceUrl: true });
+      }
+    });
+  }
 
   ngOnInit(): void {
     const urlFilter = this.readUrlFilter();

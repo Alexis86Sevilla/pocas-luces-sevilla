@@ -2,8 +2,13 @@
 
 @import "tailwindcss";
 
-/* Tailwind v4 preflight resets buttons to cursor: default; restore the pointer site-wide. */
 @layer base {
+  /* Keep anchored sections (#apoyar, #metodologia, #en-directo...) clear of the sticky top nav (h-14). */
+  html {
+    scroll-padding-top: 4rem;
+  }
+
+  /* Tailwind v4 preflight resets buttons to cursor: default; restore the pointer site-wide. */
   button:not(:disabled),
   [role="button"]:not([aria-disabled="true"]) {
     cursor: pointer;

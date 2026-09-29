@@ -1,4 +1,5 @@
 import { Component, computed, inject, input, output } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { DateFilterComponent, type DateFilterValue } from './date-filter/date-filter.component';
 import { OutageCardComponent } from './outage-card/outage-card.component';
 import { OpenDataDownloadComponent } from '../open-data-download/open-data-download.component';
@@ -8,7 +9,7 @@ import { ApiOutageService, type EnelOutage } from '../../core/services/api-outag
 
 @Component({
   selector: 'app-monthly-section',
-  imports: [DateFilterComponent, OutageCardComponent, ShareButtonComponent, OpenDataDownloadComponent],
+  imports: [RouterLink, DateFilterComponent, OutageCardComponent, ShareButtonComponent, OpenDataDownloadComponent],
   templateUrl: './monthly-section.component.html',
 })
 export class MonthlySectionComponent {

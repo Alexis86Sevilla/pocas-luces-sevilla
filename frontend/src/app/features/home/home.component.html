@@ -1,6 +1,5 @@
 <main class="min-h-screen bg-gray-50">
   <app-hero />
-  <app-context-section />
 
   <div id="en-directo">
     <app-live-section [liveGroups]="liveGroups()" />
@@ -20,16 +19,4 @@
         (filterChange)="onFilterChange($event)" />
     </div>
   </section>
-
-  <section class="bg-gray-50 py-16">
-    <div class="mx-auto max-w-6xl px-6">
-      <app-video-carousel />
-    </div>
-  </section>
-
-  <app-methodology-section />
-
-  <app-donation-section />
-
-  <app-footer />
 </main>

@@ -2,7 +2,8 @@ import { Location } from '@angular/common';
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { ActivatedRoute, convertToParamMap } from '@angular/router';
+import { ActivatedRoute, convertToParamMap, Router } from '@angular/router';
+import { of } from 'rxjs';
 import { vi } from 'vitest';
 
 import { HomeComponent } from './home.component';
@@ -11,7 +12,7 @@ import { ApiOutageService } from '../../core/services/api-outage.service';
 describe('HomeComponent URL filter sync', () => {
   let httpMock: HttpTestingController;
 
-  async function setup(queryParams: Record<string, string>) {
+  async function setup(queryParams: Record<string, string>, fragment: string | null = null) {
     TestBed.resetTestingModule();
     await TestBed.configureTestingModule({
       imports: [HomeComponent],
@@ -20,7 +21,7 @@ describe('HomeComponent URL filter sync', () => {
         provideHttpClientTesting(),
         {
           provide: ActivatedRoute,
-          useValue: { snapshot: { queryParamMap: convertToParamMap(queryParams) } },
+          useValue: { snapshot: { queryParamMap: convertToParamMap(queryParams) }, fragment: of(fragment) },
         },
       ],
     }).compileComponents();
@@ -77,5 +78,27 @@ describe('HomeComponent URL filter sync', () => {
     const [path] = replaceSpy.mock.calls[0];
     expect(path).toContain('anio=2026');
     expect(path).toContain('mes=8');
+  });
+
+  it('redirects the legacy /#metodologia fragment to /datos#metodologia', async () => {
+    await setup({}, 'metodologia');
+    const router = TestBed.inject(Router);
+    const navigateSpy = vi.spyOn(router, 'navigate').mockResolvedValue(true);
+    const fixture = TestBed.createComponent(HomeComponent);
+    fixture.detectChanges();
+    flushAllPending();
+
+    expect(navigateSpy).toHaveBeenCalledWith(['/datos'], { fragment: 'metodologia', replaceUrl: true });
+  });
+
+  it('does not redirect for other fragments such as #en-directo', async () => {
+    await setup({}, 'en-directo');
+    const router = TestBed.inject(Router);
+    const navigateSpy = vi.spyOn(router, 'navigate').mockResolvedValue(true);
+    const fixture = TestBed.createComponent(HomeComponent);
+    fixture.detectChanges();
+    flushAllPending();
+
+    expect(navigateSpy).not.toHaveBeenCalled();
   });
 });

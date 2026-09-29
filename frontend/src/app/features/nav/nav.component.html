@@ -1,0 +1,47 @@
+<header class="sticky top-0 z-40 border-b border-white/10 bg-gray-900 text-white">
+  <nav aria-label="Principal">
+    <div class="mx-auto flex h-14 max-w-6xl items-center justify-between px-6">
+      <a routerLink="/" class="text-base font-extrabold tracking-tight text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400">
+        Sevilla Sin Luz
+      </a>
+
+      <ul class="hidden items-center gap-1 md:flex">
+        <li><a routerLink="/" routerLinkActive="bg-white/10 text-white" ariaCurrentWhenActive="page" [routerLinkActiveOptions]="{ exact: true }"
+               class="rounded-lg px-3 py-2 text-sm font-medium text-gray-300 transition hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400">Inicio</a></li>
+        <li><a routerLink="/contexto" routerLinkActive="bg-white/10 text-white" ariaCurrentWhenActive="page"
+               class="rounded-lg px-3 py-2 text-sm font-medium text-gray-300 transition hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400">Contexto</a></li>
+        <li><a routerLink="/datos" routerLinkActive="bg-white/10 text-white" ariaCurrentWhenActive="page"
+               class="rounded-lg px-3 py-2 text-sm font-medium text-gray-300 transition hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400">Datos</a></li>
+        <li><a [routerLink]="[]" fragment="apoyar" queryParamsHandling="preserve" (click)="onSupportClick()"
+               class="ml-2 rounded-lg bg-rose-500 px-3 py-2 text-sm font-semibold text-white transition hover:bg-rose-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400">Apoyar</a></li>
+      </ul>
+
+      <button type="button" id="main-menu-button"
+        class="cursor-pointer rounded-lg p-2 text-gray-200 hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 md:hidden"
+        aria-controls="main-menu" [attr.aria-expanded]="menuOpen()"
+        [attr.aria-label]="menuOpen() ? 'Cerrar menú' : 'Abrir menú'"
+        (click)="toggleMenu()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          @if (menuOpen()) {
+            <path d="M18 6 6 18M6 6l12 12"/>
+          } @else {
+            <path d="M4 6h16M4 12h16M4 18h16"/>
+          }
+        </svg>
+      </button>
+    </div>
+
+    @if (menuOpen()) {
+      <ul id="main-menu" class="border-t border-white/10 bg-gray-900 px-6 pb-4 pt-2 md:hidden">
+        <li><a routerLink="/" routerLinkActive="bg-white/10 text-white" ariaCurrentWhenActive="page" [routerLinkActiveOptions]="{ exact: true }"
+               class="block rounded-lg px-3 py-3 text-base font-medium text-gray-300 hover:text-white">Inicio</a></li>
+        <li><a routerLink="/contexto" routerLinkActive="bg-white/10 text-white" ariaCurrentWhenActive="page"
+               class="block rounded-lg px-3 py-3 text-base font-medium text-gray-300 hover:text-white">Contexto</a></li>
+        <li><a routerLink="/datos" routerLinkActive="bg-white/10 text-white" ariaCurrentWhenActive="page"
+               class="block rounded-lg px-3 py-3 text-base font-medium text-gray-300 hover:text-white">Datos</a></li>
+        <li><a [routerLink]="[]" fragment="apoyar" queryParamsHandling="preserve" (click)="onSupportClick()"
+               class="block rounded-lg px-3 py-3 text-base font-semibold text-rose-300 hover:text-rose-200">Apoyar</a></li>
+      </ul>
+    }
+  </nav>
+</header>
