@@ -28,6 +28,9 @@ with copy-pasteable commands, a verification step, and a rollback note.
   applied 2026-09-29; fail2ban and unattended-upgrades pending.
 - **VPS access** ([`vps-access.md`](vps-access.md)): current SSH policy,
   emergency IONOS console, adding or removing a computer.
+- **Timezone audit** ([`timezone-audit.md`](timezone-audit.md)): read-only SQL to
+  detect datetime rows shifted by the 2026-09-29 timezone bug, and the manual
+  correction script to run only if it finds any.
 - [ ] **T5 — PostgreSQL** ([`postgres.md`](postgres.md)): least-privilege
   role, automated daily backups + retention, restore drill. Files in
   `infra/postgres/`.
