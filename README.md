@@ -12,6 +12,7 @@ A citizen dashboard that tracks and visualizes power outages in Seville neighbor
 - Maps coordinates to Seville neighborhoods and official districts.
 - Shows an annual comparison chart by district, monthly detail cards and a live outage feed.
 - Provides context about the situation and citizen demands.
+- Publishes the outage dataset as CSV under CC BY 4.0: `https://api.sevillasinluz.es/api/open-data/outages.csv` (optional `?year=&month=`). Column meanings: [backend/README.md#open-data-csv](backend/README.md#open-data-csv).
 
 ## Repository structure
 
