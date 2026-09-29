@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 
@@ -12,7 +13,7 @@ describe('LiveSectionComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [LiveSectionComponent],
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
     }).compileComponents();
 
     httpMock = TestBed.inject(HttpTestingController);
@@ -83,5 +84,11 @@ describe('LiveSectionComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toContain('Actualizado hace');
+  });
+
+  it('links to the citizen guide', () => {
+    const fixture = createFixture();
+    const link: HTMLAnchorElement | null = fixture.nativeElement.querySelector('a[href="/guia"]');
+    expect(link?.textContent).toContain('Qué hacer');
   });
 });

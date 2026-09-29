@@ -1,5 +1,6 @@
 import { Component, DestroyRef, computed, inject, input, signal } from '@angular/core';
 import { DatePipe, DecimalPipe } from '@angular/common';
+import { RouterLink } from '@angular/router';
 
 import { ApiOutageService } from '../../core/services/api-outage.service';
 import { parseMadridDate } from '../../core/utils/madrid-date';
@@ -20,7 +21,7 @@ const FRESHNESS_TICK_MS = 60_000;
 
 @Component({
   selector: 'app-live-section',
-  imports: [DatePipe, DecimalPipe],
+  imports: [DatePipe, DecimalPipe, RouterLink],
   templateUrl: './live-section.component.html',
 })
 export class LiveSectionComponent {

@@ -14,6 +14,15 @@ export const routes: Routes = [
     },
   },
   {
+    path: 'guia',
+    loadComponent: () => import('./features/guia-page/guia-page.component').then(m => m.GuiaPageComponent),
+    title: 'Qué hacer si te quedas sin luz — Sevilla Sin Luz',
+    data: {
+      description:
+        'Guía paso a paso: a quién llamar, cómo reclamar y tus derechos si te quedas sin luz en Sevilla.',
+    },
+  },
+  {
     path: 'contexto',
     loadComponent: () => import('./features/contexto-page/contexto-page.component').then(m => m.ContextoPageComponent),
     title: 'Contexto — Sevilla Sin Luz',
