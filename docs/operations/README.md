@@ -22,10 +22,10 @@ with copy-pasteable commands, a verification step, and a rollback note.
   CSP (built from an actual inspection of the frontend, not guessed), API
   headers. Files in `infra/nginx/`. Applied 2026-09-29 (CSP still Report-Only,
   HSTS max-age=300 until verified).
-- [ ] **T4 — VPS hardening** ([`vps-hardening.md`](vps-hardening.md)): ufw,
+- [x] **T4 — VPS hardening** ([`vps-hardening.md`](vps-hardening.md)): ufw,
   SSH hardening, scoped sudo for CI, fail2ban, unattended-upgrades. Contains
   explicit lock-out warnings — read before running. ufw and SSH (keys only)
-  applied 2026-09-29; fail2ban and unattended-upgrades pending.
+  applied 2026-09-29; fail2ban (`/etc/fail2ban/jail.d/sevillasinluz.local`) and unattended-upgrades active the same day.
 - **VPS access** ([`vps-access.md`](vps-access.md)): current SSH policy,
   emergency IONOS console, adding or removing a computer.
 - **Timezone audit** ([`timezone-audit.md`](timezone-audit.md)): read-only SQL to
