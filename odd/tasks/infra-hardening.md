@@ -38,3 +38,8 @@ Rename the default branch to `main` and harden the production infrastructure (VP
 
 ## Next step
 User review: read `docs/operations/README.md`, then work through T1–T6 in order on the actual VPS/GitHub, each with its own verification and rollback.
+
+## Production rollout log
+- 2026-09-29 nginx (T3) applied by the user on the VPS, guided step by step. The VPS nginx also serves another site (urban-oasis), so zone names are unique (`sevillasinluz_api`, `sevillasinluz_admin`) and `limit_req_status` lives in our locations. Files: `conf.d/sevillasinluz-limits.conf`, `snippets/sevillasinluz-{headers,api-headers,proxy}.conf`, rewritten `sites-available/sevillasinluz` (hash-verified before applying; backup `/root/nginx-backup-20260929`).
+- Verified externally: all three sites 200; site headers HSTS (max-age=300), nosniff, X-Frame-Options DENY, Referrer-Policy, Permissions-Policy, CSP Report-Only; API headers HSTS + CSP `default-src 'none'`; `server_tokens off`; CORS intact; 60 parallel requests -> 26x200 / 34x429; admin endpoints 429 on the 4th request.
+- Pending: enforce CSP after checking browser console for violations; raise HSTS to 1 year after a few days; T4 (ufw, SSH without root/passwords, fail2ban, unattended-upgrades), T5 backups, T6 monitoring.
