@@ -3,14 +3,27 @@
     <span class="mb-1 inline-block rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-gray-500">Detalle mensual</span>
     <h3 class="mt-2 text-2xl font-bold text-gray-900">¿Cómo fue el mes?</h3>
   </div>
-  <div class="flex items-center gap-3">
+  <div class="flex flex-wrap items-center gap-3">
     <app-date-filter
       [selectedMonth]="selectedMonth()"
       [selectedYear]="selectedYear()"
       (filterChange)="filterChange.emit($event)" />
     <app-share-button />
+    <app-open-data-download
+      [year]="selectedYear()"
+      [month]="selectedMonth()"
+      label="Descargar CSV"
+      [ariaLabel]="'Descargar en CSV los cortes de ' + selectedMonth() + '/' + selectedYear()" />
   </div>
 </div>
+
+<p class="-mt-4 mb-6 max-w-2xl text-xs leading-relaxed text-gray-500">
+  Datos abiertos bajo licencia
+  <a href="https://creativecommons.org/licenses/by/4.0/deed.es" target="_blank" rel="noopener noreferrer"
+    class="font-medium text-amber-700 underline hover:text-amber-600">CC BY 4.0</a>.
+  Cita: «Sevilla Sin Luz (sevillasinluz.es), a partir de datos públicos de e-distribución (Grupo Endesa)».
+  <a href="#diccionario-datos" class="whitespace-nowrap font-medium text-amber-700 underline hover:text-amber-600">Significado de cada columna</a>
+</p>
 
 <p class="mb-6 max-w-2xl text-base leading-relaxed text-gray-500">
   Cada tarjeta muestra un distrito con los <strong class="text-gray-700">minutos de media</strong> (duración real de

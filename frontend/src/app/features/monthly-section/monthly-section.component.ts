@@ -1,13 +1,14 @@
 import { Component, computed, inject, input, output } from '@angular/core';
 import { DateFilterComponent, type DateFilterValue } from './date-filter/date-filter.component';
 import { OutageCardComponent } from './outage-card/outage-card.component';
+import { OpenDataDownloadComponent } from '../open-data-download/open-data-download.component';
 import { ShareButtonComponent } from '../share-button/share-button.component';
 import type { District } from '../../core/models';
 import { ApiOutageService, type EnelOutage } from '../../core/services/api-outage.service';
 
 @Component({
   selector: 'app-monthly-section',
-  imports: [DateFilterComponent, OutageCardComponent, ShareButtonComponent],
+  imports: [DateFilterComponent, OutageCardComponent, ShareButtonComponent, OpenDataDownloadComponent],
   templateUrl: './monthly-section.component.html',
 })
 export class MonthlySectionComponent {

@@ -44,4 +44,22 @@ describe('MethodologySectionComponent', () => {
     expect(githubLink).toBeTruthy();
     expect(fixture.nativeElement.querySelector('a[href="mailto:info@sevillasinluz.es"]')).toBeTruthy();
   });
+
+  it('offers the CSV downloads with license, citation and a data dictionary', () => {
+    const fixture = TestBed.createComponent(MethodologySectionComponent);
+    fixture.detectChanges();
+    const el: HTMLElement = fixture.nativeElement;
+
+    const hrefs = Array.from(el.querySelectorAll<HTMLAnchorElement>('a[download]')).map(a => a.getAttribute('href'));
+    expect(hrefs.length).toBe(4);
+    expect(hrefs[0]).toMatch(/\/open-data\/outages\.csv$/);
+    expect(hrefs[1]).toMatch(/\/open-data\/outages\.csv\?format=excel$/);
+    expect(hrefs[2]).toMatch(/\/open-data\/outages\.csv\?year=\d{4}$/);
+    expect(hrefs[3]).toMatch(/\/open-data\/outages\.csv\?year=\d{4}&format=excel$/);
+    expect(el.textContent).toContain('abrirse con doble clic en Excel en español');
+    expect(el.querySelector('a[href="https://creativecommons.org/licenses/by/4.0/deed.es"]')).toBeTruthy();
+    expect(el.textContent).toContain('Diccionario de datos (CSV)');
+    expect(el.querySelectorAll('#diccionario-datos tbody tr').length).toBe(15);
+    expect(el.textContent).toContain('observed_end');
+  });
 });

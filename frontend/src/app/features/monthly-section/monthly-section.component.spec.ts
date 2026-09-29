@@ -67,4 +67,15 @@ describe('MonthlySectionComponent', () => {
     const fixture = createFixture();
     expect(fixture.nativeElement.textContent).toContain('No hay cortes registrados este mes.');
   });
+
+  it('links the selected month to the CSV download with the license notice', () => {
+    const fixture = createFixture();
+    const a: HTMLAnchorElement = fixture.nativeElement.querySelector('a[download]');
+
+    const excel: HTMLAnchorElement = fixture.nativeElement.querySelectorAll('a[download]')[1];
+
+    expect(a.getAttribute('href')).toContain('/open-data/outages.csv?year=2026&month=7');
+    expect(excel.getAttribute('href')).toContain('/open-data/outages.csv?year=2026&month=7&format=excel');
+    expect(fixture.nativeElement.textContent).toContain('CC BY 4.0');
+  });
 });

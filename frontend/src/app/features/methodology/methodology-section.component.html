@@ -71,6 +71,57 @@
       </details>
     </div>
 
+    <div id="datos-abiertos" class="mt-6 rounded-2xl border border-gray-100 bg-gray-50 p-6">
+      <h3 class="mb-2 text-base font-bold text-gray-900">Descarga los datos</h3>
+      <p class="mb-4 text-sm leading-relaxed text-gray-600">
+        Un CSV con un corte por fila, ordenado por hora de inicio, en UTF-8 y con horas locales de Madrid.
+        Se puede reutilizar citando la fuente.
+        El CSV estándar (separado por comas) funciona en Google Sheets, LibreOffice y herramientas de análisis;
+        la versión para Excel usa punto y coma y coma decimal para abrirse con doble clic en Excel en español.
+      </p>
+      <div class="flex flex-wrap items-start gap-3">
+        <app-open-data-download label="Todos los cortes (CSV)" ariaLabel="Descargar todos los cortes en CSV"
+          excelLabel="Todos (CSV para Excel)" excelAriaLabel="Descargar todos los cortes en CSV para Excel" />
+        <app-open-data-download [year]="currentYear" [label]="'Cortes de ' + currentYear + ' (CSV)'"
+          [ariaLabel]="'Descargar los cortes de ' + currentYear + ' en CSV'"
+          [excelLabel]="currentYear + ' (CSV para Excel)'"
+          [excelAriaLabel]="'Descargar los cortes de ' + currentYear + ' en CSV para Excel'" />
+      </div>
+      <p class="mt-4 text-sm leading-relaxed text-gray-600">
+        Datos abiertos bajo licencia
+        <a href="https://creativecommons.org/licenses/by/4.0/deed.es" target="_blank" rel="noopener noreferrer"
+          class="font-medium text-amber-700 underline hover:text-amber-600">CC BY 4.0</a>.
+        Cita: «Sevilla Sin Luz (sevillasinluz.es), a partir de datos públicos de e-distribución (Grupo Endesa)».
+        La licencia cubre nuestra recopilación y tratamiento; los datos de origen pertenecen a la distribuidora.
+      </p>
+
+      <details id="diccionario-datos" class="mt-4 rounded-xl border border-gray-200 bg-white p-4">
+        <summary class="cursor-pointer text-sm font-bold text-gray-900">Diccionario de datos (CSV)</summary>
+        <div class="mt-3 overflow-x-auto">
+          <table class="w-full text-left text-sm text-gray-600">
+            <caption class="sr-only">Columnas del CSV de datos abiertos</caption>
+            <thead>
+              <tr class="border-b border-gray-200 text-xs uppercase tracking-wide text-gray-500">
+                <th scope="col" class="py-2 pr-4 font-semibold">Columna</th>
+                <th scope="col" class="py-2 font-semibold">Significado</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (column of csvColumns; track column.name) {
+                <tr class="border-b border-gray-100 align-top last:border-0">
+                  <th scope="row" class="whitespace-nowrap py-2 pr-4 font-mono text-xs font-semibold text-gray-800">{{ column.name }}</th>
+                  <td class="py-2 leading-relaxed">{{ column.description }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        <p class="mt-3 text-xs leading-relaxed text-gray-500">
+          Las celdas vacías significan «sin dato». Todas las horas están en hora local de Madrid, sin desfase (por ejemplo, 2026-09-28T15:38:00).
+        </p>
+      </details>
+    </div>
+
     <div class="mt-6 rounded-2xl border-l-4 border-amber-500 bg-amber-50 p-6">
       <h3 class="mb-3 text-base font-bold text-amber-900">Limitaciones conocidas</h3>
       <ul class="space-y-2 text-sm leading-relaxed text-amber-900">
