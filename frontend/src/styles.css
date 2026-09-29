@@ -8,9 +8,23 @@
     scroll-padding-top: 4rem;
   }
 
+  /* Smooth in-page jumps (#en-directo, #apoyar...) unless the user prefers reduced motion. */
+  @media (prefers-reduced-motion: no-preference) {
+    html {
+      scroll-behavior: smooth;
+    }
+  }
+
   /* Tailwind v4 preflight resets buttons to cursor: default; restore the pointer site-wide. */
   button:not(:disabled),
   [role="button"]:not([aria-disabled="true"]) {
     cursor: pointer;
   }
+}
+
+/* Page-to-page cross-fade (View Transitions API). The nav keeps its own name so it stays still. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 220ms;
+  animation-timing-function: ease-out;
 }
