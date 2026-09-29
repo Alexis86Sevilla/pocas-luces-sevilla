@@ -25,7 +25,7 @@ describe('VideoCarouselComponent', () => {
       .flush('boom', { status: 500, statusText: 'Server Error' });
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).toContain('No hemos podido cargar los testimonios');
+    expect(fixture.nativeElement.textContent).toContain('No se han podido cargar los testimonios');
     expect(fixture.nativeElement.textContent).not.toContain('Aún no hay testimonios');
 
     const retryButton: HTMLButtonElement = fixture.nativeElement.querySelector('button');
@@ -34,7 +34,7 @@ describe('VideoCarouselComponent', () => {
     httpMock.expectOne(r => r.url.endsWith('/testimonials')).flush([]);
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).not.toContain('No hemos podido cargar');
+    expect(fixture.nativeElement.textContent).not.toContain('No se han podido cargar');
   });
 
   it('shows the plain empty state (not an error) when the request succeeds with no testimonials', () => {

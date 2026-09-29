@@ -36,7 +36,7 @@ describe('LiveSectionComponent', () => {
       .flush('boom', { status: 500, statusText: 'Server Error' });
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).toContain('No hemos podido cargar los datos');
+    expect(fixture.nativeElement.textContent).toContain('No se han podido cargar los datos');
     const retryButton: HTMLButtonElement = fixture.nativeElement.querySelector('button.bg-red-500');
     expect(retryButton).toBeTruthy();
 
@@ -44,7 +44,7 @@ describe('LiveSectionComponent', () => {
     httpMock.expectOne(r => r.url.endsWith('/outages/live')).flush([]);
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).not.toContain('No hemos podido cargar');
+    expect(fixture.nativeElement.textContent).not.toContain('No se han podido cargar');
   });
 
   it('shows a loading skeleton while the request is in flight and no data is present yet', () => {

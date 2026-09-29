@@ -42,7 +42,7 @@ describe('MonthlySectionComponent', () => {
       .flush('boom', { status: 500, statusText: 'Server Error' });
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).toContain('No hemos podido cargar los datos');
+    expect(fixture.nativeElement.textContent).toContain('No se han podido cargar los datos');
     const retryButton: HTMLButtonElement = fixture.nativeElement.querySelector('button.bg-red-600');
     retryButton.click();
 
