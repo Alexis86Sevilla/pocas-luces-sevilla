@@ -8,13 +8,25 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.sql.Timestamp;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Native JDBC paths for {@link EnelOutage}.
+ *
+ * <p>Timezone contract (see README, "Timezone contract"): every {@link LocalDateTime} is
+ * Europe/Madrid wall-clock and is bound and read as a {@code java.time} value through JDBC
+ * 4.2 ({@code setObject}/{@code getObject(..., LocalDateTime.class)}), never through
+ * {@code java.sql.Timestamp}, whose conversions go through the JVM default time zone. This
+ * keeps the native path and the JPA path (configured with
+ * {@code hibernate.type.java_time_use_direct_jdbc=true}) byte-for-byte consistent whatever
+ * zone the JVM runs in.</p>
+ */
 @Repository
 public class EnelOutageRepositoryImpl implements EnelOutageRepositoryCustom {
 
@@ -126,20 +138,20 @@ public class EnelOutageRepositoryImpl implements EnelOutageRepositoryCustom {
         params.put("longitude", outage.getLongitude());
         params.put("affectedClients", outage.getAffectedClients());
         params.put("serviceType", outage.getServiceType());
-        params.put("interruptionDate", toTimestamp(outage.getInterruptionDate()));
-        params.put("repositionDate", toTimestamp(outage.getRepositionDate()));
+        params.put("interruptionDate", outage.getInterruptionDate());
+        params.put("repositionDate", outage.getRepositionDate());
         params.put("neighborhoodName", outage.getNeighborhoodName());
         params.put("districtName", outage.getDistrictName());
         params.put("cause", outage.getCause());
         params.put("sourceUrl", outage.getSourceUrl());
         params.put("rawResponseHash", outage.getRawResponseHash());
         params.put("rawResponse", outage.getRawResponse());
-        params.put("firstSeenAt", toTimestamp(outage.getFirstSeenAt()));
-        params.put("fetchedAt", toTimestamp(outage.getFetchedAt()));
-        params.put("createdAt", toTimestamp(outage.getCreatedAt()));
-        params.put("updatedAt", toTimestamp(outage.getUpdatedAt()));
+        params.put("firstSeenAt", outage.getFirstSeenAt());
+        params.put("fetchedAt", outage.getFetchedAt());
+        params.put("createdAt", outage.getCreatedAt());
+        params.put("updatedAt", outage.getUpdatedAt());
         params.put("active", outage.isActive());
-        params.put("resolvedAt", toTimestamp(outage.getResolvedAt()));
+        params.put("resolvedAt", outage.getResolvedAt());
         return params;
     }
 
@@ -159,7 +171,7 @@ public class EnelOutageRepositoryImpl implements EnelOutageRepositoryCustom {
         return jdbcTemplate.query(sql, params, (rs, rowNum) -> mapRowToEnelOutage(rs));
     }
 
-    private EnelOutage mapRowToEnelOutage(java.sql.ResultSet rs) throws java.sql.SQLException {
+    private EnelOutage mapRowToEnelOutage(ResultSet rs) throws SQLException {
         EnelOutage o = new EnelOutage();
         o.setId(rs.getLong("id"));
         o.setObjectId(rs.getString("object_id"));
@@ -167,20 +179,20 @@ public class EnelOutageRepositoryImpl implements EnelOutageRepositoryCustom {
         o.setLongitude(rs.getObject("longitude") != null ? rs.getDouble("longitude") : null);
         o.setAffectedClients(rs.getObject("affected_clients") != null ? rs.getInt("affected_clients") : null);
         o.setServiceType(rs.getString("service_type"));
-        o.setInterruptionDate(toLocalDateTime(rs.getTimestamp("interruption_date")));
-        o.setRepositionDate(toLocalDateTime(rs.getTimestamp("reposition_date")));
+        o.setInterruptionDate(rs.getObject("interruption_date", LocalDateTime.class));
+        o.setRepositionDate(rs.getObject("reposition_date", LocalDateTime.class));
         o.setNeighborhoodName(rs.getString("neighborhood_name"));
         o.setDistrictName(rs.getString("district_name"));
         o.setCause(rs.getString("cause"));
         o.setSourceUrl(rs.getString("source_url"));
         o.setRawResponseHash(rs.getString("raw_response_hash"));
         o.setRawResponse(rs.getString("raw_response"));
-        o.setFirstSeenAt(toLocalDateTime(rs.getTimestamp("first_seen_at")));
-        o.setFetchedAt(toLocalDateTime(rs.getTimestamp("fetched_at")));
-        o.setCreatedAt(toLocalDateTime(rs.getTimestamp("created_at")));
-        o.setUpdatedAt(toLocalDateTime(rs.getTimestamp("updated_at")));
+        o.setFirstSeenAt(rs.getObject("first_seen_at", LocalDateTime.class));
+        o.setFetchedAt(rs.getObject("fetched_at", LocalDateTime.class));
+        o.setCreatedAt(rs.getObject("created_at", LocalDateTime.class));
+        o.setUpdatedAt(rs.getObject("updated_at", LocalDateTime.class));
         o.setActive(rs.getBoolean("active"));
-        o.setResolvedAt(toLocalDateTime(rs.getTimestamp("resolved_at")));
+        o.setResolvedAt(rs.getObject("resolved_at", LocalDateTime.class));
         return o;
     }
 
@@ -195,11 +207,4 @@ public class EnelOutageRepositoryImpl implements EnelOutageRepositoryCustom {
         jdbcTemplate.update(sql, params);
     }
 
-    private LocalDateTime toLocalDateTime(Timestamp timestamp) {
-        return timestamp == null ? null : timestamp.toLocalDateTime();
-    }
-
-    private Timestamp toTimestamp(java.time.LocalDateTime dateTime) {
-        return dateTime == null ? null : Timestamp.valueOf(dateTime);
-    }
 }

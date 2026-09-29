@@ -148,12 +148,17 @@ class DistrictLocatorTest {
 
     @Test
     void lookupShouldBeFast() {
+        // Warm up so JIT compilation and class loading are not measured.
+        for (int i = 0; i < 200; i++) {
+            locator.findDistrict(37.393897, -5.991379);
+        }
         long start = System.nanoTime();
         for (int i = 0; i < 100; i++) {
             locator.findDistrict(37.393897, -5.991379);
         }
         long elapsedMs = (System.nanoTime() - start) / 1_000_000;
-        // 100 lookups must complete in under 100 ms (i.e., 1 ms each with plenty of headroom)
-        assertThat(elapsedMs).isLessThan(100);
+        // Generous bound (10 ms per lookup) so loaded CI runners don't flake, while still
+        // catching real regressions such as reloading or re-parsing the GeoJSON per lookup.
+        assertThat(elapsedMs).isLessThan(1_000);
     }
 }

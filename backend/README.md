@@ -56,6 +56,8 @@ Environment variables:
 
 Tests run against the `dev` profile (H2) explicitly via `@ActiveProfiles("dev")`, regardless of the default.
 
+`spring.jpa.properties.hibernate.type.java_time_use_direct_jdbc=true` (default document, all profiles) is part of the [timezone contract](#timezone-contract): do not remove it and do not add `hibernate.jdbc.time_zone`.
+
 ## Main endpoints
 
 | Method | Endpoint | Description |
@@ -88,7 +90,15 @@ Each outage is assigned a district using the official district polygons in `src/
 ./mvnw test
 ```
 
-`EnelOutageRepositoryPostgresTest` uses Testcontainers and needs a running Docker daemon.
+The suite runs **twice**: the main surefire execution under a `UTC` JVM (what production
+and CI run in) and a second execution (`test-jvm-europe-madrid`) under `Europe/Madrid`.
+Reports land in `target/surefire-reports` and `target/surefire-reports-europe-madrid`.
+The main execution's zone can be changed for an extra run, e.g.
+`./mvnw test -Dsurefire.jvm.timezone=America/New_York`. See
+[Timezone contract](#timezone-contract) for why.
+
+`EnelOutageRepositoryPostgresTest`, `TimeZoneIndependencePostgresTest` and
+`OutageIdentityFlywayMigrationTest` use Testcontainers and need a running Docker daemon.
 
 ## Packaging
 
@@ -146,3 +156,52 @@ serviceType)`.
   Backfills it for rows that were already inactive before this migration, using
   `fetched_at` (their last-seen time) as the best available proxy for when they were
   resolved.
+
+## Timezone contract
+
+Every datetime this API stores or returns (`interruptionDate`, `repositionDate`,
+`firstSeenAt`, `fetchedAt`, `createdAt`, `updatedAt`, `resolvedAt`) is **Europe/Madrid
+wall-clock time with no offset**, exactly as Endesa publishes it (`"29/09/2026 10:59"`
+in the feed is stored and returned as `2026-09-29T10:59:00`). Columns are `timestamp`
+(without time zone), entities use `LocalDateTime`, and the JSON has no zone suffix.
+
+The JVM default time zone must be **irrelevant**. Production runs without `TZ` (UTC),
+CI runs on UTC runners, developers run in Europe/Madrid, and the answer has to be the
+same everywhere. The rules that keep it that way:
+
+- **"Now" comes from the `Clock` bean** (`ClockConfig`, `Europe/Madrid`):
+  `LocalDateTime.now(clock)`. Never `LocalDateTime.now()` for anything that is stored
+  or compared with stored data.
+- **Hibernate binds `java.time` values directly** through JDBC 4.2
+  (`hibernate.type.java_time_use_direct_jdbc=true` in `application.yaml`). Without it,
+  Hibernate 6 converts `LocalDateTime` through `java.sql.Timestamp`, whose
+  `valueOf`/`toLocalDateTime` use the JVM default zone.
+- **The native JDBC path does the same** (`EnelOutageRepositoryImpl`): parameters are
+  passed as `LocalDateTime` (`setObject`) and read with
+  `rs.getObject(column, LocalDateTime.class)`. Never `Timestamp.valueOf(...)` or
+  `rs.getTimestamp(...).toLocalDateTime()`.
+- **Never set `hibernate.jdbc.time_zone`.** It makes Hibernate convert between the JVM
+  zone and that zone, which is exactly the mismatch below.
+- Tests prove it: `AbstractTimeZoneIndependenceTest` (H2 and PostgreSQL subclasses)
+  runs every scenario under five JVM default zones set with `TimeZone.setDefault`,
+  checks what the database actually holds as text, and covers wall-clock times that do
+  not exist in the JVM zone (DST gaps). On top of that the whole suite runs under UTC
+  and under Europe/Madrid (see [Tests](#tests)).
+
+### Incident 2026-09-29
+
+`hibernate.jdbc.time_zone=Europe/Madrid` was configured while the production JVM ran in
+UTC. Native upserts wrote wall-clock verbatim (`Timestamp.valueOf` round-trips in a
+single zone), but Hibernate shifted every JPA read by -2h (`/monthly` showed `08:59`
+for Endesa's `10:59`) and every JPA-bound parameter by +2h. The V5 resolve step,
+`UPDATE ... WHERE active AND fetched_at < :now`, therefore compared natively written
+`fetched_at` values against a `:now` two hours in the future and resolved every outage
+in the very run that had just upserted it, so `/live` returned nothing while Endesa
+published active outages. Forcing `-Duser.timezone=Europe/Madrid` in surefire had hidden
+the same failure in CI the day before. The fix removed the mismatched conversions
+instead of aligning zones, so no deployment setting is load-bearing anymore.
+
+Setting `Environment=TZ=Europe/Madrid` in the systemd unit is harmless and makes log
+timestamps local, but the application no longer depends on it. Whether any stored rows
+were shifted by an earlier JPA write path, and how to check and correct that, is
+covered in [`docs/operations/timezone-audit.md`](../docs/operations/timezone-audit.md).

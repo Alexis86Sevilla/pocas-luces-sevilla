@@ -10,6 +10,19 @@ spring:
       write-dates-as-timestamps: false
     time-zone: Europe/Madrid
 
+  jpa:
+    properties:
+      hibernate:
+        # Timezone contract (see README, "Timezone contract"): every LocalDateTime is
+        # Europe/Madrid wall-clock and must reach the TIMESTAMP column verbatim, whatever
+        # the JVM default zone is. With this flag Hibernate binds/reads java.time values
+        # through JDBC 4.2 setObject/getObject instead of converting via java.sql.Timestamp
+        # (which goes through the JVM default zone). Do NOT add hibernate.jdbc.time_zone:
+        # combined with a non-Madrid JVM it shifted JPA reads/writes by the zone offset
+        # while the native JDBC path did not (2026-09-29 incident).
+        type:
+          java_time_use_direct_jdbc: true
+
 # Set via environment variable ADMIN_API_KEY or override in profile-specific config.
 # Endpoints protected: POST /api/outages/fetch and GET /api/outages/export/csv
 admin:
@@ -41,10 +54,6 @@ spring:
       ddl-auto: update
     show-sql: false
     defer-datasource-initialization: true
-    properties:
-      hibernate:
-        jdbc:
-          time_zone: Europe/Madrid
 
   flyway:
     enabled: false
@@ -79,8 +88,6 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
-        jdbc:
-          time_zone: Europe/Madrid
 
   flyway:
     enabled: true

@@ -28,6 +28,12 @@
 	</scm>
 	<properties>
 		<java.version>21</java.version>
+		<!-- JVM default time zone for the main surefire execution. UTC on purpose: it is what
+		     production (systemd, no TZ) and CI (GitHub ubuntu runners) run in, and it is NOT
+		     Europe/Madrid, so any code that leaks the JVM zone into stored/returned wall-clock
+		     times fails here instead of only in production. Override for an extra run, e.g.
+		     ./mvnw test -Dsurefire.jvm.timezone=America/New_York -->
+		<surefire.jvm.timezone>UTC</surefire.jvm.timezone>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -102,13 +108,32 @@
 	<build>
 		<plugins>
 			<plugin>
-				<!-- Tests assume the JVM runs in Europe/Madrid, matching hibernate.jdbc.time_zone;
-				     native upserts use Timestamp.valueOf, which depends on the JVM default zone. -->
+				<!-- The whole suite runs twice, under two different JVM default time zones. Stored
+				     and returned times are Europe/Madrid wall-clock by contract and must not depend
+				     on the JVM zone (see backend/README.md, "Timezone contract"). The main run uses
+				     ${surefire.jvm.timezone} (UTC by default, like production and CI); the second run
+				     uses Europe/Madrid so the suite is also proven in the zone the data is expressed in.
+				     The timezone regression tests additionally flip TimeZone.setDefault per case. -->
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-surefire-plugin</artifactId>
-				<configuration>
-					<argLine>-Duser.timezone=Europe/Madrid</argLine>
-				</configuration>
+				<executions>
+					<execution>
+						<id>default-test</id>
+						<configuration>
+							<argLine>-Duser.timezone=${surefire.jvm.timezone}</argLine>
+						</configuration>
+					</execution>
+					<execution>
+						<id>test-jvm-europe-madrid</id>
+						<goals>
+							<goal>test</goal>
+						</goals>
+						<configuration>
+							<argLine>-Duser.timezone=Europe/Madrid</argLine>
+							<reportsDirectory>${project.build.directory}/surefire-reports-europe-madrid</reportsDirectory>
+						</configuration>
+					</execution>
+				</executions>
 			</plugin>
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
