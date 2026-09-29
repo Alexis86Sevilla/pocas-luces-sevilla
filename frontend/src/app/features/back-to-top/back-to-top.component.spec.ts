@@ -46,4 +46,24 @@ describe('BackToTopComponent', () => {
 
     expect(scrollToSpy).toHaveBeenCalledWith(expect.objectContaining({ top: 0 }));
   });
+
+  it('shows a support link below the arrow that scrolls to the support section', () => {
+    const section = document.createElement('section');
+    section.id = 'apoyar';
+    section.scrollIntoView = vi.fn();
+    document.body.appendChild(section);
+    const fixture = createFixture();
+    Object.defineProperty(globalThis, 'scrollY', { value: 900, configurable: true });
+    globalThis.dispatchEvent(new Event('scroll'));
+    fixture.detectChanges();
+
+    const controls = [...fixture.nativeElement.querySelectorAll('button, a')] as HTMLElement[];
+    expect(controls.map(c => c.getAttribute('aria-label'))).toEqual(['Volver arriba', 'Apoyar el proyecto']);
+    const link = controls[1] as HTMLAnchorElement;
+    expect(link.getAttribute('href')).toBe('#apoyar');
+
+    link.click();
+    expect(section.scrollIntoView).toHaveBeenCalled();
+    section.remove();
+  });
 });

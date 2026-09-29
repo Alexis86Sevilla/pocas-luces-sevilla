@@ -15,7 +15,19 @@ export class BackToTopComponent {
   }
 
   protected scrollToTop(): void {
+    globalThis.scrollTo({ top: 0, behavior: this.scrollBehavior() });
+  }
+
+  /** Smooth-scrolls to the support section; the plain #apoyar href remains the fallback. */
+  protected scrollToSupport(event: Event): void {
+    const target = globalThis.document?.getElementById('apoyar');
+    if (!target) return;
+    event.preventDefault();
+    target.scrollIntoView({ behavior: this.scrollBehavior(), block: 'start' });
+  }
+
+  private scrollBehavior(): ScrollBehavior {
     const reducedMotion = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
-    globalThis.scrollTo({ top: 0, behavior: reducedMotion ? 'auto' : 'smooth' });
+    return reducedMotion ? 'auto' : 'smooth';
   }
 }
