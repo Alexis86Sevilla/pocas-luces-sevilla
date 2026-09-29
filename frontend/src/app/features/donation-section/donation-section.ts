@@ -1,10 +1,10 @@
 import { Component } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { ShareButtonComponent } from '../share-button/share-button.component';
 
 @Component({
   selector: 'app-donation-section',
   standalone: true,
-  imports: [CommonModule],
+  imports: [ShareButtonComponent],
   templateUrl: './donation-section.html',
 })
 export class DonationSectionComponent {}
