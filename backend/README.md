@@ -71,7 +71,8 @@ Tests run against the `dev` profile (H2) explicitly via `@ActiveProfiles("dev")`
 | GET | `/api/testimonials` | Video testimonials |
 | GET | `/api/neighborhoods` | Seeded neighborhoods |
 | POST | `/api/outages/fetch` | Manually trigger a fetch from Endesa (requires `X-API-Key`) |
-| GET | `/api/outages/export/csv?year=&month=` | CSV export (requires `X-API-Key`) |
+| GET | `/api/open-data/outages.csv?year=&month=&format=` | Public open-data CSV (CC BY 4.0), see [Open data CSV](#open-data-csv); `month` requires `year` |
+| GET | `/api/outages/export/csv?year=&month=` | Admin CSV export with internal fields (requires `X-API-Key`) |
 
 If `ADMIN_API_KEY` is not configured, protected endpoints always return `403`.
 
@@ -208,3 +209,38 @@ Setting `Environment=TZ=Europe/Madrid` in the systemd unit is harmless and makes
 timestamps local, but the application no longer depends on it. Whether any stored rows
 were shifted by an earlier JPA write path, and how to check and correct that, is
 covered in [`docs/operations/timezone-audit.md`](../docs/operations/timezone-audit.md).
+
+## Open data CSV
+
+`GET /api/open-data/outages.csv` is a public, unauthenticated download of the outage
+history, licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) (the response
+carries a `Link: <...>; rel="license"` header). The license covers this project's
+compilation and processing; the source data belongs to e-distribución (Grupo Endesa).
+Suggested citation: "Sevilla Sin Luz (sevillasinluz.es), a partir de datos públicos de
+e-distribución (Grupo Endesa)".
+
+- Optional `year` and `month` filters by interruption start (`month` requires `year`; invalid values return `400`).
+- Optional `format`: `csv` (default, the standard file) or `excel`; any other value returns `400`. The `excel` variant is for Spanish-locale Excel (double-click to open): `;` delimiter, decimal comma (`37,40825877`), datetimes as `yyyy-MM-dd HH:mm:ss` (space instead of `T`), same columns, BOM, CRLF and formula neutralization; fields containing `;` are quoted. Its filename ends in `-excel.csv`.
+- Filename: `sevillasinluz-cortes-<all|YYYY|YYYY-MM>[-excel].csv`. UTF-8 with BOM, CRLF line endings, `Cache-Control: public, max-age=300`.
+- Ordered by `interruption_start` ascending. Rows are read in pages of 500 and streamed, so memory stays bounded.
+- Datetimes are `yyyy-MM-ddTHH:mm:ss` in Europe/Madrid local time, without offset. Empty cell = no data.
+- Text values starting with `=`, `+`, `-`, `@`, tab or CR are prefixed with `'` to neutralize spreadsheet formula injection.
+- Raw feed payloads, hashes and source URLs are never exported.
+- This path deliberately does not start with `/api/outages/export`, which nginx rate-limits as an admin endpoint.
+
+| Column | Meaning |
+|--------|---------|
+| `interruption_start` | Outage start as published by the distributor. |
+| `estimated_restoration` | The distributor's own *estimate* of restoration; not the real end. May be empty. |
+| `observed_end` | Last poll in which the distributor still published the outage (`resolved_at`). The real end may be up to ~5 minutes later. Empty while active. |
+| `observed_duration_min` | Whole minutes from `interruption_start` to `observed_end`; a minimum. Empty unless `observed_end` is after the start. |
+| `affected_supply_points` | Supply points (homes or premises) affected, not people. |
+| `category` | `Avería` or `Programado`, derived from `cause`; falls back to `service_type` (`LV` = scheduled) when `cause` is empty. Same rule as the frontend. |
+| `cause` | Distributor's cause (`Avería` / `Trabajos programados`). May be empty for outages recorded before 2026-09-28. |
+| `service_type` | Distributor's service type code, verbatim. |
+| `district` | District from the outage coordinates and official district polygons. |
+| `neighborhood_approx` | Nearest reference neighborhood; our approximation, unreliable near boundaries. |
+| `latitude`, `longitude` | Coordinates as published (WGS84 decimal degrees). |
+| `first_seen` | First poll in which we saw the outage. |
+| `last_seen` | Last poll in which we saw it published. |
+| `active` | `true` if still published at the last poll. |
