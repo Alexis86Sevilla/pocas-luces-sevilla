@@ -281,7 +281,8 @@ abstract class AbstractTimeZoneIndependenceTest {
     private OutageDataScheduler scheduler(EnelApiService api, NeighborhoodLocator neighborhoods,
                                           DistrictLocator districts, LocalDateTime madridNow) {
         Clock clock = Clock.fixed(madridNow.atZone(MADRID).toInstant(), MADRID);
-        return new OutageDataScheduler(api, repository, neighborhoods, districts, clock);
+        return new OutageDataScheduler(api, repository, neighborhoods, districts, clock,
+            new com.pocasluces.backend.service.FetchHealthTracker(clock));
     }
 
     private String storedText(String column, String objectId) {

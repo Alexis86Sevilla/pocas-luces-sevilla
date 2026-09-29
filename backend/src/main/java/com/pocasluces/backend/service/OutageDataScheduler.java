@@ -38,6 +38,7 @@ public class OutageDataScheduler {
     private final NeighborhoodLocator locator;
     private final DistrictLocator districtLocator;
     private final Clock clock;
+    private final FetchHealthTracker fetchHealthTracker;
 
     @Scheduled(fixedDelay = 5, timeUnit = TimeUnit.MINUTES)
     @Transactional
@@ -112,6 +113,10 @@ public class OutageDataScheduler {
         }
 
         log.info("Scheduler: saved {} outages ({} skipped), resolved {} outage(s) no longer reported", saved, skipped, resolved);
+
+        // Only reached when the fetch succeeded and everything was applied. Recorded after the
+        // transaction commits (see FetchHealthTracker), so a rollback is not a success.
+        fetchHealthTracker.recordSuccess();
     }
 
     private LocalDateTime parseDate(String dateStr) {

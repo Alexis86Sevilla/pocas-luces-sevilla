@@ -32,6 +32,13 @@ admin:
     # Minimum time between manually triggered fetches via POST /api/outages/fetch.
     cooldown: 5m
 
+# GET /api/health (public) is meant for external uptime monitors.
+health:
+  # 503 STALE when the last successful Endesa fetch is older than this (scheduler runs every 5m).
+  max-fetch-age: 20m
+  # After startup, report 200 STARTING (instead of 503 STALE) while no fetch has succeeded yet.
+  startup-grace: 10m
+
 ---
 spring:
   config:

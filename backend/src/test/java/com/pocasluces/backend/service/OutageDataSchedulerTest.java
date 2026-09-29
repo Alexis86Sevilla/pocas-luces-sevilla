@@ -39,11 +39,13 @@ class OutageDataSchedulerTest {
     private DistrictLocator districtLocator;
 
     private final Clock clock = Clock.fixed(Instant.parse("2026-07-10T12:00:00Z"), ZoneId.of("UTC"));
+    private FetchHealthTracker tracker;
     private OutageDataScheduler scheduler;
 
     @BeforeEach
     void setUp() {
-        scheduler = new OutageDataScheduler(enelApiService, repository, locator, districtLocator, clock);
+        tracker = new FetchHealthTracker(clock);
+        scheduler = new OutageDataScheduler(enelApiService, repository, locator, districtLocator, clock, tracker);
     }
 
     @Test
@@ -267,5 +269,23 @@ class OutageDataSchedulerTest {
         attr.setServiceType(serviceType);
         feature.setAttributes(attr);
         return feature;
+    }
+
+    @Test
+    void shouldNotRecordHealthWhenFetchFails() {
+        when(enelApiService.fetchSevillaOutages()).thenThrow(new EnelApiService.EnelApiException("boom"));
+
+        scheduler.fetchAndSaveOutages();
+
+        assertThat(tracker.getLastSuccessfulFetch()).isEmpty();
+    }
+
+    @Test
+    void shouldRecordHealthOnSuccessfulFetchWithZeroFeatures() {
+        when(enelApiService.fetchSevillaOutages()).thenReturn(List.of());
+
+        scheduler.fetchAndSaveOutages();
+
+        assertThat(tracker.getLastSuccessfulFetch()).contains(Instant.parse("2026-07-10T12:00:00Z"));
     }
 }

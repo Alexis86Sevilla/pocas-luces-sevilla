@@ -67,6 +67,7 @@ Tests run against the `dev` profile (H2) explicitly via `@ActiveProfiles("dev")`
 | GET | `/api/outages/live` | Currently active outages |
 | GET | `/api/outages/chart?year=2026` | Aggregated chart data by month and district |
 | GET | `/api/outages/enel?year=&month=&neighborhood=&page=&size=` | Paged, filterable outage list |
+| GET | `/api/health` | Public health check for uptime monitors: `200` (`UP`/`STARTING`) or `503` (`STALE`) based on the last successful Endesa fetch |
 | GET | `/api/testimonials` | Video testimonials |
 | GET | `/api/neighborhoods` | Seeded neighborhoods |
 | POST | `/api/outages/fetch` | Manually trigger a fetch from Endesa (requires `X-API-Key`) |
@@ -75,6 +76,8 @@ Tests run against the `dev` profile (H2) explicitly via `@ActiveProfiles("dev")`
 If `ADMIN_API_KEY` is not configured, protected endpoints always return `403`.
 
 `POST /api/outages/fetch` is additionally rate-limited: it returns `429 Too Many Requests` if the previous manual fetch happened less than `admin.fetch.cooldown` ago (default `5m`).
+
+`GET /api/health` returns `{"status", "lastSuccessfulFetch", "ageSeconds"}`: `UP` (200) while the last successful Endesa fetch is at most `health.max-fetch-age` old (default `20m`), `STARTING` (200) when none has succeeded yet within `health.startup-grace` of startup (default `10m`), otherwise `STALE` (503). The timestamp is in memory and recorded after the scheduler's transaction commits; a failed fetch is never recorded (a successful fetch with zero outages is).
 
 ## Scheduling
 
