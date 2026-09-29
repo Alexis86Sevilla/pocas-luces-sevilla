@@ -5,6 +5,7 @@ import { RouterTestingHarness } from '@angular/router/testing';
 import { routes } from './app.routes';
 import { ContextoPageComponent } from './features/contexto-page/contexto-page.component';
 import { DatosPageComponent } from './features/datos-page/datos-page.component';
+import { MapaPageComponent } from './features/mapa-page/mapa-page.component';
 
 describe('app routes', () => {
   beforeEach(() => TestBed.configureTestingModule({ providers: [provideRouter(routes)] }));
@@ -13,6 +14,12 @@ describe('app routes', () => {
     const harness = await RouterTestingHarness.create();
     const component = await harness.navigateByUrl('/contexto');
     expect(component).toBeInstanceOf(ContextoPageComponent);
+  });
+
+  it('lazy-loads the mapa page', async () => {
+    const harness = await RouterTestingHarness.create();
+    const component = await harness.navigateByUrl('/mapa');
+    expect(component).toBeInstanceOf(MapaPageComponent);
   });
 
   it('lazy-loads the datos page', async () => {

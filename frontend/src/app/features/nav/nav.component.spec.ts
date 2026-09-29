@@ -15,6 +15,7 @@ describe('NavComponent', () => {
         provideRouter([
           { path: '', component: StubComponent },
           { path: 'guia', component: StubComponent },
+          { path: 'mapa', component: StubComponent },
           { path: 'contexto', component: StubComponent },
           { path: 'datos', component: StubComponent },
         ]),
@@ -33,18 +34,19 @@ describe('NavComponent', () => {
     const hrefs = [...el.querySelectorAll('ul a')].map(a => a.getAttribute('href'));
     expect(hrefs).toContain('/');
     expect(hrefs).toContain('/guia');
+    expect(hrefs).toContain('/mapa');
     expect(hrefs).toContain('/contexto');
     expect(hrefs).toContain('/datos');
   });
 
-  it('lists "Qué hacer" between Inicio and Contexto, also in the mobile menu', async () => {
+  it('lists Qué hacer and Mapa between Inicio and Contexto, also in the mobile menu', async () => {
     const { fixture, el } = await setup();
     const desktop = [...el.querySelectorAll('ul a')].map(a => a.textContent?.trim());
-    expect(desktop.slice(0, 3)).toEqual(['Inicio', 'Qué hacer', 'Contexto']);
+    expect(desktop.slice(0, 4)).toEqual(['Inicio', 'Qué hacer', 'Mapa', 'Contexto']);
     button(el).click();
     fixture.detectChanges();
     const mobile = [...el.querySelectorAll('#main-menu a')].map(a => a.textContent?.trim());
-    expect(mobile.slice(0, 3)).toEqual(['Inicio', 'Qué hacer', 'Contexto']);
+    expect(mobile.slice(0, 4)).toEqual(['Inicio', 'Qué hacer', 'Mapa', 'Contexto']);
   });
 
   it('marks only the current page link with aria-current="page"', async () => {

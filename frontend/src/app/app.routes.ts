@@ -23,6 +23,15 @@ export const routes: Routes = [
     },
   },
   {
+    path: 'mapa',
+    loadComponent: () => import('./features/mapa-page/mapa-page.component').then(m => m.MapaPageComponent),
+    title: 'Mapa de cortes — Sevilla Sin Luz',
+    data: {
+      description:
+        'Mapa de los cortes de luz en Sevilla: cortes en directo y del mes seleccionado, sobre los distritos de la ciudad.',
+    },
+  },
+  {
     path: 'contexto',
     loadComponent: () => import('./features/contexto-page/contexto-page.component').then(m => m.ContextoPageComponent),
     title: 'Contexto — Sevilla Sin Luz',

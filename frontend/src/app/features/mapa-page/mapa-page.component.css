@@ -1,0 +1,7 @@
+@import 'leaflet/dist/leaflet.css';
+
+/* District shapes are interactive only for their name tooltip; Chrome would otherwise draw
+   its focus outline as a rectangle around the district's whole bounding box. */
+.leaflet-container path.leaflet-interactive:focus {
+  outline: none;
+}

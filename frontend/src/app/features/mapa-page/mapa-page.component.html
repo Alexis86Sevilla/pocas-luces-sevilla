@@ -1,0 +1,69 @@
+<main class="min-h-screen bg-white">
+  <div class="mx-auto max-w-6xl px-6 py-12">
+    <span class="mb-1 inline-block rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-gray-500">Mapa</span>
+    <h1 class="mt-2 text-3xl font-extrabold text-gray-900">Mapa de cortes</h1>
+    <p class="mb-6 mt-2 max-w-2xl text-base leading-relaxed text-gray-500">
+      Ubicación de los cortes de luz sobre los distritos de Sevilla. Cada círculo es un corte; pulsa uno para ver su
+      barrio aproximado, su inicio y los suministros afectados.
+    </p>
+
+    <div class="mb-4 flex flex-wrap items-center gap-3">
+      <div role="group" aria-label="Qué cortes mostrar" class="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-1">
+        <button type="button" (click)="setMode('live')" [attr.aria-pressed]="mode() === 'live'"
+          class="cursor-pointer rounded-md px-4 py-2 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
+          [class]="mode() === 'live' ? 'bg-gray-900 text-white' : 'text-gray-600 hover:text-gray-900'">En directo</button>
+        <button type="button" (click)="setMode('month')" [attr.aria-pressed]="mode() === 'month'"
+          class="cursor-pointer rounded-md px-4 py-2 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
+          [class]="mode() === 'month' ? 'bg-gray-900 text-white' : 'text-gray-600 hover:text-gray-900'">Este mes</button>
+      </div>
+      @if (mode() === 'month') {
+        <app-date-filter
+          [selectedMonth]="api.selectedMonth()"
+          [selectedYear]="api.selectedYear()"
+          (filterChange)="onFilterChange($event)" />
+      }
+    </div>
+
+    <p class="mb-3 text-sm text-gray-600" role="status" aria-live="polite">
+      @if (status() === 'loading') {
+        Cargando cortes…
+      } @else if (status() === 'success') {
+        {{ mode() === 'live' ? 'Cortes activos ahora.' : 'Cortes de ' + periodLabel() + '.' }} {{ summary() }}.
+      }
+    </p>
+
+    @if (status() === 'error') {
+      <div class="mb-4 rounded-2xl border border-red-200 bg-red-50 px-6 py-4 text-center">
+        <p class="mb-3 text-base text-red-700">No se han podido cargar los datos. Inténtalo de nuevo.</p>
+        <button type="button" (click)="retry()"
+          class="cursor-pointer rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-500">Reintentar</button>
+      </div>
+    }
+    @if (mapFailed()) {
+      <div class="mb-4 rounded-2xl border border-red-200 bg-red-50 px-6 py-4 text-center text-base text-red-700">
+        No se ha podido cargar el mapa. Los mismos cortes están en la lista de <a routerLink="/" class="font-medium underline">Inicio</a>.
+      </div>
+    }
+
+    <div class="isolate overflow-hidden rounded-2xl border border-gray-200 bg-gray-100">
+      <div #map role="region" aria-label="Mapa de cortes de luz en Sevilla" class="h-[70vh] min-h-[360px] w-full"></div>
+    </div>
+
+    <ul class="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm text-gray-600" aria-label="Leyenda">
+      @if (mode() === 'live') {
+        <li class="flex items-center gap-2"><span class="inline-block h-3.5 w-3.5 rounded-full border-2 border-white bg-red-600 shadow ring-1 ring-gray-300" aria-hidden="true"></span>Corte activo ahora</li>
+      } @else {
+        <li class="flex items-center gap-2"><span class="inline-block h-3 w-3 rounded-full border-2 border-white bg-indigo-600 shadow ring-1 ring-gray-300" aria-hidden="true"></span>Corte del mes (terminado o en curso)</li>
+      }
+      <li class="flex items-center gap-2"><span class="inline-block h-3.5 w-5 rounded-sm border border-gray-500 bg-gray-100" aria-hidden="true"></span>Límite de distrito</li>
+    </ul>
+
+    <div class="mt-6 max-w-2xl space-y-2 text-sm leading-relaxed text-gray-500">
+      <p>La posición es la del punto que publica la distribuidora; el barrio es aproximado.</p>
+      <p>
+        Los mismos datos están en <a routerLink="/" class="font-medium text-amber-700 underline hover:text-amber-600">Inicio</a>
+        y en la descarga CSV (<a routerLink="/datos" fragment="datos-abiertos" class="font-medium text-amber-700 underline hover:text-amber-600">Datos</a>).
+      </p>
+    </div>
+  </div>
+</main>
