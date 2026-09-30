@@ -128,6 +128,15 @@ public class EnelOutage {
     @Builder.Default
     private int missingPolls = 0;
 
+    /**
+     * True for an outage that was published in exactly one poll and was already gone in the
+     * next one: resolved, and its last sighting is also its first. An active outage seen
+     * once is never brief, since it may still be ongoing. Derived, not stored.
+     */
+    public boolean isBrief() {
+        return resolvedAt != null && fetchedAt != null && fetchedAt.equals(firstSeenAt);
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

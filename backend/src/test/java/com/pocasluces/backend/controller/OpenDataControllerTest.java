@@ -33,7 +33,7 @@ class OpenDataControllerTest {
 
     private static final String HEADER = "interruption_start,estimated_restoration,observed_end,"
         + "observed_duration_min,affected_supply_points,category,cause,service_type,district,"
-        + "neighborhood_approx,latitude,longitude,first_seen,last_seen,active";
+        + "neighborhood_approx,latitude,longitude,first_seen,last_seen,active,brief";
 
     private EnelOutageRepository repo;
     private MockMvc mvc;
@@ -69,7 +69,7 @@ class OpenDataControllerTest {
         assertThat(lines[1]).isEqualTo(
             "2026-09-28T15:38:00,2026-09-28T18:00:00,2026-09-28T15:45:00,7,120,Avería,Avería,GB,"
                 + "San Pablo-Santa Justa,San Pablo,37.394512,-5.960205,"
-                + "2026-09-28T15:40:00,2026-09-28T15:45:00,false");
+                + "2026-09-28T15:40:00,2026-09-28T15:45:00,false,false");
     }
 
     @Test
@@ -83,7 +83,28 @@ class OpenDataControllerTest {
         String body = body(mvc.perform(get("/api/open-data/outages.csv")).andReturn());
 
         assertThat(body.split("\r\n")[1]).startsWith("2026-09-28T15:38:00,2026-09-28T18:00:00,,,120,Avería,,GB,");
-        assertThat(body).endsWith("true\r\n");
+        assertThat(body).endsWith("true,false\r\n");
+    }
+
+    @Test
+    void shouldFlagBriefOutagesOnlyWhenResolvedAfterASingleSighting() throws Exception {
+        LocalDateTime seen = LocalDateTime.of(2026, 9, 28, 15, 40, 0);
+        EnelOutage brief = resolvedOutage();
+        brief.setFirstSeenAt(seen);
+        brief.setFetchedAt(seen);
+        EnelOutage activeSeenOnce = resolvedOutage();
+        activeSeenOnce.setFirstSeenAt(seen);
+        activeSeenOnce.setFetchedAt(seen);
+        activeSeenOnce.setResolvedAt(null);
+        activeSeenOnce.setActive(true);
+        when(repo.findAll(any(Pageable.class)))
+            .thenReturn(new PageImpl<>(List.of(brief, resolvedOutage(), activeSeenOnce)));
+
+        String[] lines = body(mvc.perform(get("/api/open-data/outages.csv")).andReturn()).split("\r\n");
+
+        assertThat(lines[1]).endsWith(",false,true");
+        assertThat(lines[2]).endsWith(",false,false");
+        assertThat(lines[3]).endsWith(",true,false");
     }
 
     @Test
@@ -179,7 +200,7 @@ class OpenDataControllerTest {
         assertThat(new String(plain, StandardCharsets.UTF_8)).isEqualTo("﻿" + HEADER + "\r\n"
             + "2026-09-28T15:38:00,2026-09-28T18:00:00,2026-09-28T15:45:00,7,120,Avería,Avería,GB,"
             + "San Pablo-Santa Justa,San Pablo,37.394512,-5.960205,"
-            + "2026-09-28T15:40:00,2026-09-28T15:45:00,false\r\n");
+            + "2026-09-28T15:40:00,2026-09-28T15:45:00,false,false\r\n");
     }
 
     @Test
@@ -204,7 +225,7 @@ class OpenDataControllerTest {
         assertThat(lines[1]).isEqualTo(
             "2026-09-28 15:38:00;2026-09-28 18:00:00;2026-09-28 15:45:00;7;120;Avería;Avería;GB;"
                 + "'=cmd;\"Triana; Norte\";37,40825877;-5,960205;"
-                + "2026-09-28 15:40:00;2026-09-28 15:45:00;false");
+                + "2026-09-28 15:40:00;2026-09-28 15:45:00;false;false");
     }
 
     @Test

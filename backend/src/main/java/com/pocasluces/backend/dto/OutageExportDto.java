@@ -21,7 +21,8 @@ public record OutageExportDto(
     String firstSeenAt,
     String fetchedAt,
     String cause,
-    String resolvedAt
+    String resolvedAt,
+    boolean brief
 ) {
 
     private static final DateTimeFormatter ISO = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
@@ -43,7 +44,8 @@ public record OutageExportDto(
             formatWallClock(o.getFirstSeenAt()),
             formatWallClock(o.getFetchedAt()),
             o.getCause(),
-            formatWallClock(o.getResolvedAt())
+            formatWallClock(o.getResolvedAt()),
+            o.isBrief()
         );
     }
 
@@ -60,7 +62,7 @@ public record OutageExportDto(
 
     public static String header() {
         return "id,objectId,neighborhoodName,districtName,serviceType,interruptionDate,repositionDate," +
-               "affectedClients,latitude,longitude,sourceUrl,rawResponseHash,firstSeenAt,fetchedAt,cause,resolvedAt";
+               "affectedClients,latitude,longitude,sourceUrl,rawResponseHash,firstSeenAt,fetchedAt,cause,resolvedAt,brief";
     }
 
     public String toCsvRow() {
@@ -80,7 +82,8 @@ public record OutageExportDto(
             csv(firstSeenAt),
             csv(fetchedAt),
             csv(cause),
-            csv(resolvedAt)
+            csv(resolvedAt),
+            csv(brief)
         );
     }
 

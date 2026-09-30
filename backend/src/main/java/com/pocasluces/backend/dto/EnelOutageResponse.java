@@ -18,7 +18,8 @@ public record EnelOutageResponse(
     Double longitude,
     LocalDateTime firstSeenAt,
     LocalDateTime fetchedAt,
-    LocalDateTime resolvedAt
+    LocalDateTime resolvedAt,
+    boolean brief
 ) {
 
     public static EnelOutageResponse from(EnelOutage outage) {
@@ -39,7 +40,8 @@ public record EnelOutageResponse(
             outage.getLongitude(),
             outage.getFirstSeenAt(),
             outage.getFetchedAt(),
-            outage.getResolvedAt()
+            outage.getResolvedAt(),
+            outage.isBrief()
         );
     }
 }

@@ -45,7 +45,7 @@ class OutageExportDtoTest {
             -5L, "obj-1", "San Pablo", "San Pablo-Santa Justa", "GB",
             "2026-07-10T08:30:00", "2026-07-10T09:00:00",
             -3, -5.960205, -37.394512,
-            "http://source", "hash", "2026-07-10T08:00:00", "2026-07-10T08:00:00", "Avería", "2026-07-10T09:05:00"
+            "http://source", "hash", "2026-07-10T08:00:00", "2026-07-10T08:00:00", "Avería", "2026-07-10T09:05:00", false
         );
 
         String row = dto.toCsvRow();
@@ -58,7 +58,7 @@ class OutageExportDtoTest {
     void headerShouldListAllColumns() {
         assertThat(OutageExportDto.header())
             .isEqualTo("id,objectId,neighborhoodName,districtName,serviceType,interruptionDate,repositionDate," +
-                "affectedClients,latitude,longitude,sourceUrl,rawResponseHash,firstSeenAt,fetchedAt,cause,resolvedAt");
+                "affectedClients,latitude,longitude,sourceUrl,rawResponseHash,firstSeenAt,fetchedAt,cause,resolvedAt,brief");
     }
 
     @Test
@@ -113,12 +113,35 @@ class OutageExportDtoTest {
         assertThat(OutageExportDto.from(outage).resolvedAt()).isEmpty();
     }
 
+    @Test
+    void fromShouldFlagBriefOnlyForResolvedOutageSeenInASinglePoll() {
+        LocalDateTime seen = LocalDateTime.of(2026, 9, 28, 15, 40, 0);
+        EnelOutage brief = outageSeen(seen, seen, seen);
+        EnelOutage multiPoll = outageSeen(seen, seen.plusMinutes(5), seen.plusMinutes(5));
+        EnelOutage activeSeenOnce = outageSeen(seen, seen, null);
+
+        assertThat(OutageExportDto.from(brief).brief()).isTrue();
+        assertThat(OutageExportDto.from(brief).toCsvRow()).endsWith(",true");
+        assertThat(OutageExportDto.from(multiPoll).brief()).isFalse();
+        assertThat(OutageExportDto.from(multiPoll).toCsvRow()).endsWith(",false");
+        assertThat(OutageExportDto.from(activeSeenOnce).brief()).isFalse();
+    }
+
+    private static EnelOutage outageSeen(LocalDateTime firstSeen, LocalDateTime fetchedAt, LocalDateTime resolvedAt) {
+        return EnelOutage.builder()
+            .id(1L).objectId("obj-1").neighborhoodName("San Pablo").serviceType("GB")
+            .latitude(37.394512).longitude(-5.960205)
+            .interruptionDate(LocalDateTime.of(2026, 9, 28, 15, 38, 0))
+            .firstSeenAt(firstSeen).fetchedAt(fetchedAt).resolvedAt(resolvedAt)
+            .build();
+    }
+
     private OutageExportDto dto(String objectId, String neighborhoodName, String serviceType) {
         return new OutageExportDto(
             1L, objectId, neighborhoodName, "San Pablo-Santa Justa", serviceType,
             "2026-07-10T08:30:00", "2026-07-10T09:00:00",
             10, 37.394512, -5.960205,
-            "http://source", "hash", "2026-07-10T08:00:00", "2026-07-10T08:00:00", "Avería", ""
+            "http://source", "hash", "2026-07-10T08:00:00", "2026-07-10T08:00:00", "Avería", "", false
         );
     }
 }

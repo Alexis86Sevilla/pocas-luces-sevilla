@@ -149,6 +149,13 @@ What is verified vs. approximate:
   derived from it are a minimum: the real end happened up to one polling interval
   (~5 minutes) later, or more if our own polling had a gap, never earlier. It is NULL
   while an outage is active. Historical rows were backfilled the same way by V5.
+- **Brief (`brief`)** is derived, not stored: `true` when the outage is resolved and
+  `fetchedAt` equals `firstSeenAt`, i.e. it was published in a single poll only. The poll
+  interval is ~5 minutes, so it lasted less than one interval after the first sighting.
+  Most likely a real short outage (for example restored by remote network
+  reconfiguration), not a data error, so it is kept and counted. An active outage seen once
+  is never brief, since it may still be ongoing. Exposed in the API response and as the
+  last CSV column.
 - **Neighborhood (`neighborhoodName`)** is our own approximation, inferred from the
   outage's coordinates against a neighborhood boundary dataset. It is not provided by
   Endesa and can be wrong near boundaries or when the feed omits coordinates.
@@ -268,3 +275,4 @@ e-distribución (Grupo Endesa)".
 | `first_seen` | First poll in which we saw the outage. |
 | `last_seen` | Last poll in which we saw it published. |
 | `active` | `true` if still published at the last poll. |
+| `brief` | `true` if the outage was published in a single poll only and was already gone at the next one (resolved, with `first_seen` equal to `last_seen`). The poll interval is ~5 minutes, so its duration after the first sighting is below one interval. Most likely a real short outage (for example power restored by remote network reconfiguration), not a data error. Always `false` while active. Brief outages are kept and still count in every total. |

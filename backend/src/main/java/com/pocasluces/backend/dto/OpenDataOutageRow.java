@@ -35,7 +35,7 @@ public final class OpenDataOutageRow {
     private static final String[] COLUMNS = {
         "interruption_start", "estimated_restoration", "observed_end", "observed_duration_min",
         "affected_supply_points", "category", "cause", "service_type", "district",
-        "neighborhood_approx", "latitude", "longitude", "first_seen", "last_seen", "active"
+        "neighborhood_approx", "latitude", "longitude", "first_seen", "last_seen", "active", "brief"
     };
 
     private OpenDataOutageRow() {
@@ -69,7 +69,8 @@ public final class OpenDataOutageRow {
             o.getLongitude(),
             wallClock(o.getFirstSeenAt(), variant),
             wallClock(o.getFetchedAt(), variant),
-            o.isActive()
+            o.isActive(),
+            o.isBrief()
         );
     }
 
