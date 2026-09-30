@@ -54,8 +54,10 @@
             <dt class="font-semibold text-gray-800">Corte breve</dt>
             <dd>
               Un corte que solo se vio publicado en una consulta y ya no aparecía en la
-              siguiente. Como la consulta se hace cada 5 minutos, desde que se vio por primera
-              vez duró menos de un intervalo (unos 10 minutos como máximo contando desde su inicio). Se mantiene en los datos porque lo más probable
+              siguiente. La consulta se hace cada 5 minutos, así que normalmente eso significa
+              que duró pocos minutos. No es una garantía: si alguna consulta se retrasa (por
+              ejemplo, por un reinicio o porque la distribuidora no responde), un corte algo
+              más largo también puede aparecer una sola vez. Se mantiene en los datos porque lo más probable
               es que sea un microcorte real (por ejemplo, un suministro que la distribuidora
               restablece reconfigurando la red a distancia); ocultarlo haría que el total
               quedase por debajo de la realidad. Por eso cuenta en todos los totales y se marca

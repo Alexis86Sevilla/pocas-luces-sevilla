@@ -151,7 +151,8 @@ What is verified vs. approximate:
   while an outage is active. Historical rows were backfilled the same way by V5.
 - **Brief (`brief`)** is derived, not stored: `true` when the outage is resolved and
   `fetchedAt` equals `firstSeenAt`, i.e. it was published in a single poll only. The poll
-  interval is ~5 minutes, so it lasted less than one interval after the first sighting.
+  interval is ~5 minutes, so it usually lasted only a few minutes. This is not a guarantee:
+  if a poll is delayed (restart, Endesa not answering), a longer outage can also be seen once.
   Most likely a real short outage (for example restored by remote network
   reconfiguration), not a data error, so it is kept and counted. An active outage seen once
   is never brief, since it may still be ongoing. Exposed in the API response and as the
@@ -275,4 +276,4 @@ e-distribución (Grupo Endesa)".
 | `first_seen` | First poll in which we saw the outage. |
 | `last_seen` | Last poll in which we saw it published. |
 | `active` | `true` if still published at the last poll. |
-| `brief` | `true` if the outage was published in a single poll only and was already gone at the next one (resolved, with `first_seen` equal to `last_seen`). The poll interval is ~5 minutes, so its duration after the first sighting is below one interval. Most likely a real short outage (for example power restored by remote network reconfiguration), not a data error. Always `false` while active. Brief outages are kept and still count in every total. |
+| `brief` | `true` if the outage was published in a single poll only and was already gone at the next one (resolved, with `first_seen` equal to `last_seen`). The poll interval is ~5 minutes, so it usually lasted only a few minutes; not guaranteed, since a delayed poll (restart, Endesa not answering) can also leave a longer outage seen once. Most likely a real short outage (for example power restored by remote network reconfiguration), not a data error. Always `false` while active. Brief outages are kept and still count in every total. |
