@@ -101,6 +101,33 @@ public class EnelOutage {
     @Builder.Default
     private boolean active = true;
 
+    /**
+     * Whether the public Telegram alerts may ever announce this outage. FALSE for every
+     * row that already existed when the alerts went live (backfilled by
+     * {@code V6__add_telegram_announcement_state.sql}), TRUE for rows inserted since.
+     * Never updated by the upsert.
+     */
+    @Column(name = "announce_eligible", nullable = false)
+    @Builder.Default
+    private boolean announceEligible = true;
+
+    /** Poll in which the "new outage" Telegram message was confirmed sent; NULL until then. */
+    @Column(name = "announced_at")
+    private LocalDateTime announcedAt;
+
+    /** Poll in which the "power restored" Telegram message was confirmed sent; NULL until then. */
+    @Column(name = "restoration_announced_at")
+    private LocalDateTime restorationAnnouncedAt;
+
+    /**
+     * Consecutive successful polls in which an already announced outage has not been
+     * published by Endesa. Incremented by the scheduler after its resolve step, reset to 0
+     * by the upsert when the outage reappears; see {@code OutageAnnouncer}.
+     */
+    @Column(name = "missing_polls", nullable = false)
+    @Builder.Default
+    private int missingPolls = 0;
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

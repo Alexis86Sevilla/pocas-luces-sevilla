@@ -19,10 +19,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Proves that the V3 (outage identity), V4 (cause column) and V5 (resolved_at column
- * and backfill) Flyway migrations apply cleanly to a database that already has data in
- * the pre-migration (V2) shape — the exact situation production is in, given
- * {@code baseline-on-migrate: true}.
+ * Proves that the V3 (outage identity), V4 (cause column), V5 (resolved_at column and
+ * backfill) and V6 (Telegram announcement state and go-live backfill) Flyway migrations
+ * apply cleanly to a database that already has data in the pre-migration (V2) shape — the
+ * exact situation production is in, given {@code baseline-on-migrate: true}.
  *
  * <p>Unlike {@link com.pocasluces.backend.repository.EnelOutageRepositoryPostgresTest},
  * this test never boots Spring, so Hibernate's {@code ddl-auto} never runs and Flyway's
@@ -99,7 +99,7 @@ class OutageIdentityFlywayMigrationTest {
     }
 
     @Test
-    void shouldApplyV3ThroughV5OnPreExistingData() throws SQLException {
+    void shouldApplyV3ThroughV6OnPreExistingData() throws SQLException {
         Flyway flyway = Flyway.configure()
             .dataSource(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword())
             .baselineVersion("2")
@@ -109,8 +109,8 @@ class OutageIdentityFlywayMigrationTest {
 
         MigrateResult result = flyway.migrate();
 
-        assertThat(result.migrationsExecuted).isEqualTo(3); // V3, V4 and V5, not skipped
-        assertThat(result.targetSchemaVersion).isEqualTo("5");
+        assertThat(result.migrationsExecuted).isEqualTo(4); // V3, V4, V5 and V6, not skipped
+        assertThat(result.targetSchemaVersion).isEqualTo("6");
 
         try (Connection connection = connect()) {
             connection.setAutoCommit(true);
@@ -155,6 +155,27 @@ class OutageIdentityFlywayMigrationTest {
             assertThat(resolvedAtFor(connection, "Macarena")).isEqualTo("2026-07-13 07:20:00");
             // ...while active rows, which have no resolution yet, were left NULL.
             assertThat(resolvedAtFor(connection, "San Pablo")).isNull();
+
+            // V6: every pre-existing row (active or not) is excluded from the Telegram alerts
+            // forever, so nothing that was already known at go-live is announced as new or as
+            // restored; the marks and the missing-poll counter start empty.
+            assertThat(count(connection, "announce_eligible = TRUE")).isZero();
+            assertThat(count(connection, "announce_eligible = FALSE")).isEqualTo(4);
+            assertThat(count(connection, "announced_at IS NULL AND restoration_announced_at IS NULL AND missing_polls = 0"))
+                .isEqualTo(4);
+
+            // ...whereas a row inserted after the migration is eligible by default.
+            insertRow(connection, "Bellavista", 37.3500, -5.9700, "2026-07-14 09:00:00", "BT", "2026-07-14 09:05:00");
+            assertThat(count(connection, "neighborhood_name = 'Bellavista' AND announce_eligible = TRUE " +
+                "AND announced_at IS NULL AND restoration_announced_at IS NULL AND missing_polls = 0")).isEqualTo(1);
+        }
+    }
+
+    private int count(Connection connection, String whereClause) throws SQLException {
+        try (Statement statement = connection.createStatement();
+             ResultSet rs = statement.executeQuery("SELECT COUNT(*) FROM enel_outages WHERE " + whereClause)) {
+            rs.next();
+            return rs.getInt(1);
         }
     }
 

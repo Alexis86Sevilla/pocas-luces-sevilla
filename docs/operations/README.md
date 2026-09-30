@@ -36,6 +36,9 @@ with copy-pasteable commands, a verification step, and a rollback note.
   `infra/postgres/`.
 - [ ] **T6 — Monitoring** ([`monitoring.md`](monitoring.md)): external uptime
   checks, SSL expiry alerts, `certbot renew --dry-run`.
+- [ ] **Telegram alerts** ([`telegram.md`](telegram.md)): set `TELEGRAM_BOT_TOKEN`
+  and `TELEGRAM_CHAT_ID` in a `600` systemd drop-in, verify the startup log line,
+  disable, rotate the token via @BotFather. Off until both variables exist.
 
 ## Files added by this change
 

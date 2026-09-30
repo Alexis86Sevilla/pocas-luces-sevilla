@@ -32,6 +32,13 @@ admin:
     # Minimum time between manually triggered fetches via POST /api/outages/fetch.
     cooldown: 5m
 
+# Public Telegram alerts (see README, "Telegram alerts"). Active only when BOTH are set;
+# with either blank the feature is off and no HTTP call is ever made. The token is a secret
+# and is never logged; the chat id (e.g. @SevillaSinLuz) is public.
+telegram:
+  bot-token: ${TELEGRAM_BOT_TOKEN:}
+  chat-id: ${TELEGRAM_CHAT_ID:}
+
 # GET /api/health (public) is meant for external uptime monitors.
 health:
   # 503 STALE when the last successful Endesa fetch is older than this (scheduler runs every 5m).

@@ -38,6 +38,9 @@ class OutageDataSchedulerTest {
     @Mock
     private DistrictLocator districtLocator;
 
+    @Mock
+    private OutageAnnouncer announcer;
+
     private final Clock clock = Clock.fixed(Instant.parse("2026-07-10T12:00:00Z"), ZoneId.of("UTC"));
     private FetchHealthTracker tracker;
     private OutageDataScheduler scheduler;
@@ -45,7 +48,29 @@ class OutageDataSchedulerTest {
     @BeforeEach
     void setUp() {
         tracker = new FetchHealthTracker(clock);
-        scheduler = new OutageDataScheduler(enelApiService, repository, locator, districtLocator, clock, tracker);
+        scheduler = new OutageDataScheduler(enelApiService, repository, locator, districtLocator, clock, tracker, announcer);
+    }
+
+    @Test
+    void shouldCountMissingPollsAfterResolvingAndThenAskTheAnnouncerAfterCommit() {
+        when(enelApiService.fetchSevillaOutages()).thenReturn(List.of());
+
+        scheduler.fetchAndSaveOutages();
+
+        InOrder inOrder = inOrder(repository, announcer);
+        inOrder.verify(repository).resolveStaleActiveOutages(LocalDateTime.now(clock));
+        inOrder.verify(repository).incrementMissingPollsOfAnnouncedInactiveOutages();
+        inOrder.verify(announcer).announceAfterCommit();
+    }
+
+    @Test
+    void shouldNeitherCountMissingPollsNorAnnounceWhenFetchFails() {
+        when(enelApiService.fetchSevillaOutages()).thenThrow(new EnelApiService.EnelApiException("API down"));
+
+        scheduler.fetchAndSaveOutages();
+
+        verify(repository, never()).incrementMissingPollsOfAnnouncedInactiveOutages();
+        verify(announcer, never()).announceAfterCommit();
     }
 
     @Test

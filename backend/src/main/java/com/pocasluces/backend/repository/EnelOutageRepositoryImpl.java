@@ -81,6 +81,9 @@ public class EnelOutageRepositoryImpl implements EnelOutageRepositoryCustom {
         existing.setUpdatedAt(outage.getUpdatedAt());
         existing.setActive(outage.isActive());
         existing.setResolvedAt(outage.getResolvedAt());
+        // Announcement state: eligibility and the announced_at marks are never overwritten by
+        // a fetch; only the consecutive-missing counter is reset (the outage is published again).
+        existing.setMissingPolls(outage.getMissingPolls());
         entityManager.merge(existing);
         return 1;
     }
@@ -106,11 +109,13 @@ public class EnelOutageRepositoryImpl implements EnelOutageRepositoryCustom {
             INSERT INTO enel_outages (
                 object_id, latitude, longitude, affected_clients, service_type,
                 interruption_date, reposition_date, neighborhood_name, district_name, cause, source_url,
-                raw_response_hash, raw_response, first_seen_at, fetched_at, created_at, updated_at, active, resolved_at
+                raw_response_hash, raw_response, first_seen_at, fetched_at, created_at, updated_at, active, resolved_at,
+                announce_eligible, announced_at, restoration_announced_at, missing_polls
             ) VALUES (
                 :objectId, :latitude, :longitude, :affectedClients, :serviceType,
                 :interruptionDate, :repositionDate, :neighborhoodName, :districtName, :cause, :sourceUrl,
-                :rawResponseHash, :rawResponse, :firstSeenAt, :fetchedAt, :createdAt, :updatedAt, :active, :resolvedAt
+                :rawResponseHash, :rawResponse, :firstSeenAt, :fetchedAt, :createdAt, :updatedAt, :active, :resolvedAt,
+                :announceEligible, :announcedAt, :restorationAnnouncedAt, :missingPolls
             )
             ON CONFLICT (latitude, longitude, interruption_date, service_type)
             DO UPDATE SET
@@ -126,8 +131,12 @@ public class EnelOutageRepositoryImpl implements EnelOutageRepositoryCustom {
                 fetched_at = EXCLUDED.fetched_at,
                 updated_at = EXCLUDED.updated_at,
                 active = EXCLUDED.active,
-                resolved_at = EXCLUDED.resolved_at
+                resolved_at = EXCLUDED.resolved_at,
+                missing_polls = EXCLUDED.missing_polls
             """;
+        // Deliberately NOT updated on conflict: first_seen_at, created_at, announce_eligible,
+        // announced_at and restoration_announced_at. A row that predates the Telegram alerts
+        // must stay ineligible forever, and an announcement mark must never be cleared.
         return jdbcTemplate.update(sql, toParameters(outage));
     }
 
@@ -152,6 +161,10 @@ public class EnelOutageRepositoryImpl implements EnelOutageRepositoryCustom {
         params.put("updatedAt", outage.getUpdatedAt());
         params.put("active", outage.isActive());
         params.put("resolvedAt", outage.getResolvedAt());
+        params.put("announceEligible", outage.isAnnounceEligible());
+        params.put("announcedAt", outage.getAnnouncedAt());
+        params.put("restorationAnnouncedAt", outage.getRestorationAnnouncedAt());
+        params.put("missingPolls", outage.getMissingPolls());
         return params;
     }
 
@@ -160,7 +173,8 @@ public class EnelOutageRepositoryImpl implements EnelOutageRepositoryCustom {
         String sql = """
             SELECT id, object_id, latitude, longitude, affected_clients, service_type,
                    interruption_date, reposition_date, neighborhood_name, district_name, cause, source_url,
-                   raw_response_hash, raw_response, first_seen_at, fetched_at, created_at, updated_at, active, resolved_at
+                   raw_response_hash, raw_response, first_seen_at, fetched_at, created_at, updated_at, active, resolved_at,
+                   announce_eligible, announced_at, restoration_announced_at, missing_polls
             FROM enel_outages
             WHERE active = true
             AND fetched_at > :since
@@ -193,6 +207,10 @@ public class EnelOutageRepositoryImpl implements EnelOutageRepositoryCustom {
         o.setUpdatedAt(rs.getObject("updated_at", LocalDateTime.class));
         o.setActive(rs.getBoolean("active"));
         o.setResolvedAt(rs.getObject("resolved_at", LocalDateTime.class));
+        o.setAnnounceEligible(rs.getBoolean("announce_eligible"));
+        o.setAnnouncedAt(rs.getObject("announced_at", LocalDateTime.class));
+        o.setRestorationAnnouncedAt(rs.getObject("restoration_announced_at", LocalDateTime.class));
+        o.setMissingPolls(rs.getInt("missing_polls"));
         return o;
     }
 

@@ -53,6 +53,8 @@ Environment variables:
 | `DB_PASSWORD` | prod | PostgreSQL password |
 | `ADMIN_API_KEY` | all | Key required in the `X-API-Key` header for protected endpoints |
 | `SPRING_PROFILES_ACTIVE` | all | Set to `dev` to opt into the H2/dev profile |
+| `TELEGRAM_BOT_TOKEN` | all | Bot token for the public [Telegram alerts](#telegram-alerts). Secret, never logged. Feature off when missing |
+| `TELEGRAM_CHAT_ID` | all | Channel to post to, e.g. `@SevillaSinLuz`. Feature off when missing |
 
 Tests run against the `dev` profile (H2) explicitly via `@ActiveProfiles("dev")`, regardless of the default.
 
@@ -86,7 +88,23 @@ If `ADMIN_API_KEY` is not configured, protected endpoints always return `403`.
 
 On each run, every outage returned by Endesa is upserted as active with `resolved_at` cleared (an outage found again is re-opened). After that, any outage still marked active whose `fetched_at` predates this run is marked resolved: `active = false` and `resolved_at` set to its `fetched_at`, i.e. the last poll in which Endesa still published it. This is a conservative lower bound of the real end: it never inflates durations, even if our own polling had gaps — see [Data source](#data-source) below. A fetch that returns zero outages resolves every currently active one and is logged as a warning (an outage-free Sevilla is plausible, so it is applied, not skipped, but it is worth flagging). A failed fetch changes nothing: no upsert and no resolution happen for that run. The live endpoint returns active outages fetched within the last 6 hours.
 
+After the resolve step, and in the same transaction, the run increments `missing_polls` for every announced outage it did not see (see [Telegram alerts](#telegram-alerts)); once the transaction commits, `OutageAnnouncer` decides what to post.
+
 Each outage is assigned a district using the official district polygons in `src/main/resources/geojson/distritos-sevilla.json`. Outages created before the district column existed are backfilled at startup by `DistrictBackfillRunner` (non-dev profiles).
+
+## Telegram alerts
+
+`OutageAnnouncer` posts to a public Telegram channel after each successful poll, through `TelegramClient` (Bot API `sendMessage`, plain text, no `parse_mode`, link previews off, own `RestTemplate` with 5 s / 10 s timeouts). It is **off unless both** `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` are set; at startup the log says `Telegram alerts enabled for chat <id>` or `Telegram alerts disabled (...)`. The token is never logged: every error text that could carry the request URL is redacted (`bot***`) first. VPS setup, verification, disabling and token rotation: [`docs/operations/telegram.md`](../docs/operations/telegram.md).
+
+The bot must never publish something false, so every decision is made from persisted state (`announce_eligible`, `announced_at`, `restoration_announced_at`, `missing_polls`, added by V6) and confirmed by two polls:
+
+- **New outage**: eligible, not yet announced, active (published in the current poll) and `fetched_at > first_seen_at`, i.e. also published in at least one earlier successful poll (the upsert advances `fetched_at` every poll and never changes `first_seen_at`, so two upserts within one run do not count). The start must be in the past and at most 12 h old: a stale backlog that Endesa republishes is never announced. Failed fetches change nothing, so they neither count nor reset.
+- **Restored**: announced by the bot, not yet announced as restored, inactive, and `missing_polls >= 2`. The scheduler increments the counter in the same transaction as its resolve step for announced-but-not-restored inactive rows; the upsert resets it to 0 when the outage reappears. A single empty or partial feed response resolves the outages, but they are back (counter 0) on the next poll, so no message is sent. The observed duration in the message is `resolved_at - interruption_date`, the same lower bound the site uses.
+- **Go-live**: V6 backfills `announce_eligible = FALSE` for every existing row, so outages already known when the feature is enabled produce neither a "new" nor a "restored" message. The upsert never touches `announce_eligible` or the `*_announced_at` marks.
+
+Messages are grouped per poll and type (`🔴 Nuevos cortes de luz en Sevilla` / `🟢 Luz restablecida`, one line per outage, footer `Datos de e-distribución · https://sevillasinluz.es`), split under Telegram's length limit and capped at 3 messages per type per poll; beyond that the rest is summarized as `… y N más en https://sevillasinluz.es/mapa` and still counts as announced. Lines only contain persisted values (district, neighborhood marked `aprox.`, Endesa's start and restoration estimate, supply points, `Avería`/`Trabajos programados` with the same fallback as the website).
+
+Failure handling: the announcement runs after the scheduler's transaction commits (Spring `afterCommit`, like `FetchHealthTracker`), the candidate query and each mark run in their own `REQUIRES_NEW` transactions, and Telegram is never called inside a database transaction. An outage is marked `announced_at` / `restoration_announced_at` **only after Telegram answers `ok:true`**; on any failure nothing is marked, a `WARN` (token redacted) is logged and the same candidates are retried on the next poll. HTTP 429 stops the rest of that poll. Errors never propagate to the scheduler, so a Telegram outage cannot affect data collection or the health endpoint.
 
 ## Tests
 
@@ -160,11 +178,17 @@ serviceType)`.
   Backfills it for rows that were already inactive before this migration, using
   `fetched_at` (their last-seen time) as the best available proxy for when they were
   resolved.
+- `V6__add_telegram_announcement_state.sql`: adds `announce_eligible` (NOT NULL,
+  default TRUE), `announced_at`, `restoration_announced_at` (nullable) and
+  `missing_polls` (NOT NULL, default 0) for the [Telegram alerts](#telegram-alerts), and
+  backfills `announce_eligible = FALSE` for every existing row so nothing known before
+  go-live is ever announced.
 
 ## Timezone contract
 
 Every datetime this API stores or returns (`interruptionDate`, `repositionDate`,
-`firstSeenAt`, `fetchedAt`, `createdAt`, `updatedAt`, `resolvedAt`) is **Europe/Madrid
+`firstSeenAt`, `fetchedAt`, `createdAt`, `updatedAt`, `resolvedAt`, `announcedAt`,
+`restorationAnnouncedAt`) is **Europe/Madrid
 wall-clock time with no offset**, exactly as Endesa publishes it (`"29/09/2026 10:59"`
 in the feed is stored and returned as `2026-09-29T10:59:00`). Columns are `timestamp`
 (without time zone), entities use `LocalDateTime`, and the JSON has no zone suffix.

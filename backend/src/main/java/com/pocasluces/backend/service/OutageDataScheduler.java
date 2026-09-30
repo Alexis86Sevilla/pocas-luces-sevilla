@@ -39,6 +39,7 @@ public class OutageDataScheduler {
     private final DistrictLocator districtLocator;
     private final Clock clock;
     private final FetchHealthTracker fetchHealthTracker;
+    private final OutageAnnouncer announcer;
 
     @Scheduled(fixedDelay = 5, timeUnit = TimeUnit.MINUTES)
     @Transactional
@@ -112,11 +113,21 @@ public class OutageDataScheduler {
             log.warn("Scheduler: fetch returned zero outages; marking {} previously active outage(s) as resolved", resolved);
         }
 
-        log.info("Scheduler: saved {} outages ({} skipped), resolved {} outage(s) no longer reported", saved, skipped, resolved);
+        // Telegram restoration tracking: every announced outage that this successful run did
+        // not see (inactive after the resolve step) has now been missing for one more
+        // consecutive poll. Same transaction as the resolve step, so the counter and the
+        // active flag always agree; a reappearance resets it through the upsert above.
+        int pendingRestorations = repository.incrementMissingPollsOfAnnouncedInactiveOutages();
+
+        log.info("Scheduler: saved {} outages ({} skipped), resolved {} outage(s) no longer reported, {} announced outage(s) pending restoration",
+            saved, skipped, resolved, pendingRestorations);
 
         // Only reached when the fetch succeeded and everything was applied. Recorded after the
         // transaction commits (see FetchHealthTracker), so a rollback is not a success.
         fetchHealthTracker.recordSuccess();
+        // Registered after the health tracker so its hook always runs first; the announcer
+        // never throws, and Telegram problems never touch this transaction.
+        announcer.announceAfterCommit();
     }
 
     private LocalDateTime parseDate(String dateStr) {

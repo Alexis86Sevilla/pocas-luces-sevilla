@@ -39,6 +39,66 @@ public interface EnelOutageRepository extends JpaRepository<EnelOutage, Long>, E
     @Query("UPDATE EnelOutage o SET o.active = :active WHERE o.objectId IN :objectIds")
     void setActiveByObjectIds(@Param("objectIds") Collection<String> objectIds, @Param("active") boolean active);
 
+    // ---- Telegram announcement state (see OutageAnnouncer) -------------------------------
+
+    /**
+     * Counts one more consecutive "missing" poll for every announced outage that the
+     * current run did not see (it is inactive after the resolve step) and whose restoration
+     * has not been announced yet. Must run inside the scheduler's transaction, right after
+     * {@link #resolveStaleActiveOutages}. Reappearing outages are reset to 0 by the upsert.
+     * The set is tiny (announced but not yet restoration-announced), so the update is cheap.
+     */
+    @Modifying
+    @Transactional
+    @Query("UPDATE EnelOutage o SET o.missingPolls = o.missingPolls + 1 " +
+           "WHERE o.active = false AND o.announcedAt IS NOT NULL AND o.restorationAnnouncedAt IS NULL")
+    int incrementMissingPollsOfAnnouncedInactiveOutages();
+
+    /**
+     * Outages to announce as new: eligible, never announced, published in the current poll
+     * ({@code active}) and in at least one earlier successful poll ({@code fetchedAt >
+     * firstSeenAt}: the upsert advances {@code fetchedAt} on every poll and never touches
+     * {@code firstSeenAt}), already started, and started no earlier than
+     * {@code oldestStart} (stale backlog is never announced).
+     */
+    @Query("""
+        SELECT o FROM EnelOutage o
+        WHERE o.announceEligible = true
+        AND o.announcedAt IS NULL
+        AND o.active = true
+        AND o.fetchedAt > o.firstSeenAt
+        AND o.interruptionDate <= :now
+        AND o.interruptionDate >= :oldestStart
+        ORDER BY o.interruptionDate ASC, o.id ASC
+        """)
+    List<EnelOutage> findNewOutagesToAnnounce(@Param("now") LocalDateTime now,
+                                              @Param("oldestStart") LocalDateTime oldestStart);
+
+    /**
+     * Outages to announce as restored: announced as new, not yet announced as restored,
+     * inactive, and missing from at least {@code minMissingPolls} consecutive successful polls.
+     */
+    @Query("""
+        SELECT o FROM EnelOutage o
+        WHERE o.announcedAt IS NOT NULL
+        AND o.restorationAnnouncedAt IS NULL
+        AND o.active = false
+        AND o.missingPolls >= :minMissingPolls
+        ORDER BY o.interruptionDate ASC, o.id ASC
+        """)
+    List<EnelOutage> findRestoredOutagesToAnnounce(@Param("minMissingPolls") int minMissingPolls);
+
+    @Modifying
+    @Transactional
+    @Query("UPDATE EnelOutage o SET o.announcedAt = :at WHERE o.id IN :ids AND o.announcedAt IS NULL")
+    int markAnnounced(@Param("ids") Collection<Long> ids, @Param("at") LocalDateTime at);
+
+    @Modifying
+    @Transactional
+    @Query("UPDATE EnelOutage o SET o.restorationAnnouncedAt = :at " +
+           "WHERE o.id IN :ids AND o.restorationAnnouncedAt IS NULL")
+    int markRestorationAnnounced(@Param("ids") Collection<Long> ids, @Param("at") LocalDateTime at);
+
     List<EnelOutage> findAllByOrderByInterruptionDateDesc();
 
     Optional<EnelOutage> findByObjectId(String objectId);
