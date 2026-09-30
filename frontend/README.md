@@ -37,17 +37,15 @@ Artifacts are written to `dist/frontend/browser/`.
 
 ```
 src/app/
-├── core/                  Models, API services and date utilities
-└── features/
-    ├── home/              Main dashboard page composing all sections
-    ├── hero/              Landing hero
-    ├── context/           Context and citizen demands section
-    ├── live/              Live outages grouped by district
-    ├── chart-section/     Annual chart by district
-    ├── monthly-section/   Date filter and monthly outage cards
-    ├── testimonials/      Video carousel
-    ├── donation-section/  Donation section
-    └── footer/            Footer
+├── core/                  Models, API services and date/outage utilities
+├── layout/                Site shell: nav, footer, back-to-top, support section
+├── shared/ui/             Reusable UI: share-button, open-data-download
+└── pages/                 One folder per route, with its sections
+    ├── home/              /      hero, live, monthly-ranking, monthly, chart
+    ├── context/           /contexto   context-section, testimonials
+    ├── data/              /datos      methodology
+    ├── guide/             /guia       what to do during an outage
+    └── map/               /mapa       outage map (Leaflet, loaded lazily)
 ```
 
 ## Tests

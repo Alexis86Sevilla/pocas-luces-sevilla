@@ -1,11 +1,11 @@
 import { Routes } from '@angular/router';
 
-import { HomeComponent } from './features/home/home.component';
+import { HomePageComponent } from './pages/home/home-page.component';
 
 export const routes: Routes = [
   {
     path: '',
-    component: HomeComponent,
+    component: HomePageComponent,
     pathMatch: 'full',
     title: 'Sevilla Sin Luz — Cortes de luz en Sevilla en tiempo real',
     data: {
@@ -15,7 +15,7 @@ export const routes: Routes = [
   },
   {
     path: 'guia',
-    loadComponent: () => import('./features/guia-page/guia-page.component').then(m => m.GuiaPageComponent),
+    loadComponent: () => import('./pages/guide/guide-page.component').then(m => m.GuidePageComponent),
     title: 'Qué hacer si te quedas sin luz — Sevilla Sin Luz',
     data: {
       description:
@@ -24,7 +24,7 @@ export const routes: Routes = [
   },
   {
     path: 'mapa',
-    loadComponent: () => import('./features/mapa-page/mapa-page.component').then(m => m.MapaPageComponent),
+    loadComponent: () => import('./pages/map/map-page.component').then(m => m.MapPageComponent),
     title: 'Mapa de cortes — Sevilla Sin Luz',
     data: {
       description:
@@ -33,7 +33,7 @@ export const routes: Routes = [
   },
   {
     path: 'contexto',
-    loadComponent: () => import('./features/contexto-page/contexto-page.component').then(m => m.ContextoPageComponent),
+    loadComponent: () => import('./pages/context/context-page.component').then(m => m.ContextPageComponent),
     title: 'Contexto — Sevilla Sin Luz',
     data: {
       description:
@@ -42,7 +42,7 @@ export const routes: Routes = [
   },
   {
     path: 'datos',
-    loadComponent: () => import('./features/datos-page/datos-page.component').then(m => m.DatosPageComponent),
+    loadComponent: () => import('./pages/data/data-page.component').then(m => m.DataPageComponent),
     title: 'Datos y metodología — Sevilla Sin Luz',
     data: {
       description:
