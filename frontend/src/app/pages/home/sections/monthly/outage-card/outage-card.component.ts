@@ -14,6 +14,7 @@ export interface DailyOutageGroup {
   readonly displayDate: string;
   readonly count: number;
   readonly totalAffected: number;
+  readonly briefCount: number;
   readonly outages: readonly EnelOutage[];
 }
 
@@ -36,6 +37,9 @@ export class OutageCardComponent {
   protected readonly visibleDayCount = signal(HISTORY_PAGE_SIZE);
 
   protected readonly count = computed(() => this.outages().length);
+
+  /** Outages seen in a single poll. They stay in every count; this only reports how many they are. */
+  protected readonly briefCount = computed(() => this.outages().filter(o => o.brief === true).length);
 
   protected readonly totalAffected = computed(() =>
     this.outages().reduce((sum, o) => sum + o.affectedClients, 0)
@@ -76,6 +80,7 @@ export class OutageCardComponent {
           displayDate: formatMadridDate(date, 'dd/MM'),
           count: sorted.length,
           totalAffected: sorted.reduce((sum, o) => sum + o.affectedClients, 0),
+          briefCount: sorted.filter(o => o.brief === true).length,
           outages: sorted,
         } as DailyOutageGroup;
       })

@@ -9,6 +9,9 @@
     <div class="rounded-xl bg-slate-100 px-2 py-3 text-center sm:px-3">
       <span class="block text-lg font-extrabold text-slate-700 sm:text-xl">{{ count() }}</span>
       <span class="text-[11px] font-medium text-slate-600 sm:text-xs">{{ pluralize(count(), 'corte', 'cortes') }}</span>
+      @if (briefCount() > 0) {
+        <span class="block text-[11px] text-slate-500 sm:text-xs">({{ briefCount() }} {{ pluralize(briefCount(), 'breve', 'breves') }})</span>
+      }
     </div>
     <div class="rounded-xl bg-amber-50 px-2 py-3 text-center sm:px-3">
       <span class="block text-lg font-extrabold text-amber-700 sm:text-xl">{{ avgDuration() ?? '—' }}</span>
@@ -38,7 +41,7 @@
                     {{ group.displayDate }}
                   </span>
                   <span class="ml-2 text-xs text-gray-500">
-                    {{ group.count }} {{ pluralize(group.count, 'corte', 'cortes') }} · {{ group.totalAffected | number: '1.0-0' }} {{ pluralize(group.totalAffected, 'suministro', 'suministros') }}
+                    {{ group.count }} {{ pluralize(group.count, 'corte', 'cortes') }} · {{ group.totalAffected | number: '1.0-0' }} {{ pluralize(group.totalAffected, 'suministro', 'suministros') }}@if (group.briefCount > 0) { · {{ group.briefCount }} {{ pluralize(group.briefCount, 'breve', 'breves') }}}
                   </span>
                 </div>
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-400 transition-transform" [class.rotate-180]="expandedDay() === group.dateKey"><path d="m6 9 6 6 6-6"/></svg>
@@ -56,6 +59,10 @@
                           <span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
                             {{ category(outage) === 'Programado' ? 'Prog.' : 'Avería' }}
                           </span>
+                          @if (outage.brief) {
+                            <span class="rounded-full border border-slate-300 px-2 py-0.5 text-xs text-slate-600"
+                              title="Visto en una sola consulta: duró menos de unos 10 minutos">Corte breve<span class="sr-only">. Visto en una sola consulta: duró menos de unos 10 minutos</span></span>
+                          }
                         </div>
                         <span class="text-xs text-gray-500">Barrio: {{ outage.neighborhoodName ?? 'No identificado' }}</span>
                         <span class="text-xs text-gray-500">{{ durationDisplay(outage) }}</span>

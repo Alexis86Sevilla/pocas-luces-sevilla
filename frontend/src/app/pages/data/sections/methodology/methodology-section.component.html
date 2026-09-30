@@ -51,6 +51,20 @@
             </dd>
           </div>
           <div>
+            <dt class="font-semibold text-gray-800">Corte breve</dt>
+            <dd>
+              Un corte que solo se vio publicado en una consulta y ya no aparecía en la
+              siguiente. Como la consulta se hace cada 5 minutos, desde que se vio por primera
+              vez duró menos de un intervalo (unos 10 minutos como máximo contando desde su inicio). Se mantiene en los datos porque lo más probable
+              es que sea un microcorte real (por ejemplo, un suministro que la distribuidora
+              restablece reconfigurando la red a distancia); ocultarlo haría que el total
+              quedase por debajo de la realidad. Por eso cuenta en todos los totales y se marca
+              con la etiqueta «Corte breve». El canal de Telegram no lo anuncia, porque solo avisa
+              de los cortes confirmados en dos consultas seguidas. En el CSV se indica en la
+              columna <code class="font-mono text-xs">brief</code>.
+            </dd>
+          </div>
+          <div>
             <dt class="font-semibold text-gray-800">Horas de corte acumuladas (ranking)</dt>
             <dd>
               Suma de la duración real de los cortes terminados de cada distrito en el mes

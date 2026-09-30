@@ -138,6 +138,40 @@ describe('OutageCardComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('Terminado (duración no medible)');
     expect(fixture.nativeElement.textContent).not.toContain('Reposición estimada');
   });
+  it('labels a brief outage in the history and reports how many are brief, without hiding any', () => {
+    const fixture = createFixture([
+      outage({ objectId: 1, resolvedAt: '2026-07-01T10:00:00', brief: true }),
+      outage({ objectId: 2, resolvedAt: '2026-07-01T10:20:00', brief: false }),
+    ]);
+    const el: HTMLElement = fixture.nativeElement;
+    const countTile = el.querySelectorAll('.grid > div')[1];
+
+    expect(countTile.textContent).toContain('2');
+    expect(countTile.textContent).toContain('(1 breve)');
+
+    (el.querySelector('button.bg-gray-900') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(el.textContent).toContain('1 breve');
+    (el.querySelector('li > button') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    const badges = el.querySelectorAll('span[title^="Visto en una sola consulta"]');
+    expect(badges.length).toBe(1);
+    expect(badges[0].textContent).toContain('Corte breve');
+    expect(el.querySelectorAll('ul ul > li').length).toBe(2);
+  });
+
+  it('shows no brief badge or brief count when no outage is brief', () => {
+    const fixture = createFixture([outage({ resolvedAt: '2026-07-01T10:20:00' })]);
+    const el: HTMLElement = fixture.nativeElement;
+    (el.querySelector('button.bg-gray-900') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    (el.querySelector('li > button') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    expect(el.textContent).not.toContain('breve');
+  });
+
   it('pages the history by 7 days with a show-more button that resets on collapse', () => {
     const tenDays = Array.from({ length: 10 }, (_, i) =>
       outage({ objectId: i + 1, interruptionDate: `2026-07-${String(i + 1).padStart(2, '0')}T10:00:00` }),

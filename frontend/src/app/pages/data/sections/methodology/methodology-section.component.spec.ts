@@ -36,6 +36,19 @@ describe('MethodologySectionComponent', () => {
     expect(text).toContain('28/09/2026');
   });
 
+  it('explains the brief outage label: kept, counted, and not announced on Telegram', () => {
+    const fixture = TestBed.createComponent(MethodologySectionComponent);
+    fixture.detectChanges();
+    const text = fixture.nativeElement.textContent;
+
+    expect(text).toContain('Corte breve');
+    expect(text).toContain('cuenta en todos los totales');
+    expect(text).toContain('dos consultas seguidas');
+    expect(text).not.toContain('nosotros');
+    const dictionary = fixture.nativeElement.querySelector('#diccionario-datos');
+    expect(dictionary.textContent).toContain('brief');
+  });
+
   it('links to the open-source repository and reuses the footer contact email', () => {
     const fixture = TestBed.createComponent(MethodologySectionComponent);
     fixture.detectChanges();
@@ -59,7 +72,7 @@ describe('MethodologySectionComponent', () => {
     expect(el.textContent).toContain('abrirse con doble clic en Excel en español');
     expect(el.querySelector('a[href="https://creativecommons.org/licenses/by/4.0/deed.es"]')).toBeTruthy();
     expect(el.textContent).toContain('Diccionario de datos (CSV)');
-    expect(el.querySelectorAll('#diccionario-datos tbody tr').length).toBe(15);
+    expect(el.querySelectorAll('#diccionario-datos tbody tr').length).toBe(16);
     expect(el.textContent).toContain('observed_end');
   });
 });

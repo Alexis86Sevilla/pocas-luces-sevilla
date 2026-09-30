@@ -35,5 +35,6 @@ export class MethodologySectionComponent {
     { name: 'first_seen', description: 'Primera consulta nuestra en la que apareció el corte. Hora local de Madrid.' },
     { name: 'last_seen', description: 'Última consulta nuestra en la que se vio publicado. Hora local de Madrid.' },
     { name: 'active', description: '«true» si el corte seguía publicado en la última consulta; «false» si ya no.' },
+    { name: 'brief', description: '«true» si el corte se vio publicado en una sola consulta y ya no aparecía en la siguiente (corte breve); «false» en los demás casos, y siempre «false» mientras el corte sigue activo.' },
   ];
 }

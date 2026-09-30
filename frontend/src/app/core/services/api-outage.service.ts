@@ -24,6 +24,12 @@ export interface EnelOutage {
    * see core/utils/outage-duration.ts.
    */
   resolvedAt?: string | null;
+  /**
+   * True when the outage was published in a single poll only and was already gone at the
+   * next one (most likely a real, very short outage). Derived by the backend; absent on
+   * older payloads, which means not brief. Brief outages still count in every total.
+   */
+  brief?: boolean;
 }
 
 /** Per-resource request lifecycle, used to drive loading skeletons and error states. */
