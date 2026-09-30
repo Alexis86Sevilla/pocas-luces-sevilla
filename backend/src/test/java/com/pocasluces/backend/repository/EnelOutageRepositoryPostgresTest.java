@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -41,6 +42,9 @@ class EnelOutageRepositoryPostgresTest {
 
     @Autowired
     private EnelOutageRepository repository;
+
+    @Autowired
+    private TestEntityManager entityManager;
 
     @Test
     void shouldFindCurrentlyActiveAgainstRealPostgres() {
@@ -185,6 +189,78 @@ class EnelOutageRepositoryPostgresTest {
         assertThat(repository.findAll())
             .extracting(EnelOutage::getAffectedClients)
             .containsExactlyInAnyOrder(50, 120);
+    }
+
+    @Test
+    void upsertPreservesAnnouncementStateAndResetsOnlyMissingPollsWhenTheOutageReappears() {
+        LocalDateTime start = LocalDateTime.of(2026, 7, 10, 8, 30);
+        LocalDateTime firstFetch = LocalDateTime.of(2026, 7, 10, 9, 0);
+        LocalDateTime announcedAt = LocalDateTime.of(2026, 7, 10, 9, 5);
+        LocalDateTime restorationAnnouncedAt = LocalDateTime.of(2026, 7, 10, 10, 0);
+        LocalDateTime laterFetch = LocalDateTime.of(2026, 7, 10, 11, 0);
+
+        // A row that predates the alerts (announce_eligible = false) must stay ineligible forever.
+        EnelOutage original = outage("1", start);
+        original.setFetchedAt(firstFetch);
+        original.setAnnounceEligible(false);
+        repository.upsert(original);
+        Long id = repository.findAll().get(0).getId();
+        repository.markAnnounced(List.of(id), announcedAt);
+        repository.markRestorationAnnounced(List.of(id), restorationAnnouncedAt);
+
+        // Fresh poll, same identity key: a new object with builder defaults (eligible = true,
+        // no marks, missing_polls = 0) must not overwrite the announcement state.
+        EnelOutage resighted = outage("1-resighted", start);
+        resighted.setFetchedAt(laterFetch);
+        resighted.setCause("Avería");
+        repository.upsert(resighted);
+
+        entityManager.clear();
+        List<EnelOutage> all = repository.findAll();
+        assertThat(all).hasSize(1);
+        EnelOutage row = all.get(0);
+        assertThat(row.getId()).isEqualTo(id);
+        assertThat(row.isAnnounceEligible()).isFalse();
+        assertThat(row.getAnnouncedAt()).isEqualTo(announcedAt);
+        assertThat(row.getRestorationAnnouncedAt()).isEqualTo(restorationAnnouncedAt);
+        assertThat(row.getFirstSeenAt()).isEqualTo(original.getFirstSeenAt());
+        assertThat(row.getObjectId()).isEqualTo("1-resighted");
+        assertThat(row.getFetchedAt()).isEqualTo(laterFetch);
+        assertThat(row.getCause()).isEqualTo("Avería");
+    }
+
+    @Test
+    void upsertResetsMissingPollsToZeroWhenAnAnnouncedOutageReappearsButKeepsItsAnnouncedAt() {
+        LocalDateTime start = LocalDateTime.of(2026, 7, 10, 8, 30);
+        LocalDateTime announcedAt = LocalDateTime.of(2026, 7, 10, 9, 5);
+
+        EnelOutage original = outage("1", start);
+        repository.upsert(original);
+        Long id = repository.findAll().get(0).getId();
+        repository.markAnnounced(List.of(id), announcedAt);
+
+        // The next two successful polls do not publish it: inactive, missing_polls counts up.
+        EnelOutage gone = outage("1", start);
+        gone.setActive(false);
+        repository.upsert(gone);
+        repository.incrementMissingPollsOfAnnouncedInactiveOutages();
+        repository.incrementMissingPollsOfAnnouncedInactiveOutages();
+        entityManager.clear();
+        assertThat(repository.findAll().get(0).getMissingPolls()).isEqualTo(2);
+
+        // It is published again: the upsert resets the counter (intended, see the upsert) and
+        // announced_at survives.
+        EnelOutage back = outage("1", start);
+        back.setFetchedAt(LocalDateTime.of(2026, 7, 10, 11, 0));
+        repository.upsert(back);
+
+        entityManager.clear();
+        EnelOutage row = repository.findAll().get(0);
+        assertThat(row.getMissingPolls()).isZero();
+        assertThat(row.isActive()).isTrue();
+        assertThat(row.getAnnouncedAt()).isEqualTo(announcedAt);
+        assertThat(row.getRestorationAnnouncedAt()).isNull();
+        assertThat(row.isAnnounceEligible()).isTrue();
     }
 
     private EnelOutage outage(String objectId, LocalDateTime interruptionDate) {

@@ -216,6 +216,86 @@ class OutageAnnouncerTest {
         verify(repository).markAnnounced(List.of(1L), NOW);
     }
 
+    @Test
+    void retriesTheMarkImmediatelyAndSendsOnlyOnceWhenItSucceedsTheSecondTime() {
+        when(repository.findNewOutagesToAnnounce(any(), any())).thenReturn(List.of(outage(1L, "Triana", "León", NOW.minusMinutes(20))));
+        when(repository.findRestoredOutagesToAnnounce(anyInt())).thenReturn(List.of());
+        when(client.sendMessage(anyString())).thenReturn(new SendResult.Sent());
+        when(repository.markAnnounced(List.of(1L), NOW)).thenThrow(new IllegalStateException("db blip")).thenReturn(1);
+
+        announcer(ENABLED).announcePending();
+
+        verify(client, times(1)).sendMessage(anyString());
+        verify(repository, times(2)).markAnnounced(List.of(1L), NOW);
+    }
+
+    @Test
+    void neverResendsAfterAConfirmedSendWhoseMarkKeepsFailingAndMarksItOnTheNextRun() {
+        // once marked, the database no longer selects it (the mock has to say so explicitly)
+        when(repository.findNewOutagesToAnnounce(any(), any()))
+            .thenReturn(List.of(outage(1L, "Triana", "León", NOW.minusMinutes(20))))
+            .thenReturn(List.of());
+        when(repository.findRestoredOutagesToAnnounce(anyInt())).thenReturn(List.of(inactive(2L)));
+        when(client.sendMessage(anyString())).thenReturn(new SendResult.Sent());
+        when(repository.markAnnounced(List.of(1L), NOW))
+            .thenThrow(new IllegalStateException("db down"))
+            .thenThrow(new IllegalStateException("db down"))
+            .thenThrow(new IllegalStateException("db down"))
+            .thenReturn(1);
+        OutageAnnouncer announcer = announcer(ENABLED);
+
+        announcer.announcePending();
+
+        // the rest of the poll is skipped: the restored message is not sent
+        verify(client, times(1)).sendMessage(anyString());
+        verify(repository, times(OutageAnnouncer.MARK_ATTEMPTS)).markAnnounced(List.of(1L), NOW);
+        verify(repository, never()).markRestorationAnnounced(any(), any());
+        assertThat(warnings()).anyMatch(m -> m.contains("held in memory"));
+        assertThat(String.join("\n", messages())).doesNotContain(TOKEN);
+
+        announcer.announcePending();
+
+        // pending mark retried and succeeded; outage 1 is not announced again; restored goes out now
+        verify(repository, times(OutageAnnouncer.MARK_ATTEMPTS + 1)).markAnnounced(List.of(1L), NOW);
+        verify(client, times(2)).sendMessage(anyString());
+        verify(repository).markRestorationAnnounced(List.of(2L), NOW);
+    }
+
+    @Test
+    void keepsExcludingPendingOutagesWhileTheRetryKeepsFailing() {
+        when(repository.findNewOutagesToAnnounce(any(), any())).thenReturn(List.of(outage(1L, "Triana", "León", NOW.minusMinutes(20))));
+        when(repository.findRestoredOutagesToAnnounce(anyInt())).thenReturn(List.of());
+        when(client.sendMessage(anyString())).thenReturn(new SendResult.Sent());
+        when(repository.markAnnounced(any(), any())).thenThrow(new IllegalStateException("db down"));
+        OutageAnnouncer announcer = announcer(ENABLED);
+
+        announcer.announcePending();
+        announcer.announcePending();
+        announcer.announcePending();
+
+        verify(client, times(1)).sendMessage(anyString());
+        verify(repository, times(3 * OutageAnnouncer.MARK_ATTEMPTS)).markAnnounced(List.of(1L), NOW);
+    }
+
+    @Test
+    void theRestoredMessageGetsTheSameProtectionAgainstAFailingMark() {
+        when(repository.findNewOutagesToAnnounce(any(), any())).thenReturn(List.of());
+        when(repository.findRestoredOutagesToAnnounce(anyInt())).thenReturn(List.of(inactive(2L))).thenReturn(List.of());
+        when(client.sendMessage(anyString())).thenReturn(new SendResult.Sent());
+        when(repository.markRestorationAnnounced(List.of(2L), NOW))
+            .thenThrow(new IllegalStateException("db down"))
+            .thenThrow(new IllegalStateException("db down"))
+            .thenThrow(new IllegalStateException("db down"))
+            .thenReturn(1);
+        OutageAnnouncer announcer = announcer(ENABLED);
+
+        announcer.announcePending();
+        announcer.announcePending();
+
+        verify(client, times(1)).sendMessage(anyString());
+        verify(repository, times(OutageAnnouncer.MARK_ATTEMPTS + 1)).markRestorationAnnounced(List.of(2L), NOW);
+    }
+
     private List<String> messages() {
         return logs.list.stream().map(ILoggingEvent::getFormattedMessage).toList();
     }

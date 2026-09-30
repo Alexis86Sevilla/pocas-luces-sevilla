@@ -19,7 +19,10 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * Decides, after each successful poll, which outages to announce on Telegram and marks
@@ -53,6 +56,17 @@ import java.util.List;
  * outage is marked only after Telegram answers {@code ok:true}; on any failure nothing is
  * marked and the same candidates are retried on the next poll. Errors are logged (token
  * redacted) and never propagate to the scheduler.
+ *
+ * <h2>Mark failing after a confirmed send</h2>
+ * If Telegram confirmed a message but the "mark announced" update fails (for example a
+ * transient database error), the mark is retried immediately up to {@link #MARK_ATTEMPTS}
+ * times. If it still fails, the outage ids and the mark to apply are remembered in memory
+ * as "sent but not yet marked": the rest of that poll is skipped, every later run first
+ * retries those marks, and those outages are excluded from the candidates of their kind
+ * while pending, so the same public message is never posted twice because of a database
+ * hiccup. <b>Remaining limitation:</b> that pending state lives only in memory, so a JVM
+ * restart between a confirmed send and a successful mark can still produce exactly one
+ * duplicate message for that outage.
  */
 @Slf4j
 @Service
@@ -60,6 +74,9 @@ public class OutageAnnouncer {
 
     static final Duration NEW_OUTAGE_MAX_AGE = Duration.ofHours(12);
     static final int MIN_MISSING_POLLS_FOR_RESTORATION = 2;
+    static final int MARK_ATTEMPTS = 3;
+    private static final String KIND_NEW = "new";
+    private static final String KIND_RESTORED = "restored";
 
     private final EnelOutageRepository repository;
     private final TelegramClient telegramClient;
@@ -67,6 +84,8 @@ public class OutageAnnouncer {
     private final TelegramProperties properties;
     private final Clock clock;
     private final TransactionOperations newTransaction;
+    /** Messages Telegram confirmed whose mark could not be persisted yet; see the class javadoc. */
+    private final List<PendingMark> pendingMarks = new CopyOnWriteArrayList<>();
 
     @Autowired
     public OutageAnnouncer(EnelOutageRepository repository,
@@ -131,16 +150,25 @@ public class OutageAnnouncer {
         }
         try {
             LocalDateTime now = LocalDateTime.now(clock);
-            Candidates candidates = newTransaction.execute(status -> new Candidates(
+            retryPendingMarks();
+            Candidates found = newTransaction.execute(status -> new Candidates(
                 repository.findNewOutagesToAnnounce(now, now.minus(NEW_OUTAGE_MAX_AGE)),
                 repository.findRestoredOutagesToAnnounce(MIN_MISSING_POLLS_FOR_RESTORATION)));
-            if (candidates == null || candidates.isEmpty()) {
+            if (found == null) {
                 return;
             }
-            boolean telegramHealthy = send(formatter.newOutages(candidates.newOutages(), now), "new",
+            Set<Long> pendingNew = pendingIds(KIND_NEW);
+            Set<Long> pendingRestored = pendingIds(KIND_RESTORED);
+            Candidates candidates = new Candidates(
+                found.newOutages().stream().filter(o -> !pendingNew.contains(o.getId())).toList(),
+                found.restoredOutages().stream().filter(o -> !pendingRestored.contains(o.getId())).toList());
+            if (candidates.isEmpty()) {
+                return;
+            }
+            boolean telegramHealthy = send(formatter.newOutages(candidates.newOutages(), now), KIND_NEW,
                 ids -> repository.markAnnounced(ids, now));
             if (telegramHealthy) {
-                send(formatter.restoredOutages(candidates.restoredOutages(), now), "restored",
+                send(formatter.restoredOutages(candidates.restoredOutages(), now), KIND_RESTORED,
                     ids -> repository.markRestorationAnnounced(ids, now));
             }
         } catch (RuntimeException e) {
@@ -155,8 +183,14 @@ public class OutageAnnouncer {
             SendResult result = telegramClient.sendMessage(message.text());
             switch (result) {
                 case SendResult.Sent sent -> {
-                    newTransaction.executeWithoutResult(status -> marker.mark(message.outageIds()));
                     log.info("Telegram: announced {} {} outage(s)", message.outageIds().size(), kind);
+                    if (!markWithRetries(message.outageIds(), marker)) {
+                        pendingMarks.add(new PendingMark(kind, List.copyOf(message.outageIds()), marker));
+                        log.warn("Telegram: a {} message was sent but marking {} outage(s) as announced failed after {} attempts; "
+                                + "they are held in memory, excluded from further sends and their mark is retried on the next poll",
+                            kind, message.outageIds().size(), MARK_ATTEMPTS);
+                        return false;
+                    }
                 }
                 case SendResult.RateLimited limited -> {
                     log.warn("Telegram: rate limited (retry after {} s); skipping the rest of this poll",
@@ -171,6 +205,43 @@ public class OutageAnnouncer {
             }
         }
         return true;
+    }
+
+    /** Marks in a new transaction, retrying immediately; @return whether one attempt succeeded. */
+    private boolean markWithRetries(Collection<Long> ids, Marker marker) {
+        for (int attempt = 1; attempt <= MARK_ATTEMPTS; attempt++) {
+            try {
+                newTransaction.executeWithoutResult(status -> marker.mark(ids));
+                return true;
+            } catch (RuntimeException e) {
+                log.warn("Telegram: marking announced outages failed (attempt {}/{}): {}", attempt, MARK_ATTEMPTS,
+                    TelegramClient.redact(e.getClass().getSimpleName() + ": " + e.getMessage(), properties.botToken()));
+            }
+        }
+        return false;
+    }
+
+    /** Retries the marks left over from earlier polls; successful ones leave the pending list. */
+    private void retryPendingMarks() {
+        for (PendingMark pending : pendingMarks) {
+            if (markWithRetries(pending.ids(), pending.marker())) {
+                pendingMarks.remove(pending);
+                log.info("Telegram: marked {} previously sent {} outage(s) as announced", pending.ids().size(), pending.kind());
+            }
+        }
+    }
+
+    private Set<Long> pendingIds(String kind) {
+        Set<Long> ids = new HashSet<>();
+        for (PendingMark pending : pendingMarks) {
+            if (pending.kind().equals(kind)) {
+                ids.addAll(pending.ids());
+            }
+        }
+        return ids;
+    }
+
+    private record PendingMark(String kind, List<Long> ids, Marker marker) {
     }
 
     private record Candidates(List<EnelOutage> newOutages, List<EnelOutage> restoredOutages) {
