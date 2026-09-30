@@ -16,6 +16,8 @@
                class="rounded-lg px-3 py-2 text-sm font-medium text-gray-300 transition hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400">Contexto</a></li>
         <li><a routerLink="/datos" routerLinkActive="bg-white/10 text-white" ariaCurrentWhenActive="page"
                class="rounded-lg px-3 py-2 text-sm font-medium text-gray-300 transition hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400">Datos</a></li>
+        <li><a [href]="telegramUrl" target="_blank" rel="noopener noreferrer" aria-label="Avisos de cortes en Telegram (se abre en una pestaña nueva)"
+               class="ml-2 inline-flex items-center gap-1.5 rounded-lg bg-sky-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-sky-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>Avisos</a></li>
         <li><a [routerLink]="[]" fragment="apoyar" queryParamsHandling="preserve" (click)="onSupportClick()"
                class="ml-2 rounded-lg bg-rose-500 px-3 py-2 text-sm font-semibold text-white transition hover:bg-rose-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400">Apoyar</a></li>
       </ul>
@@ -47,6 +49,8 @@
                class="block rounded-lg px-3 py-3 text-base font-medium text-gray-300 hover:text-white">Contexto</a></li>
         <li><a routerLink="/datos" routerLinkActive="bg-white/10 text-white" ariaCurrentWhenActive="page"
                class="block rounded-lg px-3 py-3 text-base font-medium text-gray-300 hover:text-white">Datos</a></li>
+        <li><a [href]="telegramUrl" target="_blank" rel="noopener noreferrer"
+               class="flex items-center gap-2 rounded-lg px-3 py-3 text-base font-semibold text-sky-300 hover:text-sky-200"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>Avisos en Telegram</a></li>
         <li><a [routerLink]="[]" fragment="apoyar" queryParamsHandling="preserve" (click)="onSupportClick()"
                class="block rounded-lg px-3 py-3 text-base font-semibold text-rose-300 hover:text-rose-200">Apoyar</a></li>
       </ul>

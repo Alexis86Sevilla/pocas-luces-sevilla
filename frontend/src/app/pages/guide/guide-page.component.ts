@@ -4,6 +4,7 @@ import { RouterLink } from '@angular/router';
 import { ApiOutageService } from '../../core/services/api-outage.service';
 import { OpenDataDownloadComponent } from '../../shared/ui/open-data-download/open-data-download.component';
 import { ShareButtonComponent } from '../../shared/ui/share-button/share-button.component';
+import { TelegramLinkComponent } from '../../shared/ui/telegram-link/telegram-link.component';
 
 type CopyStatus = 'idle' | 'copied' | 'manual';
 
@@ -29,7 +30,7 @@ Un saludo,
 
 @Component({
   selector: 'app-guide-page',
-  imports: [RouterLink, OpenDataDownloadComponent, ShareButtonComponent],
+  imports: [RouterLink, OpenDataDownloadComponent, ShareButtonComponent, TelegramLinkComponent],
   templateUrl: './guide-page.component.html',
 })
 export class GuidePageComponent {

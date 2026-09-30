@@ -39,6 +39,16 @@ describe('NavComponent', () => {
     expect(hrefs).toContain('/datos');
   });
 
+  it('links to the Telegram alerts channel in a new tab', async () => {
+    const { el } = await setup();
+    const links = [...el.querySelectorAll<HTMLAnchorElement>('a[href="https://t.me/SevillaSinLuz"]')];
+    expect(links.length).toBeGreaterThan(0);
+    for (const link of links) {
+      expect(link.target).toBe('_blank');
+      expect(link.rel).toContain('noopener');
+    }
+  });
+
   it('lists Qué hacer and Mapa between Inicio and Contexto, also in the mobile menu', async () => {
     const { fixture, el } = await setup();
     const desktop = [...el.querySelectorAll('ul a')].map(a => a.textContent?.trim());

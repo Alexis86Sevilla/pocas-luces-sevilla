@@ -2,6 +2,7 @@ import { Component, OnDestroy, computed, inject, signal } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { ApiOutageService } from '../../../../core/services/api-outage.service';
 import { pluralize } from '../../../../core/utils/pluralize';
+import { TELEGRAM_CHANNEL_URL } from '../../../../core/config/social';
 
 @Component({
   selector: 'app-hero',
@@ -12,6 +13,7 @@ import { pluralize } from '../../../../core/utils/pluralize';
 export class HeroComponent implements OnDestroy {
   protected readonly isGrayscale = signal(false);
   protected readonly pluralize = pluralize;
+  protected readonly telegramUrl = TELEGRAM_CHANNEL_URL;
 
   private readonly api = inject(ApiOutageService);
   protected readonly liveLoading = this.api.liveLoading;

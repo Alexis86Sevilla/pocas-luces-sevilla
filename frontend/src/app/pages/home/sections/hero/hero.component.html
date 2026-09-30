@@ -41,6 +41,8 @@
           · {{ liveSupplyPoints() | number: '1.0-0' }} {{ pluralize(liveSupplyPoints(), 'suministro afectado', 'suministros afectados') }}
         </span>
       }
+      <a [href]="telegramUrl" target="_blank" rel="noopener noreferrer"
+        class="font-semibold text-sky-300 underline underline-offset-2 hover:text-sky-200">Recibe avisos</a>
     </div>
 
     <div class="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">

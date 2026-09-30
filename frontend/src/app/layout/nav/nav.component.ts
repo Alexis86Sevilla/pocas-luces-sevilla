@@ -3,6 +3,8 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { filter } from 'rxjs';
 
+import { TELEGRAM_CHANNEL_URL } from '../../core/config/social';
+
 @Component({
   selector: 'app-nav',
   imports: [RouterLink, RouterLinkActive],
@@ -13,6 +15,7 @@ export class NavComponent {
   private readonly router = inject(Router);
 
   protected readonly menuOpen = signal(false);
+  protected readonly telegramUrl = TELEGRAM_CHANNEL_URL;
 
   constructor() {
     this.router.events

@@ -19,6 +19,7 @@ import { ApiOutageService } from '../../core/services/api-outage.service';
 import { toOutageMarkers, type OutageMarker } from '../../core/utils/map-markers';
 import { pluralize } from '../../core/utils/pluralize';
 import { DateFilterComponent, type DateFilterValue } from '../home/sections/monthly/date-filter/date-filter.component';
+import { TelegramLinkComponent } from '../../shared/ui/telegram-link/telegram-link.component';
 import { LEAFLET_LOADER, type LeafletModule } from './leaflet-loader';
 
 export type MapMode = 'live' | 'month';
@@ -55,7 +56,7 @@ const DISTRICT_STYLE = { color: '#6b7280', weight: 1.5, fillColor: '#9ca3af', fi
 
 @Component({
   selector: 'app-map-page',
-  imports: [RouterLink, DateFilterComponent],
+  imports: [RouterLink, DateFilterComponent, TelegramLinkComponent],
   templateUrl: './map-page.component.html',
   styleUrl: './map-page.component.css',
   // Leaflet creates its DOM imperatively, so its stylesheet must not be view-encapsulated.

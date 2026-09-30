@@ -6,6 +6,7 @@ import { provideRouter, Router } from '@angular/router';
 import { vi } from 'vitest';
 
 import { routes } from '../../app.routes';
+import { TELEGRAM_CHANNEL_URL } from '../../core/config/social';
 import { CLAIM_TEMPLATE, GuidePageComponent } from './guide-page.component';
 
 @Component({ selector: 'app-stub', template: '' })
@@ -64,6 +65,14 @@ describe('GuidePageComponent', () => {
     }
     expect(el.textContent).toContain('Consultado el 29/09/2026');
     expect(el.textContent).toContain('no sustituye el asesoramiento legal');
+  });
+
+  it('offers the Telegram channel in step 2 as a safe external link', () => {
+    const el: HTMLElement = createFixture().nativeElement;
+    const link = el.querySelector<HTMLAnchorElement>(`[data-step="2"] a[href="${TELEGRAM_CHANNEL_URL}"]`);
+    expect(link?.textContent).toContain('Recibe avisos en Telegram');
+    expect(link?.getAttribute('target')).toBe('_blank');
+    expect(link?.getAttribute('rel')).toBe('noopener noreferrer');
   });
 
   it('links the CSV download of the selected month', () => {

@@ -5,6 +5,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 
 import { LiveSectionComponent, type LiveGroup } from './live-section.component';
 import { ApiOutageService } from '../../../../core/services/api-outage.service';
+import { TELEGRAM_CHANNEL_URL } from '../../../../core/config/social';
 
 describe('LiveSectionComponent', () => {
   let httpMock: HttpTestingController;
@@ -90,5 +91,12 @@ describe('LiveSectionComponent', () => {
     const fixture = createFixture();
     const link: HTMLAnchorElement | null = fixture.nativeElement.querySelector('a[href="/guia"]');
     expect(link?.textContent).toContain('Qué hacer');
+  });
+
+  it('links to the public Telegram channel', () => {
+    const fixture = createFixture();
+    const link: HTMLAnchorElement | null = fixture.nativeElement.querySelector(`a[href="${TELEGRAM_CHANNEL_URL}"]`);
+    expect(link?.textContent).toContain('Recibe avisos en Telegram');
+    expect(link?.getAttribute('rel')).toBe('noopener noreferrer');
   });
 });

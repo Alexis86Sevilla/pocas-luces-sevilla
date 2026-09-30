@@ -6,6 +6,7 @@ import { ApiOutageService } from '../../../../core/services/api-outage.service';
 import { parseMadridDate } from '../../../../core/utils/madrid-date';
 import { formatRelativeTime, isStale } from '../../../../core/utils/relative-time';
 import { pluralize } from '../../../../core/utils/pluralize';
+import { TelegramLinkComponent } from '../../../../shared/ui/telegram-link/telegram-link.component';
 
 export interface LiveGroup {
   readonly districtName: string;
@@ -21,7 +22,7 @@ const FRESHNESS_TICK_MS = 60_000;
 
 @Component({
   selector: 'app-live-section',
-  imports: [DatePipe, DecimalPipe, RouterLink],
+  imports: [DatePipe, DecimalPipe, RouterLink, TelegramLinkComponent],
   templateUrl: './live-section.component.html',
 })
 export class LiveSectionComponent {
