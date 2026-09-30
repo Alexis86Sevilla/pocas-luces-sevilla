@@ -24,9 +24,12 @@ Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryS
 
 import type { District } from '../../../../../core/models';
 import type { EnelOutage } from '../../../../../core/services/api-outage.service';
-import { parseMadridDate } from '../../../../../core/utils/madrid-date';
+import { countByDistrictAndMonth } from '../../../../../core/utils/monthly-counts';
 
 const MONTHS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+const FULL_MONTHS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+const NUMBER_FORMAT = new Intl.NumberFormat('es-ES');
+const outagesLabel = (n: number) => `${NUMBER_FORMAT.format(n)} ${n === 1 ? 'corte' : 'cortes'}`;
 // '#1f2937' replaces the original '#808080' (gray), which had low contrast on the light card background.
 const COLORS = [
   '#e6194b', '#3cb44b', '#4363d8', '#f58231',
@@ -53,6 +56,9 @@ export class ChartComponent {
 
   protected readonly selectedIds = signal<Set<string>>(new Set());
 
+  /** Counts per district and month, computed once per data change (not per click). */
+  private readonly counts = computed(() => countByDistrictAndMonth(this.outages()));
+
   // Accessible alternative to the canvas chart: the same monthly counts as a table.
   protected readonly selectedDistricts = computed(() =>
     this.districts().filter(d => this.selectedIds().has(d.id))
@@ -60,10 +66,9 @@ export class ChartComponent {
 
   protected readonly tableRows = computed((): readonly MonthlyTableRow[] => {
     const districts = this.selectedDistricts();
-    const outages = this.outages();
     return MONTHS.map((month, monthIdx) => ({
       month,
-      counts: districts.map(d => this.monthlyCount(outages, d, monthIdx)),
+      counts: districts.map(d => this.monthlyCount(d, monthIdx)),
     }));
   });
 
@@ -103,30 +108,27 @@ export class ChartComponent {
     this.updateChart();
   }
 
-  private monthlyCount(outages: readonly EnelOutage[], district: District, monthIdx: number): number {
-    return outages.filter(o =>
-      o.districtName === district.name && parseMadridDate(o.interruptionDate).getMonth() === monthIdx
-    ).length;
+  private monthlyCount(district: District, monthIdx: number): number {
+    return this.counts().get(district.name)?.[monthIdx] ?? 0;
   }
 
   private updateChart(): void {
     if (!this.chart) return;
     const districts = this.districts();
-    const outages = this.outages();
     const selected = this.selectedIds();
 
     this.chart.data.datasets = districts
       .filter(d => selected.has(d.id))
       .map(d => {
         const globalIndex = districts.indexOf(d);
-        const monthlyCounts = MONTHS.map((_, monthIdx) => this.monthlyCount(outages, d, monthIdx));
+        const monthlyCounts = MONTHS.map((_, monthIdx) => this.monthlyCount(d, monthIdx));
         const color = COLORS[globalIndex % COLORS.length];
         return {
           label: d.name, data: monthlyCounts, borderColor: color,
           backgroundColor: `${color}12`, borderWidth: 2.5, pointRadius: 5,
           pointHoverRadius: 8, pointBackgroundColor: '#ffffff',
           pointBorderColor: color, pointBorderWidth: 2.5,
-          tension: 0.35, fill: true,
+          tension: 0.35, cubicInterpolationMode: 'monotone', fill: true,
         };
       });
     this.chart.update();
@@ -139,14 +141,36 @@ export class ChartComponent {
       plugins: {
         legend: { display: false },
         tooltip: {
-          backgroundColor: 'rgba(17, 24, 39, 0.95)',
-          titleFont: { size: 13, weight: 'bold' },
+          backgroundColor: '#ffffff',
+          borderColor: '#e5e7eb',
+          borderWidth: 1,
+          titleColor: '#111827',
+          bodyColor: '#374151',
+          footerColor: '#6b7280',
+          titleFont: { size: 14, weight: 'bold' },
           bodyFont: { size: 13 },
-          padding: 10,
-          cornerRadius: 8,
+          footerFont: { size: 12, weight: 'normal' },
+          padding: 12,
+          cornerRadius: 12,
+          caretSize: 6,
+          titleMarginBottom: 8,
+          bodySpacing: 6,
+          footerMarginTop: 8,
+          boxPadding: 6,
+          usePointStyle: true,
           displayColors: true,
+          itemSort: (a, b) => (b.parsed.y ?? 0) - (a.parsed.y ?? 0),
           callbacks: {
-            label: (context) => `${context.dataset.label}: ${context.parsed.y} corte${context.parsed.y === 1 ? '' : 's'}`,
+            title: (items) => FULL_MONTHS[items[0]?.dataIndex ?? 0],
+            label: (context) => `${context.dataset.label}  ·  ${outagesLabel(context.parsed.y ?? 0)}`,
+            labelPointStyle: () => ({ pointStyle: 'circle', rotation: 0 }),
+            labelColor: (context) => {
+              const color = String(context.dataset.borderColor);
+              return { borderColor: color, backgroundColor: color, borderWidth: 0, borderRadius: 4 };
+            },
+            footer: (items) => items.length > 1
+              ? `Total: ${outagesLabel(items.reduce((sum, item) => sum + (item.parsed.y ?? 0), 0))}`
+              : '',
           },
         },
       },

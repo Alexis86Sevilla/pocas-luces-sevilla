@@ -16,17 +16,29 @@ const MADRID_TIME_ZONE = 'Europe/Madrid';
  * Compute the UTC offset (in minutes, positive = ahead of UTC) that
  * `timeZone` observes at the given UTC instant.
  */
+// Intl.DateTimeFormat construction is expensive; build each formatter once and reuse it.
+const offsetFormatters = new Map<string, Intl.DateTimeFormat>();
+
+function offsetFormatter(timeZone: string): Intl.DateTimeFormat {
+  let formatter = offsetFormatters.get(timeZone);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      hourCycle: 'h23',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
+    offsetFormatters.set(timeZone, formatter);
+  }
+  return formatter;
+}
+
 function timeZoneOffsetMinutes(instant: Date, timeZone: string): number {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone,
-    hourCycle: 'h23',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  }).formatToParts(instant);
+  const parts = offsetFormatter(timeZone).formatToParts(instant);
   const get = (type: string) => Number(parts.find(p => p.type === type)?.value ?? 0);
 
   const asUtc = Date.UTC(
@@ -90,16 +102,18 @@ export function toMadridDateKey(dateTime: string): string {
  * Format a Date (built with parseMadridDate) using Europe/Madrid calendar
  * components. Supported pattern tokens: yyyy, MM, dd, HH, mm.
  */
+const MADRID_DISPLAY_FORMATTER = new Intl.DateTimeFormat('en-GB', {
+  timeZone: MADRID_TIME_ZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+});
+
 export function formatMadridDate(date: Date, pattern: string): string {
-  const parts = new Intl.DateTimeFormat('en-GB', {
-    timeZone: MADRID_TIME_ZONE,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  }).formatToParts(date);
+  const parts = MADRID_DISPLAY_FORMATTER.formatToParts(date);
   const get = (type: string) => parts.find(p => p.type === type)?.value ?? '';
   return pattern
     .replace('yyyy', get('year'))
