@@ -95,7 +95,9 @@ screenshot, found in a log). Only the drop-in changes; the code does not.
 - If Telegram confirms a message but saving the "announced" mark fails (for example a
   transient database error), the backend retries the mark immediately (3 attempts) and,
   if it still fails, keeps those outages in memory: they are not sent again and the mark
-  is retried at the start of every poll (`WARN ... held in memory` in the log). The only
+  is retried once at the start of every poll (`WARN ... held in memory` in the log). While
+  any mark is still pending, that poll sends nothing at all (`WARN ... sending nothing in
+  this poll`), so the in-memory list never holds more than one poll's messages. The only
   remaining way to get a duplicate is a JVM restart between a confirmed send and a
   successful mark, which can repeat that one message once.
 - Rate limiting (`HTTP 429`) skips the rest of that poll; nothing is lost, the

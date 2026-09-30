@@ -274,7 +274,60 @@ class OutageAnnouncerTest {
         announcer.announcePending();
 
         verify(client, times(1)).sendMessage(anyString());
-        verify(repository, times(3 * OutageAnnouncer.MARK_ATTEMPTS)).markAnnounced(List.of(1L), NOW);
+        // first run: MARK_ATTEMPTS immediate attempts; every later run: a single retry of the pending mark
+        verify(repository, times(OutageAnnouncer.MARK_ATTEMPTS + 2)).markAnnounced(List.of(1L), NOW);
+    }
+
+    @Test
+    void sendsNothingInARunWhereAPendingMarkIsStillFailingAfterItsSingleRetry() {
+        EnelOutage first = outage(1L, "Triana", "León", NOW.minusMinutes(20));
+        EnelOutage second = outage(3L, "Macarena", "Macarena", NOW.minusMinutes(25));
+        when(repository.findNewOutagesToAnnounce(any(), any()))
+            .thenReturn(List.of(first))
+            .thenReturn(List.of(first, second));
+        when(repository.findRestoredOutagesToAnnounce(anyInt())).thenReturn(List.of(inactive(2L)));
+        when(client.sendMessage(anyString())).thenReturn(new SendResult.Sent());
+        when(repository.markAnnounced(List.of(1L), NOW)).thenThrow(new IllegalStateException("db down"));
+        OutageAnnouncer announcer = announcer(ENABLED);
+
+        announcer.announcePending();
+        verify(repository, times(OutageAnnouncer.MARK_ATTEMPTS)).markAnnounced(List.of(1L), NOW);
+
+        announcer.announcePending();
+
+        // exactly one retry of the pending entry, then nothing: no candidate query, no send, no other mark
+        verify(repository, times(OutageAnnouncer.MARK_ATTEMPTS + 1)).markAnnounced(List.of(1L), NOW);
+        verify(client, times(1)).sendMessage(anyString());
+        verify(repository, times(1)).findNewOutagesToAnnounce(any(), any());
+        verify(repository, never()).markAnnounced(List.of(3L), NOW);
+        verify(repository, never()).markRestorationAnnounced(any(), any());
+        assertThat(warnings()).anyMatch(m -> m.contains("1 sent message(s) still could not be marked")
+            && m.contains("sending nothing"));
+        assertThat(String.join("\n", messages())).doesNotContain(TOKEN);
+    }
+
+    @Test
+    void resumesSendingInTheSameRunOnceThePendingMarkSucceedsOnItsRetry() {
+        EnelOutage first = outage(1L, "Triana", "León", NOW.minusMinutes(20));
+        EnelOutage second = outage(3L, "Macarena", "Macarena", NOW.minusMinutes(25));
+        when(repository.findNewOutagesToAnnounce(any(), any()))
+            .thenReturn(List.of(first))
+            .thenReturn(List.of(second));
+        when(repository.findRestoredOutagesToAnnounce(anyInt())).thenReturn(List.of());
+        when(client.sendMessage(anyString())).thenReturn(new SendResult.Sent());
+        when(repository.markAnnounced(List.of(1L), NOW))
+            .thenThrow(new IllegalStateException("db down"))
+            .thenThrow(new IllegalStateException("db down"))
+            .thenThrow(new IllegalStateException("db down"))
+            .thenReturn(1);
+        OutageAnnouncer announcer = announcer(ENABLED);
+
+        announcer.announcePending();
+        announcer.announcePending();
+
+        verify(repository, times(OutageAnnouncer.MARK_ATTEMPTS + 1)).markAnnounced(List.of(1L), NOW);
+        verify(client, times(2)).sendMessage(anyString());
+        verify(repository).markAnnounced(List.of(3L), NOW);
     }
 
     @Test

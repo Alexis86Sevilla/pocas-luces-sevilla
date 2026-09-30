@@ -62,9 +62,12 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * transient database error), the mark is retried immediately up to {@link #MARK_ATTEMPTS}
  * times. If it still fails, the outage ids and the mark to apply are remembered in memory
  * as "sent but not yet marked": the rest of that poll is skipped, every later run first
- * retries those marks, and those outages are excluded from the candidates of their kind
- * while pending, so the same public message is never posted twice because of a database
- * hiccup. <b>Remaining limitation:</b> that pending state lives only in memory, so a JVM
+ * retries each of those marks once, and those outages are excluded from the candidates of
+ * their kind while pending, so the same public message is never posted twice because of a
+ * database hiccup. If any mark is still pending after that single retry, the run sends
+ * nothing (the database is evidently still failing, so new marks would fail too), which
+ * bounds the pending list to the messages of one poll and keeps each poll's cost constant.
+ * <b>Remaining limitation:</b> that pending state lives only in memory, so a JVM
  * restart between a confirmed send and a successful mark can still produce exactly one
  * duplicate message for that outage.
  */
@@ -150,7 +153,11 @@ public class OutageAnnouncer {
         }
         try {
             LocalDateTime now = LocalDateTime.now(clock);
-            retryPendingMarks();
+            if (retryPendingMarks()) {
+                log.warn("Telegram: {} sent message(s) still could not be marked as announced; "
+                    + "sending nothing in this poll until the database accepts marks again", pendingMarks.size());
+                return;
+            }
             Candidates found = newTransaction.execute(status -> new Candidates(
                 repository.findNewOutagesToAnnounce(now, now.minus(NEW_OUTAGE_MAX_AGE)),
                 repository.findRestoredOutagesToAnnounce(MIN_MISSING_POLLS_FOR_RESTORATION)));
@@ -221,14 +228,22 @@ public class OutageAnnouncer {
         return false;
     }
 
-    /** Retries the marks left over from earlier polls; successful ones leave the pending list. */
-    private void retryPendingMarks() {
+    /**
+     * Retries each mark left over from earlier polls once; successful ones leave the pending
+     * list. @return whether any pending mark remains (the caller then sends nothing).
+     */
+    private boolean retryPendingMarks() {
         for (PendingMark pending : pendingMarks) {
-            if (markWithRetries(pending.ids(), pending.marker())) {
+            try {
+                newTransaction.executeWithoutResult(status -> pending.marker().mark(pending.ids()));
                 pendingMarks.remove(pending);
                 log.info("Telegram: marked {} previously sent {} outage(s) as announced", pending.ids().size(), pending.kind());
+            } catch (RuntimeException e) {
+                log.debug("Telegram: retrying a pending mark failed: {}",
+                    TelegramClient.redact(e.getClass().getSimpleName() + ": " + e.getMessage(), properties.botToken()));
             }
         }
+        return !pendingMarks.isEmpty();
     }
 
     private Set<Long> pendingIds(String kind) {
