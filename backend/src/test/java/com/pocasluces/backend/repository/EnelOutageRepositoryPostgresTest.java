@@ -202,6 +202,7 @@ class EnelOutageRepositoryPostgresTest {
         // A row that predates the alerts (announce_eligible = false) must stay ineligible forever.
         EnelOutage original = outage("1", start);
         original.setFetchedAt(firstFetch);
+        original.setFirstSeenAt(firstFetch); // exact value: Postgres stores microseconds, now() carries nanoseconds
         original.setAnnounceEligible(false);
         repository.upsert(original);
         Long id = repository.findAll().get(0).getId();
