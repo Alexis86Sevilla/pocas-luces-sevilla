@@ -129,8 +129,9 @@ public class OutageDataScheduler {
         // Registered after the health tracker so its hook always runs first; the announcer
         // never throws, and Telegram problems never touch this transaction.
         announcer.announceAfterCommit();
-        // Registered after the alerts so it always runs after them; never throws.
-        weeklySummaryAnnouncer.announceAfterCommit();
+        // Registered after the alerts so it always runs after them (and skips this poll if they met a
+        // Telegram problem); never throws.
+        weeklySummaryAnnouncer.announceAfterCommit(announcer::telegramHealthy);
     }
 
     private LocalDateTime parseDate(String dateStr) {

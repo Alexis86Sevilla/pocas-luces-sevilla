@@ -11,6 +11,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.transaction.support.TransactionOperations;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Clock;
 import java.time.LocalDate;
@@ -19,6 +21,7 @@ import java.time.ZoneId;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
@@ -79,7 +82,7 @@ class WeeklySummaryAnnouncerTest {
 
     @Test
     void skipsTheComparisonWhenTheDataDoesNotCoverThePreviousWeek() {
-        dataFor(LocalDateTime.of(2026, 9, 22, 10, 0));
+        dataFor(WEEK_START);
         when(client.sendMessage(anyString())).thenReturn(new SendResult.Sent());
 
         announcer(ENABLED, LocalDateTime.of(2026, 9, 28, 10, 0)).announceIfDue();
@@ -195,15 +198,84 @@ class WeeklySummaryAnnouncerTest {
     }
 
     @Test
-    void skipsAZeroWeekThatPredatesOurDataCollection() {
+    void skipsAWeekWithNoDataAtAll() {
         when(repository.isWeekSent(WEEK)).thenReturn(false);
         when(repository.earliestFirstSeen()).thenReturn(null);
-        when(repository.totals(WEEK_START, WEEK_END)).thenReturn(new Totals(0, 0, 0));
 
         announcer(ENABLED, LocalDateTime.of(2026, 9, 28, 10, 0)).announceIfDue();
 
         verifyNoInteractions(client);
         verify(repository, never()).markWeekSent(any(), any());
+    }
+
+    @Test
+    void skipsAWeekOnlyPartiallyCoveredEvenWhenItHasOutages() {
+        when(repository.isWeekSent(WEEK)).thenReturn(false);
+        when(repository.earliestFirstSeen()).thenReturn(WEEK_START.plusSeconds(1));
+
+        announcer(ENABLED, LocalDateTime.of(2026, 9, 28, 10, 0)).announceIfDue();
+
+        verifyNoInteractions(client);
+        verify(repository, never()).totals(any(), any());
+        verify(repository, never()).markWeekSent(any(), any());
+    }
+
+    @Test
+    void skipsThePollWhenTheAlertsMetATelegramProblem() {
+        WeeklySummaryAnnouncer announcer = announcer(ENABLED, LocalDateTime.of(2026, 9, 28, 10, 0));
+
+        announcer.announceIfDue(() -> false);
+
+        verifyNoInteractions(client, repository);
+    }
+
+    @Test
+    void sendsOnALaterPollOnceTelegramIsHealthyAgain() {
+        dataFor(LocalDateTime.of(2026, 1, 1, 0, 0));
+        when(repository.totals(PREVIOUS_START, WEEK_START)).thenReturn(new Totals(4, 0, 0));
+        when(client.sendMessage(anyString())).thenReturn(new SendResult.Sent());
+        WeeklySummaryAnnouncer announcer = announcer(ENABLED, LocalDateTime.of(2026, 9, 28, 10, 0));
+
+        announcer.announceIfDue(() -> false);
+        verifyNoInteractions(client);
+
+        announcer.announceIfDue(() -> true);
+        verify(client).sendMessage(anyString());
+    }
+
+    @Test
+    void insideATransactionTheSummaryRunsOnlyAfterCommitAndContainsFailures() {
+        dataFor(LocalDateTime.of(2026, 1, 1, 0, 0));
+        when(repository.totals(PREVIOUS_START, WEEK_START)).thenReturn(new Totals(4, 0, 0));
+        when(client.sendMessage(anyString())).thenReturn(new SendResult.Sent());
+        LocalDateTime now = LocalDateTime.of(2026, 9, 28, 10, 0);
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            announcer(ENABLED, now).announceAfterCommit();
+            verifyNoInteractions(client);
+
+            TransactionSynchronizationManager.getSynchronizations().forEach(TransactionSynchronization::afterCommit);
+
+            verify(client).sendMessage(anyString());
+            verify(repository).markWeekSent(WEEK, now);
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
+
+    @Test
+    void anExceptionInTheAfterCommitHookDoesNotPropagate() {
+        when(repository.isWeekSent(WEEK)).thenThrow(new IllegalStateException("db down"));
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            announcer(ENABLED, LocalDateTime.of(2026, 9, 28, 10, 0)).announceAfterCommit();
+
+            assertThatCode(() -> TransactionSynchronizationManager.getSynchronizations()
+                .forEach(TransactionSynchronization::afterCommit)).doesNotThrowAnyException();
+            verifyNoInteractions(client);
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
     }
 
     @Test

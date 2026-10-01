@@ -55,11 +55,11 @@ class WeeklySummaryRepositoryPostgresTest {
     @Test
     void aggregatesOnlyTheOutagesThatStartedInsideTheHalfOpenWeek() {
         LocalDateTime seen = LocalDateTime.of(2026, 9, 22, 12, 0);
-        outages.upsert(outage(1, FROM, "Triana", 10, seen, seen, seen.plusMinutes(5)));                  // brief (Monday 00:00 included)
-        outages.upsert(outage(2, FROM.plusDays(2), "Triana", 20, seen, seen.plusMinutes(10), null));     // still active
-        outages.upsert(outage(3, TO.minusSeconds(1), "Nervión", null, seen, seen.plusMinutes(10), seen.plusMinutes(10)));
-        outages.upsert(outage(4, TO, "Triana", 99, seen, seen, seen));                                   // next Monday 00:00: excluded
-        outages.upsert(outage(5, FROM.minusSeconds(1), "Triana", 99, seen, seen, seen));                 // previous Sunday: excluded
+        outages.upsert(outage(1, FROM, "Triana", 10, seen, seen, true));                  // brief (Monday 00:00 included)
+        outages.upsert(outage(2, FROM.plusDays(2), "Triana", 20, seen, seen.plusMinutes(10), false));     // still active
+        outages.upsert(outage(3, TO.minusSeconds(1), "Nervión", null, seen, seen.plusMinutes(10), true));
+        outages.upsert(outage(4, TO, "Triana", 99, seen, seen, true));                                   // next Monday 00:00: excluded
+        outages.upsert(outage(5, FROM.minusSeconds(1), "Triana", 99, seen, seen, true));                 // previous Sunday: excluded
 
         assertThat(repository.totals(FROM, TO)).isEqualTo(new Totals(3, 30, 1));
         assertThat(repository.districtCounts(FROM, TO))
@@ -76,8 +76,8 @@ class WeeklySummaryRepositoryPostgresTest {
     void reportsTheEarliestFirstSeen() {
         assertThat(repository.earliestFirstSeen()).isNull();
 
-        outages.upsert(outage(1, FROM, "Triana", 1, LocalDateTime.of(2026, 9, 10, 8, 0), LocalDateTime.of(2026, 9, 10, 8, 5), null));
-        outages.upsert(outage(2, FROM.plusDays(1), "Triana", 1, LocalDateTime.of(2026, 9, 12, 8, 0), LocalDateTime.of(2026, 9, 12, 8, 5), null));
+        outages.upsert(outage(1, FROM, "Triana", 1, LocalDateTime.of(2026, 9, 10, 8, 0), LocalDateTime.of(2026, 9, 10, 8, 5), false));
+        outages.upsert(outage(2, FROM.plusDays(1), "Triana", 1, LocalDateTime.of(2026, 9, 12, 8, 0), LocalDateTime.of(2026, 9, 12, 8, 5), false));
 
         assertThat(repository.earliestFirstSeen()).isEqualTo(LocalDateTime.of(2026, 9, 10, 8, 0));
     }
@@ -95,7 +95,7 @@ class WeeklySummaryRepositoryPostgresTest {
     }
 
     private EnelOutage outage(int n, LocalDateTime interruptionDate, String district, Integer clients,
-                              LocalDateTime firstSeenAt, LocalDateTime fetchedAt, LocalDateTime resolvedAt) {
+                              LocalDateTime firstSeenAt, LocalDateTime fetchedAt, boolean resolved) {
         return EnelOutage.builder()
             .objectId("weekly-" + n)
             .interruptionDate(interruptionDate)
@@ -105,8 +105,8 @@ class WeeklySummaryRepositoryPostgresTest {
             .affectedClients(clients)
             .latitude((double) n)
             .longitude((double) n)
-            .active(resolvedAt == null)
-            .resolvedAt(resolvedAt == null ? null : fetchedAt)
+            .active(!resolved)
+            .resolvedAt(resolved ? fetchedAt : null)
             .firstSeenAt(firstSeenAt)
             .fetchedAt(fetchedAt)
             .createdAt(firstSeenAt)

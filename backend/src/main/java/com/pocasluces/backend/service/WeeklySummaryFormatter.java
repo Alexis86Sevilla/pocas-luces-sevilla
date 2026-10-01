@@ -50,7 +50,7 @@ public class WeeklySummaryFormatter {
         return text.append('\n').append(TelegramMessageFormatter.FOOTER).toString();
     }
 
-    /** "Semana del 22 al 28 de septiembre", "Semana del 29 de septiembre al 5 de octubre". */
+    /** "Semana del 21 al 27 de septiembre", "Semana del 29 de septiembre al 5 de octubre". */
     static String weekRange(LocalDate weekStart) {
         LocalDate end = weekStart.plusDays(6);
         if (weekStart.getYear() != end.getYear()) {

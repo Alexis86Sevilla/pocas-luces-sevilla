@@ -92,6 +92,8 @@ With the alerts enabled, the channel also gets one automatic summary per week: o
 
 - Sent at most once per week: the week is stored in the `telegram_weekly_summary` table only after Telegram confirms. To resend a week (for example after deleting the message by hand), delete its row, `DELETE FROM telegram_weekly_summary WHERE week_start = '2026-09-21';`, and it is retried on the next poll, as long as it is still Monday.
 - If the app is down all Monday, that week is skipped.
+- A week is summarized only when our data covers all of it (earliest `first_seen_at` at or before that week's Monday 00:00); otherwise it is skipped and logged (`data does not cover the whole week`), never posted with partial totals or as "no outages".
+- If the outage alerts of the same poll were rate limited (HTTP 429) or failed, the summary waits for the next poll (still within Monday).
 - The comparison with the previous week is shown only when our data covers both weeks (earliest `first_seen_at` at or before the previous week's start).
 - Check in the logs: `Telegram: weekly summary for the week of <date> sent`.
 
@@ -105,10 +107,15 @@ With the alerts enabled, the channel also gets one automatic summary per week: o
   transient database error), the backend retries the mark immediately (3 attempts) and,
   if it still fails, keeps those outages in memory: they are not sent again and the mark
   is retried once at the start of every poll (`WARN ... held in memory` in the log). While
-  any mark is still pending, that poll sends nothing at all (`WARN ... sending nothing in
-  this poll`), so the in-memory list never holds more than one poll's messages. The only
-  remaining way to get a duplicate is a JVM restart between a confirmed send and a
-  successful mark, which can repeat that one message once.
+  a pending mark has failed fewer than 3 consecutive polls, that poll sends nothing at all
+  (`WARN ... sending nothing in this poll`), since the database is probably down. If the
+  mark still fails on the third retry (for example a deterministic error) it is abandoned
+  (`WARN ... giving up marking ...`) so it cannot silence alerts until a restart: alerts
+  resume, and those outage ids stay in a bounded in-memory list (last 1000) so this process
+  never sends them again. To clear an abandoned outage for good, fix the cause and mark it
+  by hand (`announced_at` / `restoration_announced_at`). The only remaining way to get a
+  duplicate is a JVM restart between a confirmed send and a successful mark, which can
+  repeat that one message once.
 - Rate limiting (`HTTP 429`) skips the rest of that poll; nothing is lost, the
   same candidates are sent on the next one.
 - `TELEGRAM_CHAT_ID` is public information (it is the channel handle). Only the

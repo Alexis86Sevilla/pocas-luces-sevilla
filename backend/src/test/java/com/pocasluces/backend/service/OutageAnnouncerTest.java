@@ -307,6 +307,77 @@ class OutageAnnouncerTest {
     }
 
     @Test
+    void abandonsAMarkThatKeepsFailingAfterThreeRunsThenResumesAlertsAndNeverResendsIt() {
+        EnelOutage first = outage(1L, "Triana", "León", NOW.minusMinutes(20));
+        EnelOutage second = outage(3L, "Macarena", "Macarena", NOW.minusMinutes(25));
+        when(repository.findNewOutagesToAnnounce(any(), any()))
+            .thenReturn(List.of(first))
+            .thenReturn(List.of(first, second))
+            .thenReturn(List.of(first));
+        when(repository.findRestoredOutagesToAnnounce(anyInt())).thenReturn(List.of());
+        when(client.sendMessage(anyString())).thenReturn(new SendResult.Sent());
+        when(repository.markAnnounced(List.of(1L), NOW)).thenThrow(new IllegalStateException("deterministic failure"));
+        OutageAnnouncer announcer = announcer(ENABLED);
+
+        announcer.announcePending();   // sent, mark fails -> pending
+        announcer.announcePending();   // retry fails (1/3): gated
+        assertThat(announcer.telegramHealthy()).isFalse();
+        announcer.announcePending();   // retry fails (2/3): gated
+        verify(client, times(1)).sendMessage(anyString());
+        verify(repository, times(1)).findNewOutagesToAnnounce(any(), any());
+        verify(repository, never()).markAnnounced(List.of(3L), NOW);
+
+        announcer.announcePending();   // retry fails (3/3): abandoned, alerts for other outages resume
+
+        verify(client, times(2)).sendMessage(anyString());
+        verify(repository).markAnnounced(List.of(3L), NOW);
+        assertThat(announcer.telegramHealthy()).isTrue();
+        assertThat(warnings()).filteredOn(m -> m.contains("giving up")).singleElement().asString()
+            .contains("1 sent new outage(s)").contains("alerts resume");
+
+        announcer.announcePending();   // abandoned id 1 is still returned by the database but never resent
+
+        verify(client, times(2)).sendMessage(anyString());
+        // 3 immediate attempts + 3 retry runs; no further attempt once abandoned
+        verify(repository, times(OutageAnnouncer.MARK_ATTEMPTS + OutageAnnouncer.MAX_FAILED_RETRY_RUNS))
+            .markAnnounced(List.of(1L), NOW);
+        assertThat(String.join("\n", messages())).doesNotContain(TOKEN);
+    }
+
+    @Test
+    void anAbandonedMarkOnlyExcludesItsOwnKindOfMessage() {
+        EnelOutage restored = inactive(2L);
+        when(repository.findNewOutagesToAnnounce(any(), any()))
+            .thenReturn(List.of(outage(2L, "Triana", "León", NOW.minusMinutes(20))))
+            .thenReturn(List.of(outage(2L, "Triana", "León", NOW.minusMinutes(20))));
+        when(repository.findRestoredOutagesToAnnounce(anyInt())).thenReturn(List.of()).thenReturn(List.of(restored));
+        when(client.sendMessage(anyString())).thenReturn(new SendResult.Sent());
+        when(repository.markAnnounced(List.of(2L), NOW)).thenThrow(new IllegalStateException("db down"));
+        OutageAnnouncer announcer = announcer(ENABLED);
+
+        for (int run = 0; run <= OutageAnnouncer.MAX_FAILED_RETRY_RUNS; run++) {
+            announcer.announcePending();
+        }
+
+        // the "new" announcement of id 2 was abandoned, but its later restoration is still announced
+        verify(repository).markRestorationAnnounced(List.of(2L), NOW);
+    }
+
+    @Test
+    void reportsTelegramUnhealthyAfterARateLimitAndHealthyAfterASuccessfulRun() {
+        when(repository.findNewOutagesToAnnounce(any(), any())).thenReturn(List.of(outage(1L, "Triana", "León", NOW.minusMinutes(20))));
+        when(repository.findRestoredOutagesToAnnounce(anyInt())).thenReturn(List.of());
+        when(client.sendMessage(anyString())).thenReturn(new SendResult.RateLimited(5)).thenReturn(new SendResult.Sent());
+        OutageAnnouncer announcer = announcer(ENABLED);
+
+        announcer.announcePending();
+        assertThat(announcer.telegramHealthy()).isFalse();
+
+        announcer.announcePending();
+        assertThat(announcer.telegramHealthy()).isTrue();
+    }
+
+    @Test
     void resumesSendingInTheSameRunOnceThePendingMarkSucceedsOnItsRetry() {
         EnelOutage first = outage(1L, "Triana", "León", NOW.minusMinutes(20));
         EnelOutage second = outage(3L, "Macarena", "Macarena", NOW.minusMinutes(25));

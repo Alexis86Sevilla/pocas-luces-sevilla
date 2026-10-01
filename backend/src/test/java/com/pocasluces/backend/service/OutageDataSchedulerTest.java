@@ -64,7 +64,7 @@ class OutageDataSchedulerTest {
         inOrder.verify(repository).resolveStaleActiveOutages(LocalDateTime.now(clock));
         inOrder.verify(repository).incrementMissingPollsOfAnnouncedInactiveOutages();
         inOrder.verify(announcer).announceAfterCommit();
-        inOrder.verify(weeklySummaryAnnouncer).announceAfterCommit();
+        inOrder.verify(weeklySummaryAnnouncer).announceAfterCommit(any());
     }
 
     @Test
@@ -75,7 +75,7 @@ class OutageDataSchedulerTest {
 
         verify(repository, never()).incrementMissingPollsOfAnnouncedInactiveOutages();
         verify(announcer, never()).announceAfterCommit();
-        verify(weeklySummaryAnnouncer, never()).announceAfterCommit();
+        verify(weeklySummaryAnnouncer, never()).announceAfterCommit(any());
     }
 
     @Test

@@ -21,6 +21,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.OptionalLong;
+import java.util.function.BooleanSupplier;
 
 /**
  * Posts one summary of the week that just ended to the public Telegram channel.
@@ -43,9 +44,10 @@ import java.util.OptionalLong;
  *   <li>The week-over-week comparison is included only when our data fully covers both
  *       weeks, defined as: the earliest {@code first_seen_at} over all rows is at or before
  *       the start of the previous week. Otherwise the line is left out (no fabricated trend).</li>
- *   <li>A zero-outage week is reported as such only when we were already collecting data
- *       during that week (earliest {@code first_seen_at} before the end of the week);
- *       otherwise nothing is posted, since we could not know.</li>
+ *   <li>A week is summarized only when our data fully covers it: the earliest
+ *       {@code first_seen_at} over all rows must be at or before the week's Monday 00:00.
+ *       Otherwise the week is skipped (logged) instead of posting partial totals or a false
+ *       "no outages"; a zero-outage week with full coverage is reported as such.</li>
  *   <li>The top list ignores the unidentified-zone placeholder but totals include it.</li>
  * </ul>
  *
@@ -96,8 +98,18 @@ public class WeeklySummaryAnnouncer {
         return template;
     }
 
-    /** Same pattern as {@link OutageAnnouncer#announceAfterCommit()}; no-op when disabled. */
+    /** Same as {@link #announceAfterCommit(BooleanSupplier)} without a Telegram health signal. */
     public void announceAfterCommit() {
+        announceAfterCommit(() -> true);
+    }
+
+    /**
+     * Same pattern as {@link OutageAnnouncer#announceAfterCommit()}; no-op when disabled.
+     *
+     * @param telegramHealthy evaluated when the work runs (after the commit, so after the alerts);
+     *                        when false the summary is skipped for this poll and retried on the next
+     */
+    public void announceAfterCommit(BooleanSupplier telegramHealthy) {
         if (!properties.enabled()) {
             return;
         }
@@ -106,11 +118,11 @@ public class WeeklySummaryAnnouncer {
                 TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                     @Override
                     public void afterCommit() {
-                        announceIfDue();
+                        announceIfDue(telegramHealthy);
                     }
                 });
             } else {
-                announceIfDue();
+                announceIfDue(telegramHealthy);
             }
         } catch (RuntimeException e) {
             logFailure(e);
@@ -119,12 +131,21 @@ public class WeeklySummaryAnnouncer {
 
     /** Sends the summary when due. Never throws. */
     public void announceIfDue() {
+        announceIfDue(() -> true);
+    }
+
+    /** Sends the summary when due unless Telegram is unhealthy for this poll. Never throws. */
+    public void announceIfDue(BooleanSupplier telegramHealthy) {
         if (!properties.enabled()) {
             return;
         }
         try {
             LocalDateTime now = LocalDateTime.now(clock);
             if (now.getDayOfWeek() != DayOfWeek.MONDAY || now.toLocalTime().isBefore(SEND_FROM)) {
+                return;
+            }
+            if (!telegramHealthy.getAsBoolean()) {
+                log.info("Telegram: alerts met a Telegram problem in this poll; weekly summary postponed to the next poll");
                 return;
             }
             LocalDate weekStart = now.toLocalDate().minusDays(7);
@@ -158,13 +179,14 @@ public class WeeklySummaryAnnouncer {
         LocalDateTime from = weekStart.atStartOfDay();
         LocalDateTime to = weekStart.plusDays(7).atStartOfDay();
         LocalDateTime earliest = repository.earliestFirstSeen();
-        var totals = repository.totals(from, to);
-        if (totals.outages() == 0 && (earliest == null || !earliest.isBefore(to))) {
-            log.info("Telegram: no data collected during the week of {}; weekly summary skipped", weekStart);
+        if (earliest == null || earliest.isAfter(from)) {
+            log.info("Telegram: data does not cover the whole week of {} (collected since {}); weekly summary skipped",
+                weekStart, earliest);
             return null;
         }
         LocalDateTime previousFrom = weekStart.minusDays(7).atStartOfDay();
-        OptionalLong previous = earliest != null && !earliest.isAfter(previousFrom)
+        var totals = repository.totals(from, to);
+        OptionalLong previous = !earliest.isAfter(previousFrom)
             ? OptionalLong.of(repository.totals(previousFrom, from).outages())
             : OptionalLong.empty();
         var districts = totals.outages() == 0 ? List.<WeeklySummaryRepository.DistrictCount>of()
