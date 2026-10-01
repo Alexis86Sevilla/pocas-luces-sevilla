@@ -41,6 +41,9 @@ class OutageDataSchedulerTest {
     @Mock
     private OutageAnnouncer announcer;
 
+    @Mock
+    private WeeklySummaryAnnouncer weeklySummaryAnnouncer;
+
     private final Clock clock = Clock.fixed(Instant.parse("2026-07-10T12:00:00Z"), ZoneId.of("UTC"));
     private FetchHealthTracker tracker;
     private OutageDataScheduler scheduler;
@@ -48,7 +51,7 @@ class OutageDataSchedulerTest {
     @BeforeEach
     void setUp() {
         tracker = new FetchHealthTracker(clock);
-        scheduler = new OutageDataScheduler(enelApiService, repository, locator, districtLocator, clock, tracker, announcer);
+        scheduler = new OutageDataScheduler(enelApiService, repository, locator, districtLocator, clock, tracker, announcer, weeklySummaryAnnouncer);
     }
 
     @Test
@@ -57,10 +60,11 @@ class OutageDataSchedulerTest {
 
         scheduler.fetchAndSaveOutages();
 
-        InOrder inOrder = inOrder(repository, announcer);
+        InOrder inOrder = inOrder(repository, announcer, weeklySummaryAnnouncer);
         inOrder.verify(repository).resolveStaleActiveOutages(LocalDateTime.now(clock));
         inOrder.verify(repository).incrementMissingPollsOfAnnouncedInactiveOutages();
         inOrder.verify(announcer).announceAfterCommit();
+        inOrder.verify(weeklySummaryAnnouncer).announceAfterCommit();
     }
 
     @Test
@@ -71,6 +75,7 @@ class OutageDataSchedulerTest {
 
         verify(repository, never()).incrementMissingPollsOfAnnouncedInactiveOutages();
         verify(announcer, never()).announceAfterCommit();
+        verify(weeklySummaryAnnouncer, never()).announceAfterCommit();
     }
 
     @Test

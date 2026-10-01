@@ -106,6 +106,14 @@ Messages are grouped per poll and type (`🔴 Nuevos cortes de luz en Sevilla` /
 
 Failure handling: the announcement runs after the scheduler's transaction commits (Spring `afterCommit`, like `FetchHealthTracker`), the candidate query and each mark run in their own `REQUIRES_NEW` transactions, and Telegram is never called inside a database transaction. An outage is marked `announced_at` / `restoration_announced_at` **only after Telegram answers `ok:true`**; on any failure nothing is marked, a `WARN` (token redacted) is logged and the same candidates are retried on the next poll. HTTP 429 stops the rest of that poll. Errors never propagate to the scheduler, so a Telegram outage cannot affect data collection or the health endpoint.
 
+### Weekly summary
+
+`WeeklySummaryAnnouncer` runs right after the outage alerts on every successful poll (never throws, cannot affect alerts or the poll) and posts one summary of the week that just ended. It acts only on Monday (Europe/Madrid) from 09:00 to 23:59:59; if the app is down all Monday that week is skipped, not posted late. Content: week range, outages that started in `[Monday 00:00, next Monday 00:00)`, brief ones (`resolved_at IS NOT NULL AND fetched_at = first_seen_at`), summed affected supply points, top 3 districts (ties alphabetical; the `Zona no identificada` placeholder is left out of the top list but counted in totals) and the same footer as the alerts. A week with no outages gets a short message, but only if our data already covered that week (earliest `first_seen_at` before the week's end); otherwise nothing is posted.
+
+The comparison with the previous week appears only when our data fully covers both weeks: the earliest `first_seen_at` over all rows must be at or before the start of the previous week. Otherwise the line is omitted.
+
+Sent weeks are persisted in `telegram_weekly_summary` (`week_start` PK, `sent_at`, migration `V7`), inserted with `ON CONFLICT DO NOTHING` only after Telegram answers `ok:true`. Failures (including HTTP 429) record nothing and retry on the next poll that Monday. If the row cannot be written after a confirmed send, the week is held in memory so the same JVM never reposts it. Disabled whenever the Telegram alerts are disabled.
+
 ## Tests
 
 ```bash
@@ -191,6 +199,9 @@ serviceType)`.
   `missing_polls` (NOT NULL, default 0) for the [Telegram alerts](#telegram-alerts), and
   backfills `announce_eligible = FALSE` for every existing row so nothing known before
   go-live is ever announced.
+- `V7__add_telegram_weekly_summary.sql`: creates `telegram_weekly_summary`
+  (`week_start` DATE primary key, `sent_at` TIMESTAMP NOT NULL) so each weekly
+  [Telegram summary](#weekly-summary) is posted at most once.
 
 ## Timezone contract
 

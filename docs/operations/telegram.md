@@ -86,6 +86,15 @@ screenshot, found in a log). Only the drop-in changes; the code does not.
    are sent on the next poll after the restart (they were never marked as
    announced).
 
+## Weekly summary
+
+With the alerts enabled, the channel also gets one automatic summary per week: on Monday between 09:00 and 23:59 (Europe/Madrid), after a successful poll, for the week that ended on Sunday. Nothing extra to configure; it uses the same token and chat.
+
+- Sent at most once per week: the week is stored in the `telegram_weekly_summary` table only after Telegram confirms. To resend a week (for example after deleting the message by hand), delete its row, `DELETE FROM telegram_weekly_summary WHERE week_start = '2026-09-21';`, and it is retried on the next poll, as long as it is still Monday.
+- If the app is down all Monday, that week is skipped.
+- The comparison with the previous week is shown only when our data covers both weeks (earliest `first_seen_at` at or before the previous week's start).
+- Check in the logs: `Telegram: weekly summary for the week of <date> sent`.
+
 ## Notes
 
 - Telegram's Bot API requires the token in the request URL. The client redacts it

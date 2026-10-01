@@ -40,6 +40,7 @@ public class OutageDataScheduler {
     private final Clock clock;
     private final FetchHealthTracker fetchHealthTracker;
     private final OutageAnnouncer announcer;
+    private final WeeklySummaryAnnouncer weeklySummaryAnnouncer;
 
     @Scheduled(fixedDelay = 5, timeUnit = TimeUnit.MINUTES)
     @Transactional
@@ -128,6 +129,8 @@ public class OutageDataScheduler {
         // Registered after the health tracker so its hook always runs first; the announcer
         // never throws, and Telegram problems never touch this transaction.
         announcer.announceAfterCommit();
+        // Registered after the alerts so it always runs after them; never throws.
+        weeklySummaryAnnouncer.announceAfterCommit();
     }
 
     private LocalDateTime parseDate(String dateStr) {

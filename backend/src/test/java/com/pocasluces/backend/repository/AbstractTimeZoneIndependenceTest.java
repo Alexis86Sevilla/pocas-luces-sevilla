@@ -283,7 +283,8 @@ abstract class AbstractTimeZoneIndependenceTest {
         Clock clock = Clock.fixed(madridNow.atZone(MADRID).toInstant(), MADRID);
         return new OutageDataScheduler(api, repository, neighborhoods, districts, clock,
             new com.pocasluces.backend.service.FetchHealthTracker(clock),
-            mock(com.pocasluces.backend.service.OutageAnnouncer.class));
+            mock(com.pocasluces.backend.service.OutageAnnouncer.class),
+            mock(com.pocasluces.backend.service.WeeklySummaryAnnouncer.class));
     }
 
     private String storedText(String column, String objectId) {

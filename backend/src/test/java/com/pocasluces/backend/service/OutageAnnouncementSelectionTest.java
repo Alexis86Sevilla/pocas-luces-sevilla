@@ -318,7 +318,7 @@ class OutageAnnouncementSelectionTest {
     private OutageDataScheduler scheduler(LocalDateTime madridNow) {
         Clock clock = Clock.fixed(madridNow.atZone(MADRID).toInstant(), MADRID);
         return new OutageDataScheduler(api, repository, neighborhoods, districts, clock,
-            new FetchHealthTracker(clock), mock(OutageAnnouncer.class));
+            new FetchHealthTracker(clock), mock(OutageAnnouncer.class), mock(WeeklySummaryAnnouncer.class));
     }
 
     private List<EnelOutage> newCandidates(LocalDateTime now) {
