@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.jdbc.Sql;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -26,6 +27,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Import({EnelOutageRepositoryImpl.class, WeeklySummaryRepository.class})
 @Testcontainers
+// The dev profile builds the schema with Hibernate ddl-auto (Flyway off), which only knows
+// entities; telegram_weekly_summary has none, so create it from the real V7 script. It runs
+// inside each test's transaction and is rolled back with it (Postgres DDL is transactional).
+@Sql("classpath:db/migration/V7__add_telegram_weekly_summary.sql")
 class WeeklySummaryRepositoryPostgresTest {
 
     private static final LocalDate WEEK = LocalDate.of(2026, 9, 21);

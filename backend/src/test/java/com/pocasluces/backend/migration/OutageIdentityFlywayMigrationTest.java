@@ -20,7 +20,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Proves that the V3 (outage identity), V4 (cause column), V5 (resolved_at column and
- * backfill) and V6 (Telegram announcement state and go-live backfill) Flyway migrations
+ * backfill), V6 (Telegram announcement state and go-live backfill) and V7 (weekly summary
+ * table) Flyway migrations
  * apply cleanly to a database that already has data in the pre-migration (V2) shape — the
  * exact situation production is in, given {@code baseline-on-migrate: true}.
  *
@@ -99,7 +100,7 @@ class OutageIdentityFlywayMigrationTest {
     }
 
     @Test
-    void shouldApplyV3ThroughV6OnPreExistingData() throws SQLException {
+    void shouldApplyV3ThroughV7OnPreExistingData() throws SQLException {
         Flyway flyway = Flyway.configure()
             .dataSource(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword())
             .baselineVersion("2")
@@ -109,8 +110,8 @@ class OutageIdentityFlywayMigrationTest {
 
         MigrateResult result = flyway.migrate();
 
-        assertThat(result.migrationsExecuted).isEqualTo(4); // V3, V4, V5 and V6, not skipped
-        assertThat(result.targetSchemaVersion).isEqualTo("6");
+        assertThat(result.migrationsExecuted).isEqualTo(5); // V3 to V7, none skipped
+        assertThat(result.targetSchemaVersion).isEqualTo("7");
 
         try (Connection connection = connect()) {
             connection.setAutoCommit(true);
