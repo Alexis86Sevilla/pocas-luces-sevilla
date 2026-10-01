@@ -1,25 +1,31 @@
 <section
-  class="hero relative flex min-h-[calc(100svh-3.5rem)] flex-col items-center overflow-hidden bg-gray-900 animate"
-  [class.dark]="isGrayscale()"
+  class="hero relative flex min-h-[calc(100svh-3.5rem)] flex-col items-center overflow-hidden animate"
 >
-  <div
-    class="mayor-photo absolute inset-0 bg-cover bg-center"
-    style="background-image: url('alcalde-micro.webp')"
-    role="img"
-    aria-label="Fotografía del alcalde"
-  ></div>
+  <app-seville-night class="absolute inset-0 h-full w-full" />
 
   <div class="vignette absolute inset-0 z-10" aria-hidden="true"></div>
 
   <div class="hero-content relative z-20 mx-auto mb-20 mt-auto max-w-3xl px-6 text-center">
-
-
-    <h1 class="mb-6 text-4xl font-extrabold leading-tight text-white md:text-6xl" style="text-shadow: 0 4px 24px rgba(0,0,0,0.7), 0 2px 8px rgba(0,0,0,0.5)">
-      Un alcalde con<br />pocas luces
+    <h1 class="mb-4 text-4xl font-extrabold leading-tight text-white md:text-6xl" style="text-shadow: 0 4px 24px rgba(0,0,0,0.7), 0 2px 8px rgba(0,0,0,0.5)">
+      Se fue la luz.<br class="sm:hidden" />&ngsp;<span class="whitespace-nowrap">Otra vez.</span>
     </h1>
 
+    @if (monthStatus() !== 'error') {
+      <p class="mb-6 min-h-8 text-xl font-semibold text-amber-300 md:text-2xl" style="text-shadow: 0 2px 12px rgba(0,0,0,0.7)" data-testid="month-count">
+        @if (monthStatus() === 'success') {
+          @if (monthCount() === 0) {
+            Este mes, de momento, ningún corte en Sevilla.
+          } @else if (monthCount() === 1) {
+            Y va&ngsp;<strong class="font-extrabold text-white">1</strong>&ngsp;corte este mes en Sevilla.
+          } @else {
+            Y van&ngsp;<strong class="font-extrabold text-white">{{ monthCount() | number: '1.0-0' }}</strong>&ngsp;cortes este mes en Sevilla.
+          }
+        }
+      </p>
+    }
+
     <p class="mb-10 text-lg leading-relaxed text-gray-100 md:text-xl" style="text-shadow: 0 2px 12px rgba(0,0,0,0.6)">
-      Sacamos a la luz los cortes que la dejadez municipal esconde en los barrios humildes.
+      Los cortes de luz de Sevilla, barrio a barrio y en tiempo real, con los datos de <span class="whitespace-nowrap">e-distribución</span>.
     </p>
 
     <div class="mb-8 inline-flex flex-wrap items-center justify-center gap-x-3 gap-y-1 rounded-2xl bg-black/50 px-5 py-3 text-sm text-white backdrop-blur-sm"
@@ -76,8 +82,4 @@
     (click)="scrollTo('en-directo')">
     <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
   </button>
-
-  <span class="absolute bottom-3 right-4 z-20 select-none text-xs font-light text-white/30">
-    María José López / Europa Press
-  </span>
 </section>

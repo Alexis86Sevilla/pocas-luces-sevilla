@@ -3,6 +3,7 @@ import { computed, Injectable, signal } from '@angular/core';
 
 import { environment } from '../../../environments/environment';
 import type { District, DistrictStats } from '../models';
+import { formatMadridDate } from '../utils/madrid-date';
 import { ErrorLogService } from './error-log.service';
 
 export interface EnelOutage {
@@ -78,6 +79,30 @@ export class ApiOutageService {
   readonly monthlyError = computed(() => this._monthlyStatus() === 'error');
   readonly liveError = computed(() => this._liveStatus() === 'error');
 
+  private readonly _currentMonthOutages = signal<readonly EnelOutage[]>([]);
+  private readonly _currentMonthStatus = signal<LoadStatus>('idle');
+
+  /** True when the shared monthly data is the current Madrid month, so it can be reused as is. */
+  readonly monthlyIsCurrentMonth = computed(() => {
+    const now = new Date();
+    return (
+      this._selectedYear() === Number(formatMadridDate(now, 'yyyy')) &&
+      this._selectedMonth() === Number(formatMadridDate(now, 'MM'))
+    );
+  });
+
+  /** Request status for the current Madrid month, whichever source provides it. */
+  readonly currentMonthStatus = computed<LoadStatus>(() =>
+    this.monthlyIsCurrentMonth() ? this._monthlyStatus() : this._currentMonthStatus(),
+  );
+
+  /** Deduplicated outage count (brief ones included) of the current Madrid month. */
+  readonly currentMonthCount = computed(() =>
+    this.monthlyIsCurrentMonth()
+      ? this.deduplicatedMonthlyOutages().length
+      : this.deduplicate(this._currentMonthOutages()).length,
+  );
+
   // Derive districts from yearly data using a stable id derived from the name.
   readonly derivedDistricts = computed((): readonly District[] => {
     const names = [...new Set(this._yearlyOutages().map(o => o.districtName).filter(Boolean))];
@@ -129,6 +154,29 @@ export class ApiOutageService {
         this.errorLog.log('API Monthly', err);
       },
     });
+  }
+
+  /**
+   * Outages of the current Madrid calendar month, independent of the month filter. Only fetched
+   * when the shared monthly data is showing another month (see `currentMonthCount`).
+   */
+  loadCurrentMonthOutages(): void {
+    const now = new Date();
+    this._currentMonthStatus.set('loading');
+    this.http
+      .get<EnelOutage[]>(
+        `${this.apiUrl}/outages/monthly?year=${formatMadridDate(now, 'yyyy')}&month=${Number(formatMadridDate(now, 'MM'))}`,
+      )
+      .subscribe({
+        next: data => {
+          this._currentMonthOutages.set(data);
+          this._currentMonthStatus.set('success');
+        },
+        error: err => {
+          this._currentMonthStatus.set('error');
+          this.errorLog.log('API Current month', err);
+        },
+      });
   }
 
   // ── Live ──

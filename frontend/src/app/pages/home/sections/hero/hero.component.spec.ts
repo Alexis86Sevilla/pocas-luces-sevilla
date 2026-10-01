@@ -80,3 +80,111 @@ describe('HeroComponent live strip', () => {
     expect(fixture.nativeElement.textContent).not.toContain('no publica cortes activos');
   });
 });
+
+describe('HeroComponent copy and monthly counter', () => {
+  let httpMock: HttpTestingController;
+
+  const now = new Date();
+  const madridYear = Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Madrid', year: 'numeric' }).format(now));
+  const madridMonth = Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Madrid', month: 'numeric' }).format(now));
+
+  const monthOutages = (n: number): EnelOutage[] =>
+    Array.from({ length: n }, (_, i) => ({
+      objectId: i,
+      affectedClients: 5,
+      serviceType: 'GB',
+      interruptionDate: `2026-09-${String((i % 28) + 1).padStart(2, '0')}T10:00:00`,
+      repositionDate: '2026-09-29T12:30:00',
+      neighborhoodName: `Barrio ${i}`,
+      districtName: 'Macarena',
+      latitude: 37 + i / 1000,
+      longitude: -5.98,
+      cause: 'Avería',
+      fetchedAt: '2026-09-29T11:00:00',
+    }));
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [HeroComponent],
+      providers: [provideHttpClient(), provideHttpClientTesting(), { provide: LOCALE_ID, useValue: 'es-ES' }],
+    }).compileComponents();
+    httpMock = TestBed.inject(HttpTestingController);
+  });
+
+  function render() {
+    const fixture = TestBed.createComponent(HeroComponent);
+    fixture.detectChanges();
+    return fixture;
+  }
+
+  const counterText = (fixture: ReturnType<typeof render>): string | null => {
+    const el = fixture.nativeElement.querySelector('[data-testid="month-count"]');
+    return el ? el.textContent.replace(/\s+/g, ' ').trim() : null;
+  };
+
+  const loadMonth = (n: number) => {
+    TestBed.inject(ApiOutageService).setMonthFilter(madridYear, madridMonth);
+    httpMock.expectOne(r => r.url.includes('/outages/monthly')).flush(monthOutages(n));
+  };
+
+  it('shows the neutral headline, subtitle and no photo or partisan copy', () => {
+    const fixture = render();
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.querySelector('h1')?.textContent?.trim()).toBe('Se fue la luz. Otra vez.');
+    const text = el.textContent ?? '';
+    expect(text).toContain('Los cortes de luz de Sevilla, barrio a barrio y en tiempo real, con los datos de e-distribución.');
+    expect(text).not.toMatch(/alcalde|dejadez|Europa Press/i);
+    expect(el.querySelector('img, [style*="background-image"]')).toBeNull();
+    const scene = el.querySelector('app-seville-night canvas');
+    expect(scene?.getAttribute('aria-hidden')).toBe('true');
+  });
+
+  it('reserves the line without a number while loading', () => {
+    const fixture = render();
+    TestBed.inject(ApiOutageService).setMonthFilter(madridYear, madridMonth);
+    fixture.detectChanges();
+    expect(counterText(fixture)).toBe('');
+    httpMock.expectOne(r => r.url.includes('/outages/monthly')).flush([]);
+  });
+
+  it('says how many outages this month for N > 1 with es-ES grouping', () => {
+    const fixture = render();
+    loadMonth(1234);
+    fixture.detectChanges();
+    expect(counterText(fixture)).toBe('Y van 1.234 cortes este mes en Sevilla.');
+  });
+
+  it('uses the singular for one outage', () => {
+    const fixture = render();
+    loadMonth(1);
+    fixture.detectChanges();
+    expect(counterText(fixture)).toBe('Y va 1 corte este mes en Sevilla.');
+  });
+
+  it('says no outages yet when the month is empty', () => {
+    const fixture = render();
+    loadMonth(0);
+    fixture.detectChanges();
+    expect(counterText(fixture)).toBe('Este mes, de momento, ningún corte en Sevilla.');
+  });
+
+  it('hides the line when the request failed', () => {
+    const fixture = render();
+    TestBed.inject(ApiOutageService).setMonthFilter(madridYear, madridMonth);
+    httpMock.expectOne(r => r.url.includes('/outages/monthly')).flush('boom', { status: 500, statusText: 'Error' });
+    fixture.detectChanges();
+    expect(counterText(fixture)).toBeNull();
+  });
+
+  it('fetches the current month on its own when the filter shows another month', () => {
+    const api = TestBed.inject(ApiOutageService);
+    api.setMonthFilter(2020, 1);
+    httpMock.expectOne(r => r.url.includes('/outages/monthly?year=2020&month=1')).flush(monthOutages(9));
+    const fixture = render();
+    httpMock
+      .expectOne(r => r.url.includes(`/outages/monthly?year=${madridYear}&month=${madridMonth}`))
+      .flush(monthOutages(3));
+    fixture.detectChanges();
+    expect(counterText(fixture)).toBe('Y van 3 cortes este mes en Sevilla.');
+  });
+});

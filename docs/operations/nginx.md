@@ -50,7 +50,7 @@ components, `environment.prod.ts`, `angular.json`), not guessed:
 | `default-src` | `'self'` | baseline |
 | `connect-src` | `'self' https://api.sevillasinluz.es` | `environment.prod.ts` → `apiBaseUrl: 'https://api.sevillasinluz.es/api'` |
 | `frame-src` | `https://www.youtube.com https://www.youtube-nocookie.com https://www.instagram.com` | `testimonials/video-card` renders a YouTube `<iframe>` for `platform: 'youtube'`. Instagram testimonials currently render a plain outbound `<a>` link (no iframe embed exists today) — Instagram is allow-listed anyway so a future iframe embed doesn't silently break |
-| `img-src` | `'self' data: https://tile.openstreetmap.org` | local assets (`favicon.svg`, `og-image.jpg`, inline SVG icons, `hero.component.html`'s `background-image: url('alcalde-micro.webp')`) plus the OpenStreetMap raster tiles the `/mapa` page loads. No other external image host |
+| `img-src` | `'self' data: https://tile.openstreetmap.org` | local assets (`favicon.svg`, `og-image.jpg`, inline SVG icons) plus the OpenStreetMap raster tiles the `/mapa` page loads. No other external image host |
 | `style-src` | `'self' 'unsafe-inline'` | **required**, see below |
 | `script-src` | `'self'` | see below — kept strict |
 | `object-src` | `'none'` | no plugins used |
