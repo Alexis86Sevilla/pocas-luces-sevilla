@@ -28,3 +28,8 @@
   animation-duration: 220ms;
   animation-timing-function: ease-out;
 }
+
+/* Headings receive programmatic focus after route changes; they are not interactive, so no ring. */
+h1[tabindex="-1"]:focus {
+  outline: none;
+}

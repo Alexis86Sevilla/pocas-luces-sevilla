@@ -28,7 +28,7 @@
   @if (expanded()) {
     <div class="mt-4 border-t border-gray-100 pt-4">
       @if (dailyGroups().length === 0) {
-        <p class="text-sm text-gray-400">Sin cortes este mes.</p>
+        <p class="text-sm text-gray-600">Sin cortes este mes.</p>
       } @else {
         <ul class="space-y-2">
           @for (group of visibleGroups(); track group.dateKey) {

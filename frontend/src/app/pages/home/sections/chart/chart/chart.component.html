@@ -1,12 +1,12 @@
 <div class="overflow-hidden rounded-3xl border border-gray-100 bg-gradient-to-br from-gray-50 to-white p-6 shadow-lg shadow-gray-100/50 sm:p-8">
   <div class="mb-6 flex flex-wrap items-center gap-2">
-    <span class="mr-2 text-sm font-semibold uppercase tracking-wider text-gray-400">Comparar</span>
+    <span class="mr-2 text-sm font-semibold uppercase tracking-wider text-gray-600">Comparar</span>
     @for (district of districts(); track district.id) {
       <button type="button"
         class="cursor-pointer rounded-full border px-3.5 py-1.5 text-sm font-semibold transition-all"
         [class.border-gray-200]="!isSelected(district.id)"
         [class.bg-white]="!isSelected(district.id)"
-        [class.text-gray-400]="!isSelected(district.id)"
+        [class.text-gray-600]="!isSelected(district.id)"
         [class.border-transparent]="isSelected(district.id)"
         [class.bg-gray-900]="isSelected(district.id)"
         [class.text-white]="isSelected(district.id)"

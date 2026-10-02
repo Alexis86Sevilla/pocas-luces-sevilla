@@ -18,7 +18,7 @@
     </div>
   } @else if (isEmpty()) {
     <div class="rounded-2xl border border-dashed border-gray-200 bg-gray-50/50 px-8 py-10 text-center">
-      <p class="text-base text-gray-400">No hay cortes registrados este mes.</p>
+      <p class="text-base text-gray-600">No hay cortes registrados este mes.</p>
     </div>
   } @else {
     <ol class="space-y-3">
@@ -26,7 +26,7 @@
         <li class="rounded-xl border border-gray-100 bg-white p-4">
           <div class="mb-2 flex items-baseline justify-between gap-3">
             <p class="text-base font-semibold text-gray-900">
-              <span class="mr-2 text-sm font-bold text-gray-400">{{ i + 1 }}</span>{{ entry.districtName }}
+              <span class="mr-2 text-sm font-bold text-gray-600">{{ i + 1 }}</span>{{ entry.districtName }}
             </p>
             <p class="whitespace-nowrap text-base font-bold text-gray-900">{{ entry.accumulatedHours | number: '1.1-1' : 'es-ES' }} h</p>
           </div>

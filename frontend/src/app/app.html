@@ -1,7 +1,9 @@
+<a href="#contenido" (click)="skipToContent($event)"
+   class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-amber-500 focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-gray-900 focus:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-white">Saltar al contenido</a>
 <app-nav />
 <!-- Reserves a full viewport for the routed page so the support section and footer
      never flash at the top before the first route renders. -->
-<div class="min-h-svh">
+<div id="contenido" tabindex="-1" class="min-h-svh outline-none">
   <router-outlet />
 </div>
 <app-support-section />

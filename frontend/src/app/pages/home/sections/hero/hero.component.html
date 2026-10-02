@@ -38,7 +38,7 @@
         <span><strong class="font-bold">Ahora mismo</strong> la distribuidora no publica cortes activos en Sevilla.</span>
       } @else {
         <span class="relative flex h-2 w-2" aria-hidden="true">
-          <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75"></span>
+          <span class="absolute inline-flex h-full w-full motion-safe:animate-ping rounded-full bg-red-400 opacity-75"></span>
           <span class="relative inline-flex h-2 w-2 rounded-full bg-red-500"></span>
         </span>
         <span>
@@ -56,7 +56,7 @@
         class="inline-flex items-center gap-2 rounded-full bg-red-500 px-7 py-3 text-sm font-bold text-white cursor-pointer shadow-lg shadow-red-500/30 transition hover:bg-red-400 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2 focus:ring-offset-gray-900"
         (click)="scrollTo('en-directo')">
         <span class="relative flex h-2 w-2">
-          <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75"></span>
+          <span class="absolute inline-flex h-full w-full motion-safe:animate-ping rounded-full bg-white opacity-75"></span>
           <span class="relative inline-flex h-2 w-2 rounded-full bg-white"></span>
         </span>
         En directo
