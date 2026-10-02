@@ -1,5 +1,7 @@
 package com.pocasluces.backend.service;
 
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionSynchronization;
 import com.pocasluces.backend.dto.EnelApiFeatureWithEvidence;
 import com.pocasluces.backend.dto.EnelApiResponse;
 import com.pocasluces.backend.entity.EnelOutage;
@@ -421,6 +423,46 @@ class OutageDataSchedulerTest {
         scheduler.fetchAndSaveOutages();
 
         verify(repository).resolveStaleActiveOutages(LocalDateTime.now(clock));
+    }
+
+    @Test
+    void shouldNotKeepADeferralWhoseRunRolledBack() {
+        when(enelApiService.fetchSevillaOutages()).thenReturn(List.of());
+        when(repository.countByActiveTrue()).thenReturn(3L);
+        when(repository.countActiveNotFetchedAt(LocalDateTime.now(clock))).thenReturn(3L);
+
+        // First poll defers inside a transaction that then rolls back.
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            scheduler.fetchAndSaveOutages();
+            TransactionSynchronizationManager.getSynchronizations()
+                .forEach(sync -> sync.afterCompletion(TransactionSynchronization.STATUS_ROLLED_BACK));
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
+
+        // The deferral was never committed, so the next poll must defer again, not resolve.
+        scheduler.fetchAndSaveOutages();
+        verify(repository, never()).resolveStaleActiveOutages(any());
+    }
+
+    @Test
+    void shouldKeepTheDeferralOnceTheRunCommits() {
+        when(enelApiService.fetchSevillaOutages()).thenReturn(List.of());
+        when(repository.countByActiveTrue()).thenReturn(3L);
+        when(repository.countActiveNotFetchedAt(LocalDateTime.now(clock))).thenReturn(3L);
+
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            scheduler.fetchAndSaveOutages();
+            TransactionSynchronizationManager.getSynchronizations()
+                .forEach(sync -> sync.afterCompletion(TransactionSynchronization.STATUS_COMMITTED));
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
+
+        scheduler.fetchAndSaveOutages();
+        verify(repository, times(1)).resolveStaleActiveOutages(LocalDateTime.now(clock));
     }
 
     @Test

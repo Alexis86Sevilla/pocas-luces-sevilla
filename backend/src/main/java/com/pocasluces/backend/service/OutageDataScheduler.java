@@ -9,6 +9,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionSynchronization;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -222,7 +224,7 @@ public class OutageDataScheduler {
                 || (activeBefore >= MASS_RESOLUTION_MIN_ACTIVE && wouldResolve * 2 > activeBefore));
 
         if (mass && !massResolutionPending) {
-            massResolutionPending = true;
+            armMassResolutionDeferral();
             log.warn("Scheduler: this poll would resolve {} of {} active outage(s){}; deferring until the next poll confirms it",
                 wouldResolve, activeBefore, emptyFeed ? " (feed returned zero outages)" : "");
             return 0;
@@ -235,6 +237,24 @@ public class OutageDataScheduler {
                 resolved, activeBefore, emptyFeed ? " (feed returned zero outages)" : "");
         }
         return resolved;
+    }
+
+    /**
+     * Arms the two-poll guard and disarms it again if this run rolls back: a deferral that was
+     * never committed must not count as the first of the two polls.
+     */
+    private void armMassResolutionDeferral() {
+        massResolutionPending = true;
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCompletion(int status) {
+                    if (status == STATUS_ROLLED_BACK) {
+                        massResolutionPending = false;
+                    }
+                }
+            });
+        }
     }
 
     /** Maps a feed feature to an outage row, or null when it cannot be used (counted as skipped). */
