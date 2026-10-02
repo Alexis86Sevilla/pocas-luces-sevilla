@@ -1,6 +1,7 @@
 package com.pocasluces.backend.dto;
 
 import com.pocasluces.backend.entity.EnelOutage;
+import com.pocasluces.backend.entity.OutageView;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -49,11 +50,19 @@ public final class OpenDataOutageRow {
         return String.join(String.valueOf(variant.delimiter), COLUMNS);
     }
 
-    public static String toCsvRow(EnelOutage o) {
+    public static String toCsvRow(OutageView o) {
         return toCsvRow(o, Variant.STANDARD);
     }
 
+    public static String toCsvRow(EnelOutage o) {
+        return toCsvRow(OutageView.of(o), Variant.STANDARD);
+    }
+
     public static String toCsvRow(EnelOutage o, Variant variant) {
+        return toCsvRow(OutageView.of(o), variant);
+    }
+
+    public static String toCsvRow(OutageView o, Variant variant) {
         return CsvWriter.rowWith(variant.delimiter, variant.decimalSeparator,
             wallClock(o.getInterruptionDate(), variant),
             wallClock(o.getRepositionDate(), variant),

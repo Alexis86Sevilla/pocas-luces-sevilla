@@ -4,13 +4,15 @@ import com.pocasluces.backend.dto.EnelApiFeatureWithEvidence;
 import com.pocasluces.backend.dto.EnelApiResponse;
 import com.pocasluces.backend.entity.EnelOutage;
 import com.pocasluces.backend.repository.EnelOutageRepository;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionOperations;
 import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -53,7 +55,6 @@ import java.util.concurrent.TimeUnit;
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class OutageDataScheduler {
 
     private static final List<DateTimeFormatter> DATE_FORMATTERS = List.of(
@@ -76,6 +77,8 @@ public class OutageDataScheduler {
     private final FetchHealthTracker fetchHealthTracker;
     private final OutageAnnouncer announcer;
     private final WeeklySummaryAnnouncer weeklySummaryAnnouncer;
+    /** Wraps the write step of a poll in one database transaction (see {@link #fetchAndSaveOutages()}). */
+    private final TransactionOperations transaction;
 
     /**
      * True when the previous successful poll met the mass-resolution condition and its resolve
@@ -83,8 +86,65 @@ public class OutageDataScheduler {
      */
     private boolean massResolutionPending;
 
+    @Autowired
+    public OutageDataScheduler(EnelApiService enelApiService,
+                               EnelOutageRepository repository,
+                               NeighborhoodLocator locator,
+                               DistrictLocator districtLocator,
+                               Clock clock,
+                               FetchHealthTracker fetchHealthTracker,
+                               OutageAnnouncer announcer,
+                               WeeklySummaryAnnouncer weeklySummaryAnnouncer,
+                               PlatformTransactionManager transactionManager) {
+        this(enelApiService, repository, locator, districtLocator, clock, fetchHealthTracker, announcer,
+            weeklySummaryAnnouncer, new TransactionTemplate(transactionManager));
+    }
+
+    /**
+     * Without a transaction manager: the write step runs in the caller's context. For tests
+     * that either mock the repository or already run inside a test transaction.
+     */
+    public OutageDataScheduler(EnelApiService enelApiService,
+                        EnelOutageRepository repository,
+                        NeighborhoodLocator locator,
+                        DistrictLocator districtLocator,
+                        Clock clock,
+                        FetchHealthTracker fetchHealthTracker,
+                        OutageAnnouncer announcer,
+                        WeeklySummaryAnnouncer weeklySummaryAnnouncer) {
+        this(enelApiService, repository, locator, districtLocator, clock, fetchHealthTracker, announcer,
+            weeklySummaryAnnouncer, TransactionOperations.withoutTransaction());
+    }
+
+    OutageDataScheduler(EnelApiService enelApiService,
+                        EnelOutageRepository repository,
+                        NeighborhoodLocator locator,
+                        DistrictLocator districtLocator,
+                        Clock clock,
+                        FetchHealthTracker fetchHealthTracker,
+                        OutageAnnouncer announcer,
+                        WeeklySummaryAnnouncer weeklySummaryAnnouncer,
+                        TransactionOperations transaction) {
+        this.enelApiService = enelApiService;
+        this.repository = repository;
+        this.locator = locator;
+        this.districtLocator = districtLocator;
+        this.clock = clock;
+        this.fetchHealthTracker = fetchHealthTracker;
+        this.announcer = announcer;
+        this.weeklySummaryAnnouncer = weeklySummaryAnnouncer;
+        this.transaction = transaction;
+    }
+
+    /**
+     * One poll. The Endesa HTTP calls (up to 50 pages, each with retries and back-off) and the
+     * parsing happen first, with no database transaction open, so a slow or failing feed never
+     * holds a connection or a transaction; the database work then runs in one transaction
+     * through a {@link TransactionTemplate} (a self-invoked {@code @Transactional} method would
+     * not be proxied), with the health tracker, the deferral guard and the Telegram announcers
+     * registering their after-commit/after-completion hooks inside it exactly as before.
+     */
     @Scheduled(fixedDelay = 5, timeUnit = TimeUnit.MINUTES)
-    @Transactional
     public synchronized void fetchAndSaveOutages() {
         log.info("Scheduler: fetching Enel outages for Sevilla...");
 
@@ -119,6 +179,13 @@ public class OutageDataScheduler {
             return;
         }
 
+        int featureCount = pagedFeatures.size();
+        int skippedCount = skipped;
+        transaction.executeWithoutResult(status -> apply(parsed, now, featureCount, skippedCount));
+    }
+
+    /** The write step of a poll: runs inside the transaction opened by {@link #fetchAndSaveOutages()}. */
+    private void apply(List<EnelOutage> parsed, LocalDateTime now, int featureCount, int skipped) {
         long activeBefore = repository.countByActiveTrue();
         int corrected = applyStartCorrections(parsed, now);
 
@@ -130,7 +197,7 @@ public class OutageDataScheduler {
         // Outages not re-upserted by this run were not reported in the fetch we just
         // processed: mark them resolved now, unless the resolution is suspiciously large and
         // this is the first poll that says so (see the class javadoc).
-        int resolved = resolveStaleOutages(now, activeBefore, pagedFeatures.isEmpty());
+        int resolved = resolveStaleOutages(now, activeBefore, featureCount == 0);
 
         // Telegram restoration tracking: every announced outage that this successful run did
         // not see (inactive after the resolve step) has now been missing for one more
@@ -143,7 +210,7 @@ public class OutageDataScheduler {
 
         // Only reached when the fetch succeeded and everything was applied. Recorded after the
         // transaction commits (see FetchHealthTracker), so a rollback is not a success.
-        fetchHealthTracker.recordSuccess(pagedFeatures.size());
+        fetchHealthTracker.recordSuccess(featureCount);
         // Registered after the health tracker so its hook always runs first; the announcer
         // never throws, and Telegram problems never touch this transaction.
         announcer.announceAfterCommit();

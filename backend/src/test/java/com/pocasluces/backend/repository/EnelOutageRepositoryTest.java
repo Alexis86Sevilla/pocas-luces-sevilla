@@ -1,6 +1,7 @@
 package com.pocasluces.backend.repository;
 
 import com.pocasluces.backend.entity.EnelOutage;
+import com.pocasluces.backend.entity.OutageView;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
@@ -9,6 +10,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.time.LocalDateTime;
@@ -28,6 +30,9 @@ class EnelOutageRepositoryTest {
     @Autowired
     private TestEntityManager em;
 
+    @Autowired
+    private JdbcTemplate jdbc;
+
     @Test
     void shouldFindByObjectId() {
         EnelOutage outage = outage("100", LocalDateTime.of(2026, 7, 10, 8, 30));
@@ -46,7 +51,7 @@ class EnelOutageRepositoryTest {
         em.persist(july);
         em.persist(august);
 
-        List<EnelOutage> result = repository.findByYearAndMonth(2026, 7);
+        List<OutageView> result = repository.findByYearAndMonth(2026, 7);
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getObjectId()).isEqualTo("1");
@@ -59,7 +64,7 @@ class EnelOutageRepositoryTest {
         em.persist(o1);
         em.persist(o2);
 
-        Page<EnelOutage> page = repository.findByYear(2026,
+        Page<OutageView> page = repository.findByYear(2026,
             PageRequest.of(0, 1, Sort.by(Sort.Direction.DESC, "interruptionDate")));
 
         assertThat(page.getTotalElements()).isEqualTo(2);
@@ -138,7 +143,7 @@ class EnelOutageRepositoryTest {
         em.persist(o1);
         em.persist(o2);
 
-        Page<EnelOutage> page = repository.findByNeighborhoodNameIgnoreCase("san pablo",
+        Page<OutageView> page = repository.findByNeighborhoodNameIgnoreCase("san pablo",
             PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "interruptionDate")));
 
         assertThat(page.getContent()).hasSize(1);
@@ -458,6 +463,41 @@ class EnelOutageRepositoryTest {
         assertThat(repository.countByActiveTrue()).isEqualTo(2);
         assertThat(repository.countActiveNotFetchedAt(now)).isEqualTo(1);
         assertThat(repository.resolveStaleActiveOutages(now)).isEqualTo(1);
+    }
+
+    @Test
+    void nativeReadsLeaveRawResponseInTheDatabaseAndProjectionsNeverSelectIt() {
+        LocalDateTime now = LocalDateTime.of(2026, 7, 10, 12, 0);
+        EnelOutage stored = outage("1", now.minusHours(1));
+        stored.setFetchedAt(now);
+        stored.setRawResponse("{\"attributes\":{\"objectid1\":\"1\"}}");
+        stored.setRawResponseHash("abc123");
+        repository.upsert(stored);
+        em.flush();
+        em.clear();
+
+        // Still stored, byte for byte.
+        assertThat(jdbc.queryForObject("SELECT raw_response FROM enel_outages WHERE object_id = '1'", String.class))
+            .isEqualTo("{\"attributes\":{\"objectid1\":\"1\"}}");
+
+        // The native read paths (/live and the scheduler snapshot) carry everything but the payload.
+        for (EnelOutage o : List.of(repository.findCurrentlyActive(now, now.minusHours(6)).get(0), repository.findAllActive().get(0))) {
+            assertThat(o.getRawResponse()).isNull();
+            assertThat(o.getRawResponseHash()).isEqualTo("abc123");
+            assertThat(o.getObjectId()).isEqualTo("1");
+            assertThat(o.getInterruptionDate()).isEqualTo(now.minusHours(1));
+            assertThat(o.getFetchedAt()).isEqualTo(now);
+            assertThat(o.isActive()).isTrue();
+        }
+
+        // The projected read paths select the view's columns only.
+        assertThat(repository.findByYear(2026)).singleElement().satisfies(v -> {
+            assertThat(v.getObjectId()).isEqualTo("1");
+            assertThat(v.getRawResponseHash()).isEqualTo("abc123");
+            assertThat(v).isNotInstanceOf(EnelOutage.class);
+        });
+        // The entity path (findAll, findById) still loads it for whoever needs the evidence.
+        assertThat(repository.findByObjectId("1")).get().extracting(EnelOutage::getRawResponse).isNotNull();
     }
 
     private EnelOutage outage(String objectId, LocalDateTime interruptionDate) {

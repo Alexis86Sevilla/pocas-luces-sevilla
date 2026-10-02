@@ -3,6 +3,7 @@ package com.pocasluces.backend.repository;
 import com.pocasluces.backend.dto.EnelApiFeatureWithEvidence;
 import com.pocasluces.backend.dto.EnelApiResponse;
 import com.pocasluces.backend.entity.EnelOutage;
+import com.pocasluces.backend.entity.OutageView;
 import com.pocasluces.backend.service.DistrictLocator;
 import com.pocasluces.backend.service.EnelApiService;
 import com.pocasluces.backend.service.NeighborhoodLocator;
@@ -216,7 +217,7 @@ abstract class AbstractTimeZoneIndependenceTest {
             });
         assertThat(repository.findByYearAndMonth(2026, 9))
             .singleElement()
-            .extracting(EnelOutage::getInterruptionDate).isEqualTo(ENDESA_START);
+            .extracting(OutageView::getInterruptionDate).isEqualTo(ENDESA_START);
 
         // Next poll, five minutes later: Endesa no longer publishes it. Resolving the only
         // active outage is a mass resolution, so the first poll defers and the second applies.
@@ -283,7 +284,7 @@ abstract class AbstractTimeZoneIndependenceTest {
         // JPA/JPQL reads (the /monthly, /yearly and /enel endpoints).
         assertThat(repository.findByYearAndMonth(2026, 9))
             .singleElement()
-            .extracting(EnelOutage::getInterruptionDate).isEqualTo(ENDESA_START);
+            .extracting(OutageView::getInterruptionDate).isEqualTo(ENDESA_START);
         assertThat(repository.findAllByOrderByInterruptionDateDesc())
             .singleElement()
             .extracting(EnelOutage::getFetchedAt).isEqualTo(RUN_NOW);

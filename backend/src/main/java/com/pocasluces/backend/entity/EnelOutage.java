@@ -146,7 +146,8 @@ public class EnelOutage {
     /**
      * True for an outage that was published in exactly one poll and was already gone in the
      * next one: resolved, and its last sighting is also its first. An active outage seen
-     * once is never brief, since it may still be ongoing. Derived, not stored.
+     * once is never brief, since it may still be ongoing. Derived, not stored; same rule as
+     * {@link OutageView#isBrief()}.
      */
     public boolean isBrief() {
         return resolvedAt != null && fetchedAt != null && fetchedAt.equals(firstSeenAt);

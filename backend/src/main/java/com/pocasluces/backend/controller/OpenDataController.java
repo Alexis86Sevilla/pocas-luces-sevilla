@@ -2,13 +2,13 @@ package com.pocasluces.backend.controller;
 
 import com.pocasluces.backend.controller.validation.RequestValidation;
 import com.pocasluces.backend.dto.OpenDataOutageRow;
-import com.pocasluces.backend.entity.EnelOutage;
+import com.pocasluces.backend.entity.OutageView;
 import com.pocasluces.backend.repository.EnelOutageRepository;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -28,9 +28,10 @@ import java.util.function.Function;
  * Public, unauthenticated open-data download (CC BY 4.0). Deliberately outside
  * {@code /api/outages/export}, which nginx rate-limits as an admin endpoint.
  *
- * <p>Rows are read in fixed-size pages ordered by (interruption_date, id) and written straight to
+ * <p>Rows are read in fixed-size slices ordered by (interruption_date, id) and written straight to
  * the response, so memory stays bounded as the dataset grows and no long-lived read transaction or
- * DB cursor is held while a slow client downloads.
+ * DB cursor is held while a slow client downloads. A slice knows whether a next one exists without
+ * counting the whole table, so a download costs one SELECT per 500 rows and nothing else.
  */
 @RestController
 @RequestMapping("/api/open-data")
@@ -69,16 +70,18 @@ public class OpenDataController {
             RequestValidation.requireMonth(month);
         }
 
-        Function<Pageable, Page<EnelOutage>> reader;
+        // Slices, not Pages: the loop only needs "is there a next page", so no COUNT(*) runs per
+        // page. Rows are the OutageView projection: raw_response is never read for this download.
+        Function<Pageable, Slice<OutageView>> reader;
         String scope;
         if (year == null) {
-            reader = enelOutageRepo::findAll;
+            reader = enelOutageRepo::findSliceBy;
             scope = "all";
         } else if (month == null) {
-            reader = p -> enelOutageRepo.findByYear(year, p);
+            reader = p -> enelOutageRepo.findSliceByYear(year, p);
             scope = String.valueOf(year);
         } else {
-            reader = p -> enelOutageRepo.findByYearAndMonth(year, month, p);
+            reader = p -> enelOutageRepo.findSliceByYearAndMonth(year, month, p);
             scope = "%d-%02d".formatted(year, month);
         }
 
@@ -98,10 +101,10 @@ public class OpenDataController {
 
         Pageable pageable = PageRequest.of(0, PAGE_SIZE,
             Sort.by(Sort.Direction.ASC, "interruptionDate").and(Sort.by(Sort.Direction.ASC, "id")));
-        Page<EnelOutage> page;
+        Slice<OutageView> page;
         do {
             page = reader.apply(pageable);
-            for (EnelOutage o : page.getContent()) {
+            for (OutageView o : page.getContent()) {
                 writer.write(OpenDataOutageRow.toCsvRow(o, variant));
                 writer.write("\r\n");
             }

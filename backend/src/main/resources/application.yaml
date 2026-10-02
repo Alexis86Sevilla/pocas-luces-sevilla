@@ -11,6 +11,10 @@ spring:
     time-zone: Europe/Madrid
 
   jpa:
+    # No request-scoped persistence context: controllers read through repository calls (each
+    # its own transaction) and map to DTOs before serialization, so nothing needs lazy loading
+    # during JSON/CSV writing, and a slow client download never pins a database connection.
+    open-in-view: false
     properties:
       hibernate:
         # Timezone contract (see README, "Timezone contract"): every LocalDateTime is

@@ -1,6 +1,7 @@
 package com.pocasluces.backend.controller;
 
 import com.pocasluces.backend.entity.EnelOutage;
+import com.pocasluces.backend.entity.OutageView;
 import com.pocasluces.backend.repository.EnelOutageRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -46,7 +47,7 @@ class OpenDataControllerTest {
 
     @Test
     void shouldReturnCsvWithHeadersBomAndDocumentedColumns() throws Exception {
-        when(repo.findAll(any(Pageable.class))).thenReturn(new PageImpl<>(List.of(resolvedOutage())));
+        when(repo.findSliceBy(any(Pageable.class))).thenReturn(new PageImpl<>(views(resolvedOutage())));
 
         MvcResult result = mvc.perform(get("/api/open-data/outages.csv"))
             .andExpect(status().isOk())
@@ -78,7 +79,7 @@ class OpenDataControllerTest {
         active.setResolvedAt(null);
         active.setActive(true);
         active.setCause(null);
-        when(repo.findAll(any(Pageable.class))).thenReturn(new PageImpl<>(List.of(active)));
+        when(repo.findSliceBy(any(Pageable.class))).thenReturn(new PageImpl<>(views(active)));
 
         String body = body(mvc.perform(get("/api/open-data/outages.csv")).andReturn());
 
@@ -97,8 +98,8 @@ class OpenDataControllerTest {
         activeSeenOnce.setFetchedAt(seen);
         activeSeenOnce.setResolvedAt(null);
         activeSeenOnce.setActive(true);
-        when(repo.findAll(any(Pageable.class)))
-            .thenReturn(new PageImpl<>(List.of(brief, resolvedOutage(), activeSeenOnce)));
+        when(repo.findSliceBy(any(Pageable.class)))
+            .thenReturn(new PageImpl<>(views(brief, resolvedOutage(), activeSeenOnce)));
 
         String[] lines = body(mvc.perform(get("/api/open-data/outages.csv")).andReturn()).split("\r\n");
 
@@ -113,7 +114,7 @@ class OpenDataControllerTest {
         o.setRawResponse("{\"secret\":\"raw-payload\"}");
         o.setRawResponseHash("deadbeefhash");
         o.setSourceUrl("http://internal-source");
-        when(repo.findAll(any(Pageable.class))).thenReturn(new PageImpl<>(List.of(o)));
+        when(repo.findSliceBy(any(Pageable.class))).thenReturn(new PageImpl<>(views(o)));
 
         String body = body(mvc.perform(get("/api/open-data/outages.csv")).andReturn());
 
@@ -125,7 +126,7 @@ class OpenDataControllerTest {
         EnelOutage o = resolvedOutage();
         o.setNeighborhoodName("=HYPERLINK(\"http://evil\")");
         o.setDistrictName("@cmd");
-        when(repo.findAll(any(Pageable.class))).thenReturn(new PageImpl<>(List.of(o)));
+        when(repo.findSliceBy(any(Pageable.class))).thenReturn(new PageImpl<>(views(o)));
 
         String body = body(mvc.perform(get("/api/open-data/outages.csv")).andReturn());
 
@@ -133,18 +134,18 @@ class OpenDataControllerTest {
     }
 
     @Test
-    void shouldReadPagesOrderedByInterruptionDateAscendingAndFollowAllPages() throws Exception {
+    void shouldReadSlicesOrderedByInterruptionDateAscendingAndFollowAllOfThem() throws Exception {
         Pageable first = org.springframework.data.domain.PageRequest.of(0, 1);
-        Page<EnelOutage> page0 = new PageImpl<>(List.of(resolvedOutage()), first, 2);
-        Page<EnelOutage> page1 = new PageImpl<>(List.of(resolvedOutage()),
+        Page<OutageView> page0 = new PageImpl<>(views(resolvedOutage()), first, 2);
+        Page<OutageView> page1 = new PageImpl<>(views(resolvedOutage()),
             org.springframework.data.domain.PageRequest.of(1, 1), 2);
-        when(repo.findAll(any(Pageable.class))).thenReturn(page0, page1);
+        when(repo.findSliceBy(any(Pageable.class))).thenReturn(page0, page1);
 
         String body = body(mvc.perform(get("/api/open-data/outages.csv")).andReturn());
 
         assertThat(body.split("\r\n")).hasSize(3);
         ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
-        verify(repo, org.mockito.Mockito.times(2)).findAll(captor.capture());
+        verify(repo, org.mockito.Mockito.times(2)).findSliceBy(captor.capture());
         Sort sort = captor.getAllValues().get(0).getSort();
         assertThat(sort.getOrderFor("interruptionDate").getDirection()).isEqualTo(Sort.Direction.ASC);
         assertThat(sort.getOrderFor("id")).isNotNull();
@@ -152,18 +153,18 @@ class OpenDataControllerTest {
 
     @Test
     void shouldFilterByYearAndName() throws Exception {
-        when(repo.findByYear(eq(2026), any(Pageable.class))).thenReturn(new PageImpl<>(List.of()));
+        when(repo.findSliceByYear(eq(2026), any(Pageable.class))).thenReturn(new PageImpl<>(views()));
 
         mvc.perform(get("/api/open-data/outages.csv?year=2026"))
             .andExpect(status().isOk())
             .andExpect(header().string("Content-Disposition",
                 "attachment; filename=\"sevillasinluz-cortes-2026.csv\""));
-        verify(repo, never()).findAll(any(Pageable.class));
+        verify(repo, never()).findSliceBy(any(Pageable.class));
     }
 
     @Test
     void shouldFilterByYearAndMonthWithZeroPaddedFilename() throws Exception {
-        when(repo.findByYearAndMonth(eq(2026), eq(9), any(Pageable.class))).thenReturn(new PageImpl<>(List.of()));
+        when(repo.findSliceByYearAndMonth(eq(2026), eq(9), any(Pageable.class))).thenReturn(new PageImpl<>(views()));
 
         MvcResult result = mvc.perform(get("/api/open-data/outages.csv?year=2026&month=9"))
             .andExpect(status().isOk())
@@ -190,7 +191,7 @@ class OpenDataControllerTest {
 
     @Test
     void shouldKeepStandardOutputUnchangedForExplicitCsvFormat() throws Exception {
-        when(repo.findAll(any(Pageable.class))).thenReturn(new PageImpl<>(List.of(resolvedOutage())));
+        when(repo.findSliceBy(any(Pageable.class))).thenReturn(new PageImpl<>(views(resolvedOutage())));
         byte[] plain = mvc.perform(get("/api/open-data/outages.csv")).andReturn().getResponse().getContentAsByteArray();
         byte[] explicit = mvc.perform(get("/api/open-data/outages.csv?format=csv"))
             .andExpect(header().string("Content-Disposition", "attachment; filename=\"sevillasinluz-cortes-all.csv\""))
@@ -209,7 +210,7 @@ class OpenDataControllerTest {
         o.setLatitude(37.40825877);
         o.setNeighborhoodName("Triana; Norte");
         o.setDistrictName("=cmd");
-        when(repo.findByYear(eq(2026), any(Pageable.class))).thenReturn(new PageImpl<>(List.of(o)));
+        when(repo.findSliceByYear(eq(2026), any(Pageable.class))).thenReturn(new PageImpl<>(views(o)));
 
         MvcResult result = mvc.perform(get("/api/open-data/outages.csv?year=2026&format=excel"))
             .andExpect(status().isOk())
@@ -237,6 +238,10 @@ class OpenDataControllerTest {
     private static String body(MvcResult result) throws Exception {
         byte[] bytes = result.getResponse().getContentAsByteArray();
         return new String(bytes, 3, bytes.length - 3, StandardCharsets.UTF_8);
+    }
+
+    private static List<OutageView> views(EnelOutage... rows) {
+        return java.util.Arrays.stream(rows).map(OutageView::of).toList();
     }
 
     private static EnelOutage resolvedOutage() {

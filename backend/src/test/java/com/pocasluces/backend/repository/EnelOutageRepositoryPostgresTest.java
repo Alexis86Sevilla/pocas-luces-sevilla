@@ -1,12 +1,14 @@
 package com.pocasluces.backend.repository;
 
 import com.pocasluces.backend.entity.EnelOutage;
+import com.pocasluces.backend.entity.OutageView;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -45,6 +47,9 @@ class EnelOutageRepositoryPostgresTest {
 
     @Autowired
     private TestEntityManager entityManager;
+
+    @Autowired
+    private JdbcTemplate jdbc;
 
     @Test
     void shouldFindCurrentlyActiveAgainstRealPostgres() {
@@ -161,7 +166,7 @@ class EnelOutageRepositoryPostgresTest {
         repository.upsert(july);
         repository.upsert(august);
 
-        List<EnelOutage> result = repository.findByYearAndMonth(2026, 7);
+        List<OutageView> result = repository.findByYearAndMonth(2026, 7);
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getObjectId()).isEqualTo("1");
@@ -310,6 +315,37 @@ class EnelOutageRepositoryPostgresTest {
         assertThat(repository.resolveStaleActiveOutages(poll2)).isZero();
         assertThat(repository.findAllActive()).extracting(EnelOutage::getId).containsExactly(id);
         assertThat(repository.findRestoredOutagesToAnnounce(1)).isEmpty();
+    }
+
+    @Test
+    void nativeReadsLeaveRawResponseInPostgresAndStillReturnEveryOtherColumnVerbatim() {
+        LocalDateTime now = LocalDateTime.of(2026, 7, 10, 12, 0);
+        EnelOutage stored = outage("1", now.minusHours(1));
+        stored.setFetchedAt(now);
+        stored.setRepositionDate(now.plusHours(2));
+        stored.setRawResponse("{\"attributes\":{\"objectid1\":\"1\"}}");
+        stored.setRawResponseHash("abc123");
+        repository.upsert(stored);
+
+        assertThat(jdbc.queryForObject("SELECT raw_response FROM enel_outages WHERE object_id = '1'", String.class))
+            .isEqualTo("{\"attributes\":{\"objectid1\":\"1\"}}");
+
+        for (EnelOutage o : List.of(repository.findCurrentlyActive(now, now.minusHours(6)).get(0), repository.findAllActive().get(0))) {
+            assertThat(o.getRawResponse()).isNull();
+            assertThat(o.getRawResponseHash()).isEqualTo("abc123");
+            assertThat(o.getObjectId()).isEqualTo("1");
+            assertThat(o.getInterruptionDate()).isEqualTo(now.minusHours(1));
+            assertThat(o.getRepositionDate()).isEqualTo(now.plusHours(2));
+            assertThat(o.getFetchedAt()).isEqualTo(now);
+            assertThat(o.getNeighborhoodName()).isEqualTo("San Pablo");
+            assertThat(o.isActive()).isTrue();
+            assertThat(o.isAnnounceEligible()).isTrue();
+            assertThat(o.getMissingPolls()).isZero();
+        }
+        assertThat(repository.findByYear(2026)).singleElement().satisfies(v -> {
+            assertThat(v.getObjectId()).isEqualTo("1");
+            assertThat(v.getRawResponseHash()).isEqualTo("abc123");
+        });
     }
 
     private EnelOutage outage(String objectId, LocalDateTime interruptionDate) {

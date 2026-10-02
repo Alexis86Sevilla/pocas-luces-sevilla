@@ -30,6 +30,19 @@ import java.util.Map;
 @Repository
 public class EnelOutageRepositoryImpl implements EnelOutageRepositoryCustom {
 
+    /**
+     * Every column of a row except {@code raw_response}: the stored feed fragment is evidence
+     * kept for audits, never shown by the endpoints, and it is the widest column of the
+     * table, so the read paths leave it in the database ({@code getRawResponse()} is null on
+     * the objects these queries return). Writes keep storing it.
+     */
+    static final String ROW_COLUMNS = """
+        id, object_id, latitude, longitude, affected_clients, service_type,
+        interruption_date, reposition_date, neighborhood_name, district_name, cause, source_url,
+        raw_response_hash, first_seen_at, fetched_at, created_at, updated_at, active, resolved_at,
+        announce_eligible, announced_at, restoration_announced_at, missing_polls,
+        original_interruption_date, start_corrected_at""";
+
     private final NamedParameterJdbcTemplate jdbcTemplate;
     private final boolean h2;
 
@@ -170,12 +183,8 @@ public class EnelOutageRepositoryImpl implements EnelOutageRepositoryCustom {
 
     @Override
     public List<EnelOutage> findCurrentlyActive(LocalDateTime now, LocalDateTime since) {
-        String sql = """
-            SELECT id, object_id, latitude, longitude, affected_clients, service_type,
-                   interruption_date, reposition_date, neighborhood_name, district_name, cause, source_url,
-                   raw_response_hash, raw_response, first_seen_at, fetched_at, created_at, updated_at, active, resolved_at,
-                   announce_eligible, announced_at, restoration_announced_at, missing_polls,
-                   original_interruption_date, start_corrected_at
+        String sql = "SELECT " + ROW_COLUMNS + """
+
             FROM enel_outages
             WHERE active = true
             AND fetched_at > :since
@@ -201,7 +210,7 @@ public class EnelOutageRepositoryImpl implements EnelOutageRepositoryCustom {
         o.setCause(rs.getString("cause"));
         o.setSourceUrl(rs.getString("source_url"));
         o.setRawResponseHash(rs.getString("raw_response_hash"));
-        o.setRawResponse(rs.getString("raw_response"));
+        // raw_response is deliberately not selected, see ROW_COLUMNS.
         o.setFirstSeenAt(rs.getObject("first_seen_at", LocalDateTime.class));
         o.setFetchedAt(rs.getObject("fetched_at", LocalDateTime.class));
         o.setCreatedAt(rs.getObject("created_at", LocalDateTime.class));
@@ -230,12 +239,8 @@ public class EnelOutageRepositoryImpl implements EnelOutageRepositoryCustom {
 
     @Override
     public List<EnelOutage> findAllActive() {
-        String sql = """
-            SELECT id, object_id, latitude, longitude, affected_clients, service_type,
-                   interruption_date, reposition_date, neighborhood_name, district_name, cause, source_url,
-                   raw_response_hash, raw_response, first_seen_at, fetched_at, created_at, updated_at, active, resolved_at,
-                   announce_eligible, announced_at, restoration_announced_at, missing_polls,
-                   original_interruption_date, start_corrected_at
+        String sql = "SELECT " + ROW_COLUMNS + """
+
             FROM enel_outages
             WHERE active = true
             ORDER BY id
