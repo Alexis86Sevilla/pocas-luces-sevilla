@@ -176,6 +176,8 @@ export class ApiOutageService {
   }
 
   // ── Live ──
+  private liveRequestSeq = 0;
+
   /**
    * `silent` is for background refreshes: no loading state (so skeletons do not flash) and a
    * failure keeps the data already on screen instead of replacing it with the error panel; the
@@ -183,13 +185,17 @@ export class ApiOutageService {
    */
   loadLiveOutages(silent = false): void {
     if (!silent) this._liveStatus.set('loading');
+    // Requests can overlap (background refresh + "Actualizar ahora"); only the latest may apply.
+    const request = ++this.liveRequestSeq;
     this.http.get<EnelOutage[]>(`${this.apiUrl}/outages/live`).subscribe({
       next: data => {
+        if (request !== this.liveRequestSeq) return;
         this._liveOutages.set(data);
         this._liveStatus.set('success');
         this._liveLoadedAt.set(Date.now());
       },
       error: err => {
+        if (request !== this.liveRequestSeq) return;
         if (!silent) this._liveStatus.set('error');
         this.errorLog.log('API Live', err);
       },

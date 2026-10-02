@@ -31,13 +31,13 @@ describe('NotFoundPageComponent', () => {
     const doc = TestBed.inject(DOCUMENT);
     const tag = doc.createElement('meta');
     tag.setAttribute('name', 'robots');
-    tag.setAttribute('content', 'index, follow');
+    tag.setAttribute('content', 'index, follow, max-image-preview:large');
     doc.head.appendChild(tag);
     const fixture = TestBed.createComponent(NotFoundPageComponent);
     fixture.detectChanges();
     expect(robots()[0].getAttribute('content')).toBe('noindex');
     fixture.destroy();
-    expect(robots()[0].getAttribute('content')).toBe('index, follow');
+    expect(robots()[0].getAttribute('content')).toBe('index, follow, max-image-preview:large');
     tag.remove();
   });
 });

@@ -45,7 +45,10 @@ export class DateFilterComponent {
   protected readonly years = computed(() =>
     Array.from({ length: Math.max(1, this.clock.year() - FIRST_DATA_YEAR + 1) }, (_, i) => this.clock.year() - i),
   );
-  protected readonly months = computed(() => ALL_MONTHS.filter(m => m.value <= this.clock.month()));
+  // Past years offer every month; the current year only the months that have started.
+  protected readonly months = computed(() =>
+    this.year() < this.clock.year() ? ALL_MONTHS : ALL_MONTHS.filter(m => m.value <= this.clock.month()),
+  );
 
   constructor() {
     effect(() => {

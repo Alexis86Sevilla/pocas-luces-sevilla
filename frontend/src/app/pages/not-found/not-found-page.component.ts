@@ -3,9 +3,6 @@ import { Component, DestroyRef, inject } from '@angular/core';
 import { Meta } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
 
-/** Value index.html ships with; restored when the not-found page is left. */
-const DEFAULT_ROBOTS = 'index, follow';
-
 @Component({
   selector: 'app-not-found-page',
   imports: [RouterLink],
@@ -22,11 +19,12 @@ const DEFAULT_ROBOTS = 'index, follow';
 export class NotFoundPageComponent {
   constructor() {
     const meta = inject(Meta);
-    // Flip the robots tag from index.html instead of adding a second one.
-    const hadTag = !!inject(DOCUMENT).head.querySelector('meta[name="robots"]');
+    // Flip the robots tag from index.html instead of adding a second one, and put back
+    // exactly what was there when the page is left.
+    const original = inject(DOCUMENT).head.querySelector('meta[name="robots"]')?.getAttribute('content');
     meta.updateTag({ name: 'robots', content: 'noindex' });
     inject(DestroyRef).onDestroy(() => {
-      if (hadTag) meta.updateTag({ name: 'robots', content: DEFAULT_ROBOTS });
+      if (original != null) meta.updateTag({ name: 'robots', content: original });
       else meta.removeTag('name="robots"');
     });
   }
