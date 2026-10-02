@@ -3,6 +3,7 @@ package com.pocasluces.backend.service;
 import com.pocasluces.backend.config.TelegramProperties;
 import com.pocasluces.backend.entity.EnelOutage;
 import com.pocasluces.backend.repository.EnelOutageRepository;
+import com.pocasluces.backend.service.TelegramClient.FailureKind;
 import com.pocasluces.backend.service.TelegramClient.SendResult;
 import com.pocasluces.backend.service.TelegramMessageFormatter.Message;
 import lombok.extern.slf4j.Slf4j;
@@ -18,11 +19,14 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 
@@ -76,6 +80,27 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * <b>Remaining limitation:</b> that pending state lives only in memory, so a JVM
  * restart between a confirmed send and a successful mark can still produce exactly one
  * duplicate message for that outage.
+ *
+ * <h2>Messages Telegram rejects for good</h2>
+ * {@link TelegramClient} tells a transient failure (network, 5xx: retry next poll, same as
+ * before) from a deterministic one, and splits the latter in two:
+ * <ul>
+ *   <li><b>{@link FailureKind#MESSAGE_REJECTED}</b> (HTTP 400 about the message body): the
+ *       message is skipped for this poll and the <em>other</em> messages of the poll are still
+ *       sent. Every outage in the rejected message gets one more "rejection" in a bounded
+ *       in-memory counter; once an outage reaches {@link #MAX_MESSAGE_REJECTIONS} it is given
+ *       up (one warning) and joins the same "never resend" set as abandoned marks, so it no
+ *       longer blocks anything. Counting per outage rather than per message means a poison
+ *       outage is caught even when the grouping around it changes from poll to poll. The
+ *       outages are deliberately <em>not</em> marked in the database: {@code announced_at}
+ *       means "Telegram confirmed this message", and a fake mark would later make the bot
+ *       announce the restoration of an outage the channel never heard of. After a restart
+ *       the message is tried {@link #MAX_MESSAGE_REJECTIONS} more polls and given up again.</li>
+ *   <li><b>{@link FailureKind#CHAT_UNAVAILABLE}</b> (chat not found, bot removed or without
+ *       rights, 403, 404): every message would fail the same way, so the poll stops at once
+ *       (nothing is counted, nothing marked) and an {@code ERROR} asks for an operator; the
+ *       same candidates are retried on the next poll.</li>
+ * </ul>
  */
 @Slf4j
 @Service
@@ -85,6 +110,8 @@ public class OutageAnnouncer {
     static final int MIN_MISSING_POLLS_FOR_RESTORATION = 2;
     static final int MARK_ATTEMPTS = 3;
     static final int MAX_FAILED_RETRY_RUNS = 3;
+    /** Deterministic Telegram rejections of messages containing an outage before it is given up. */
+    static final int MAX_MESSAGE_REJECTIONS = 3;
     static final int ABANDONED_CAP = 1000;
     private static final String KIND_NEW = "new";
     private static final String KIND_RESTORED = "restored";
@@ -97,8 +124,10 @@ public class OutageAnnouncer {
     private final TransactionOperations newTransaction;
     /** Messages Telegram confirmed whose mark could not be persisted yet; see the class javadoc. */
     private final List<PendingMark> pendingMarks = new CopyOnWriteArrayList<>();
-    /** Outages whose mark was abandoned; never resent by this JVM. Insertion-ordered, bounded, guarded by itself. */
+    /** Outages whose mark or message was abandoned; never resent by this JVM. Insertion-ordered, bounded, guarded by itself. */
     private final Set<AbandonedKey> abandoned = new LinkedHashSet<>();
+    /** Deterministic rejections per outage and kind (see the class javadoc). Insertion-ordered, bounded, guarded by itself. */
+    private final Map<AbandonedKey, Integer> rejections = new LinkedHashMap<>();
     /** False when the last run met a Telegram problem or a stuck pending mark (see {@link #telegramHealthy()}). */
     private volatile boolean telegramHealthy = true;
 
@@ -195,13 +224,14 @@ public class OutageAnnouncer {
             if (candidates.isEmpty()) {
                 return;
             }
-            boolean sentOk = send(formatter.newOutages(candidates.newOutages(), now), KIND_NEW,
-                ids -> repository.markAnnounced(ids, now));
-            if (sentOk) {
-                sentOk = send(formatter.restoredOutages(candidates.restoredOutages(), now), KIND_RESTORED,
-                    ids -> repository.markRestorationAnnounced(ids, now));
+            Poll poll = new Poll();
+            boolean keepGoing = send(formatter.newOutages(candidates.newOutages(), now), KIND_NEW,
+                ids -> repository.markAnnounced(ids, now), poll);
+            if (keepGoing) {
+                keepGoing = send(formatter.restoredOutages(candidates.restoredOutages(), now), KIND_RESTORED,
+                    ids -> repository.markRestorationAnnounced(ids, now), poll);
             }
-            telegramHealthy = sentOk;
+            telegramHealthy = keepGoing && !poll.messageRejected;
         } catch (RuntimeException e) {
             telegramHealthy = false;
             log.warn("Telegram: announcement step failed, will retry on the next poll: {}",
@@ -209,13 +239,20 @@ public class OutageAnnouncer {
         }
     }
 
-    /** @return false when sending should stop for this poll (Telegram failing or rate limiting). */
-    private boolean send(List<Message> messages, String kind, Marker marker) {
+    /**
+     * Sends the messages of one kind in order. A message Telegram rejects for good is skipped
+     * (counted, see {@link #countRejection}) and the loop goes on with the next one.
+     *
+     * @return false when sending should stop for this poll (Telegram failing, rate limiting,
+     *         the chat unavailable, or a confirmed send whose mark could not be persisted)
+     */
+    private boolean send(List<Message> messages, String kind, Marker marker, Poll poll) {
         for (Message message : messages) {
             SendResult result = telegramClient.sendMessage(message.text());
             switch (result) {
                 case SendResult.Sent sent -> {
                     log.info("Telegram: announced {} {} outage(s)", message.outageIds().size(), kind);
+                    forgetRejections(kind, message.outageIds());
                     if (!markWithRetries(message.outageIds(), marker)) {
                         pendingMarks.add(new PendingMark(kind, List.copyOf(message.outageIds()), marker));
                         log.warn("Telegram: a {} message was sent but marking {} outage(s) as announced failed after {} attempts; "
@@ -229,6 +266,16 @@ public class OutageAnnouncer {
                         limited.retryAfterSeconds());
                     return false;
                 }
+                case SendResult.Failed failed when failed.kind() == FailureKind.CHAT_UNAVAILABLE -> {
+                    log.error("Telegram: cannot deliver to chat {} ({}); the channel or the bot's rights need an operator. "
+                            + "Skipping the rest of this poll, nothing is marked, the same messages are retried on the next poll",
+                        properties.chatId(), failed.reason());
+                    return false;
+                }
+                case SendResult.Failed failed when failed.kind() == FailureKind.MESSAGE_REJECTED -> {
+                    poll.messageRejected = true;
+                    countRejection(kind, message.outageIds(), failed.reason());
+                }
                 case SendResult.Failed failed -> {
                     log.warn("Telegram: could not send {} outages message, will retry on the next poll: {}",
                         kind, failed.reason());
@@ -237,6 +284,45 @@ public class OutageAnnouncer {
             }
         }
         return true;
+    }
+
+    /**
+     * One more deterministic rejection for every outage of the message; the ones that reach
+     * {@link #MAX_MESSAGE_REJECTIONS} are given up (never resent by this JVM, not marked in the
+     * database). The counters are bounded like the abandoned set.
+     */
+    private void countRejection(String kind, List<Long> outageIds, String reason) {
+        List<Long> givenUp = new ArrayList<>();
+        synchronized (rejections) {
+            for (Long id : outageIds) {
+                int count = rejections.merge(new AbandonedKey(kind, id), 1, Integer::sum);
+                if (count >= MAX_MESSAGE_REJECTIONS) {
+                    givenUp.add(id);
+                }
+            }
+            Iterator<AbandonedKey> oldest = rejections.keySet().iterator();
+            while (rejections.size() > ABANDONED_CAP && oldest.hasNext()) {
+                oldest.next();
+                oldest.remove();
+            }
+        }
+        log.warn("Telegram: a {} outages message was rejected for good ({}); skipping it in this poll and going on with the next messages",
+            kind, reason);
+        if (!givenUp.isEmpty()) {
+            forgetRejections(kind, givenUp);
+            neverResend(kind, givenUp);
+            log.warn("Telegram: giving up on {} {} outage(s) whose message Telegram rejected {} times; "
+                    + "they are not marked as announced and will not be sent again by this process",
+                givenUp.size(), kind, MAX_MESSAGE_REJECTIONS);
+        }
+    }
+
+    private void forgetRejections(String kind, Collection<Long> outageIds) {
+        synchronized (rejections) {
+            for (Long id : outageIds) {
+                rejections.remove(new AbandonedKey(kind, id));
+            }
+        }
     }
 
     /** Marks in a new transaction, retrying immediately; @return whether one attempt succeeded. */
@@ -279,9 +365,17 @@ public class OutageAnnouncer {
     }
 
     private void abandon(PendingMark pending) {
+        neverResend(pending.kind(), pending.ids());
+        log.warn("Telegram: giving up marking {} sent {} outage(s) as announced after {} failed runs; "
+                + "they will not be sent again by this process and alerts resume",
+            pending.ids().size(), pending.kind(), MAX_FAILED_RETRY_RUNS);
+    }
+
+    /** Adds the outages to the bounded "never resend" set of their kind (oldest entries evicted). */
+    private void neverResend(String kind, Collection<Long> ids) {
         synchronized (abandoned) {
-            for (Long id : pending.ids()) {
-                abandoned.add(new AbandonedKey(pending.kind(), id));
+            for (Long id : ids) {
+                abandoned.add(new AbandonedKey(kind, id));
             }
             Iterator<AbandonedKey> oldest = abandoned.iterator();
             while (abandoned.size() > ABANDONED_CAP && oldest.hasNext()) {
@@ -289,9 +383,6 @@ public class OutageAnnouncer {
                 oldest.remove();
             }
         }
-        log.warn("Telegram: giving up marking {} sent {} outage(s) as announced after {} failed runs; "
-                + "they will not be sent again by this process and alerts resume",
-            pending.ids().size(), pending.kind(), MAX_FAILED_RETRY_RUNS);
     }
 
     /** Ids of the given kind that must not be sent: pending marks plus abandoned ones. */
@@ -339,6 +430,12 @@ public class OutageAnnouncer {
     }
 
     private record AbandonedKey(String kind, long id) {
+    }
+
+    /** What happened in the current run, beyond the stop/continue decision. */
+    private static final class Poll {
+        /** Whether Telegram rejected at least one message for good in this run. */
+        boolean messageRejected;
     }
 
     private record Candidates(List<EnelOutage> newOutages, List<EnelOutage> restoredOutages) {

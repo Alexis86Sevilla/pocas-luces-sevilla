@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pocasluces.backend.config.TelegramProperties;
 import com.pocasluces.backend.entity.EnelOutage;
 import com.pocasluces.backend.repository.EnelOutageRepository;
+import com.pocasluces.backend.service.TelegramClient.FailureKind;
 import com.pocasluces.backend.service.TelegramClient.SendResult;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,6 +34,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -420,8 +424,144 @@ class OutageAnnouncerTest {
         verify(repository, times(OutageAnnouncer.MARK_ATTEMPTS + 1)).markRestorationAnnounced(List.of(2L), NOW);
     }
 
+    // ---- Messages Telegram rejects for good ------------------------------------------------
+
+    private static final SendResult REJECTED =
+        new SendResult.Failed("HTTP 400 (Bad Request: message is too long)", FailureKind.MESSAGE_REJECTED);
+    private static final SendResult CHAT_GONE =
+        new SendResult.Failed("HTTP 403 (Forbidden: bot was kicked from the channel chat)", FailureKind.CHAT_UNAVAILABLE);
+
+    /** One message per outage, so a test can make Telegram reject exactly one of them. */
+    private OutageAnnouncer announcerWithOneMessagePerOutage() {
+        TelegramMessageFormatter oneEach = mock(TelegramMessageFormatter.class);
+        lenient().when(oneEach.newOutages(any(), any())).thenAnswer(inv -> perOutage(inv.getArgument(0), "new"));
+        lenient().when(oneEach.restoredOutages(any(), any())).thenAnswer(inv -> perOutage(inv.getArgument(0), "restored"));
+        return new OutageAnnouncer(repository, client, oneEach, ENABLED, clock, TransactionOperations.withoutTransaction());
+    }
+
+    private static List<TelegramMessageFormatter.Message> perOutage(List<EnelOutage> outages, String kind) {
+        return outages.stream().map(o -> new TelegramMessageFormatter.Message(kind + " " + o.getId(), List.of(o.getId()))).toList();
+    }
+
+    @Test
+    void skipsAMessageTelegramRejectsForGoodAndStillSendsTheRestOfThePoll() {
+        when(repository.findNewOutagesToAnnounce(any(), any()))
+            .thenReturn(List.of(outage(1L, "Triana", "León", NOW.minusMinutes(20)), outage(3L, "Macarena", "Macarena", NOW.minusMinutes(25))));
+        when(repository.findRestoredOutagesToAnnounce(anyInt())).thenReturn(List.of(inactive(2L)));
+        when(client.sendMessage("new 1")).thenReturn(REJECTED);
+        when(client.sendMessage("new 3")).thenReturn(new SendResult.Sent());
+        when(client.sendMessage("restored 2")).thenReturn(new SendResult.Sent());
+        OutageAnnouncer announcer = announcerWithOneMessagePerOutage();
+
+        announcer.announcePending();
+
+        verify(client, times(3)).sendMessage(anyString());
+        verify(repository, never()).markAnnounced(List.of(1L), NOW);
+        verify(repository).markAnnounced(List.of(3L), NOW);
+        verify(repository).markRestorationAnnounced(List.of(2L), NOW);
+        assertThat(warnings()).singleElement().asString().contains("rejected for good").contains("message is too long")
+            .contains("going on with the next messages");
+        assertThat(announcer.telegramHealthy()).isFalse();
+    }
+
+    @Test
+    void givesUpOnAnOutageAfterThreeRejectedPollsWithoutEverMarkingIt() {
+        when(repository.findNewOutagesToAnnounce(any(), any())).thenReturn(List.of(outage(1L, "Triana", "León", NOW.minusMinutes(20))));
+        when(repository.findRestoredOutagesToAnnounce(anyInt())).thenReturn(List.of());
+        when(client.sendMessage(anyString())).thenReturn(REJECTED);
+        OutageAnnouncer announcer = announcerWithOneMessagePerOutage();
+
+        for (int poll = 1; poll <= OutageAnnouncer.MAX_MESSAGE_REJECTIONS; poll++) {
+            announcer.announcePending();
+            assertThat(announcer.telegramHealthy()).isFalse();
+        }
+        assertThat(warnings()).filteredOn(m -> m.contains("giving up")).singleElement().asString()
+            .contains("1 new outage(s)").contains("rejected 3 times").contains("not marked as announced");
+
+        announcer.announcePending();   // still returned by the database, never sent again
+        announcer.announcePending();
+
+        verify(client, times(OutageAnnouncer.MAX_MESSAGE_REJECTIONS)).sendMessage(anyString());
+        verify(repository, never()).markAnnounced(any(), any());
+        verify(repository, never()).markRestorationAnnounced(any(), any());
+        assertThat(announcer.telegramHealthy()).isTrue();
+        assertThat(String.join("\n", messages())).doesNotContain(TOKEN);
+    }
+
+    @Test
+    void countsRejectionsPerOutageSoAPoisonOutageIsCaughtEvenWhenTheGroupingChanges() {
+        EnelOutage poison = outage(1L, "Triana", "León", NOW.minusMinutes(20));
+        EnelOutage innocent = outage(3L, "Macarena", "Macarena", NOW.minusMinutes(25));
+        when(repository.findNewOutagesToAnnounce(any(), any()))
+            .thenReturn(List.of(poison))
+            .thenReturn(List.of(poison, innocent));
+        when(repository.findRestoredOutagesToAnnounce(anyInt())).thenReturn(List.of());
+        // Real grouping: every candidate of a kind travels in one message.
+        when(client.sendMessage(anyString())).thenAnswer(inv -> inv.getArgument(0, String.class).contains("Triana")
+            ? REJECTED : new SendResult.Sent());
+        OutageAnnouncer announcer = announcer(ENABLED);
+
+        announcer.announcePending();   // {1} rejected: 1 -> 1
+        announcer.announcePending();   // {1,3} rejected: 1 -> 2, 3 -> 1
+        announcer.announcePending();   // {1,3} rejected: 1 -> 3 given up, 3 -> 2
+        verify(repository, never()).markAnnounced(any(), any());
+
+        announcer.announcePending();   // {3} alone goes through
+
+        verify(client, times(4)).sendMessage(anyString());
+        verify(repository).markAnnounced(List.of(3L), NOW);
+        verify(repository, never()).markAnnounced(argThat(ids -> ids.contains(1L)), any());
+        assertThat(warnings()).filteredOn(m -> m.contains("giving up")).singleElement().asString().contains("1 new outage(s)");
+    }
+
+    @Test
+    void stopsThePollWithAnErrorAndMarksNothingWhenTheChatIsUnavailableAndKeepsRetrying() {
+        when(repository.findNewOutagesToAnnounce(any(), any()))
+            .thenReturn(List.of(outage(1L, "Triana", "León", NOW.minusMinutes(20)), outage(3L, "Macarena", "Macarena", NOW.minusMinutes(25))));
+        when(repository.findRestoredOutagesToAnnounce(anyInt())).thenReturn(List.of(inactive(2L)));
+        when(client.sendMessage(anyString())).thenReturn(CHAT_GONE);
+        OutageAnnouncer announcer = announcerWithOneMessagePerOutage();
+
+        for (int poll = 1; poll <= OutageAnnouncer.MAX_MESSAGE_REJECTIONS + 1; poll++) {
+            announcer.announcePending();
+        }
+
+        // One attempt per poll (the first message), nothing counted, nothing given up, nothing marked.
+        verify(client, times(OutageAnnouncer.MAX_MESSAGE_REJECTIONS + 1)).sendMessage("new 1");
+        verify(client, never()).sendMessage("new 3");
+        verify(client, never()).sendMessage("restored 2");
+        verify(repository, never()).markAnnounced(any(), any());
+        verify(repository, never()).markRestorationAnnounced(any(), any());
+        assertThat(errors()).hasSize(OutageAnnouncer.MAX_MESSAGE_REJECTIONS + 1).allSatisfy(m -> assertThat(m)
+            .contains("@SevillaSinLuz").contains("kicked").contains("operator").contains("retried on the next poll"));
+        assertThat(warnings()).noneMatch(m -> m.contains("giving up"));
+        assertThat(announcer.telegramHealthy()).isFalse();
+        assertThat(String.join("\n", messages())).doesNotContain(TOKEN);
+    }
+
+    @Test
+    void aTransientFailureStillStopsThePollWithoutCountingAgainstTheMessage() {
+        when(repository.findNewOutagesToAnnounce(any(), any())).thenReturn(List.of(outage(1L, "Triana", "León", NOW.minusMinutes(20))));
+        when(repository.findRestoredOutagesToAnnounce(anyInt())).thenReturn(List.of(inactive(2L)));
+        when(client.sendMessage(anyString())).thenReturn(new SendResult.Failed("HTTP 502 (Bad Gateway)"));
+        OutageAnnouncer announcer = announcerWithOneMessagePerOutage();
+
+        for (int poll = 1; poll <= OutageAnnouncer.MAX_MESSAGE_REJECTIONS + 1; poll++) {
+            announcer.announcePending();
+        }
+
+        verify(client, times(OutageAnnouncer.MAX_MESSAGE_REJECTIONS + 1)).sendMessage("new 1");
+        verify(client, never()).sendMessage("restored 2");
+        assertThat(warnings()).noneMatch(m -> m.contains("giving up") || m.contains("rejected for good"));
+        assertThat(errors()).isEmpty();
+    }
+
     private List<String> messages() {
         return logs.list.stream().map(ILoggingEvent::getFormattedMessage).toList();
+    }
+
+    private List<String> errors() {
+        return logs.list.stream().filter(e -> e.getLevel() == Level.ERROR).map(ILoggingEvent::getFormattedMessage).toList();
     }
 
     private List<String> warnings() {

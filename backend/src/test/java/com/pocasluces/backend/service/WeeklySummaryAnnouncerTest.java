@@ -1,15 +1,23 @@
 package com.pocasluces.backend.service;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.pocasluces.backend.config.TelegramProperties;
 import com.pocasluces.backend.repository.WeeklySummaryRepository;
 import com.pocasluces.backend.repository.WeeklySummaryRepository.DistrictCount;
 import com.pocasluces.backend.repository.WeeklySummaryRepository.Totals;
+import com.pocasluces.backend.service.TelegramClient.FailureKind;
 import com.pocasluces.backend.service.TelegramClient.SendResult;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.LoggerFactory;
 import org.springframework.transaction.support.TransactionOperations;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -49,6 +57,27 @@ class WeeklySummaryAnnouncerTest {
     private TelegramClient client;
 
     private final WeeklySummaryFormatter formatter = new WeeklySummaryFormatter();
+    private ListAppender<ILoggingEvent> logs;
+
+    @BeforeEach
+    void captureLogs() {
+        logs = new ListAppender<>();
+        logs.start();
+        ((Logger) LoggerFactory.getLogger(WeeklySummaryAnnouncer.class)).addAppender(logs);
+    }
+
+    @AfterEach
+    void detachLogs() {
+        ((Logger) LoggerFactory.getLogger(WeeklySummaryAnnouncer.class)).detachAppender(logs);
+    }
+
+    private List<String> warnings() {
+        return logs.list.stream().filter(e -> e.getLevel() == Level.WARN).map(ILoggingEvent::getFormattedMessage).toList();
+    }
+
+    private List<String> errors() {
+        return logs.list.stream().filter(e -> e.getLevel() == Level.ERROR).map(ILoggingEvent::getFormattedMessage).toList();
+    }
 
     private WeeklySummaryAnnouncer announcer(TelegramProperties properties, LocalDateTime now) {
         Clock clock = Clock.fixed(now.atZone(MADRID).toInstant(), MADRID);
@@ -157,6 +186,44 @@ class WeeklySummaryAnnouncerTest {
         announcer.announceIfDue();
         verify(client, times(3)).sendMessage(anyString());
         verify(repository).markWeekSent(WEEK, LocalDateTime.of(2026, 9, 28, 10, 0));
+    }
+
+    @Test
+    void skipsTheWeekAfterThreeSummariesRejectedForGoodWithoutRecordingIt() {
+        dataFor(LocalDateTime.of(2026, 1, 1, 0, 0));
+        when(repository.totals(PREVIOUS_START, WEEK_START)).thenReturn(new Totals(4, 0, 0));
+        when(client.sendMessage(anyString()))
+            .thenReturn(new SendResult.Failed("HTTP 400 (Bad Request: message is too long)", FailureKind.MESSAGE_REJECTED));
+        WeeklySummaryAnnouncer announcer = announcer(ENABLED, LocalDateTime.of(2026, 9, 28, 10, 0));
+
+        for (int poll = 1; poll <= WeeklySummaryAnnouncer.MAX_MESSAGE_REJECTIONS + 2; poll++) {
+            announcer.announceIfDue();
+        }
+
+        verify(client, times(WeeklySummaryAnnouncer.MAX_MESSAGE_REJECTIONS)).sendMessage(anyString());
+        verify(repository, never()).markWeekSent(any(), any());
+        assertThat(warnings()).filteredOn(m -> m.contains("giving up")).singleElement().asString()
+            .contains("week of 2026-09-21").contains("rejected for good 3 times").contains("nothing recorded");
+        assertThat(warnings()).filteredOn(m -> m.contains("will retry")).hasSize(WeeklySummaryAnnouncer.MAX_MESSAGE_REJECTIONS - 1);
+    }
+
+    @Test
+    void keepsRetryingEveryPollWithAnErrorWhenTheChatIsUnavailable() {
+        dataFor(LocalDateTime.of(2026, 1, 1, 0, 0));
+        when(repository.totals(PREVIOUS_START, WEEK_START)).thenReturn(new Totals(4, 0, 0));
+        when(client.sendMessage(anyString()))
+            .thenReturn(new SendResult.Failed("HTTP 403 (Forbidden: bot was kicked from the channel chat)", FailureKind.CHAT_UNAVAILABLE));
+        WeeklySummaryAnnouncer announcer = announcer(ENABLED, LocalDateTime.of(2026, 9, 28, 10, 0));
+
+        for (int poll = 1; poll <= WeeklySummaryAnnouncer.MAX_MESSAGE_REJECTIONS + 1; poll++) {
+            announcer.announceIfDue();
+        }
+
+        verify(client, times(WeeklySummaryAnnouncer.MAX_MESSAGE_REJECTIONS + 1)).sendMessage(anyString());
+        verify(repository, never()).markWeekSent(any(), any());
+        assertThat(errors()).hasSize(WeeklySummaryAnnouncer.MAX_MESSAGE_REJECTIONS + 1)
+            .allSatisfy(m -> assertThat(m).contains("@SevillaSinLuz").contains("kicked").contains("operator"));
+        assertThat(warnings()).noneMatch(m -> m.contains("giving up"));
     }
 
     @Test

@@ -2,6 +2,7 @@ package com.pocasluces.backend.service;
 
 import com.pocasluces.backend.config.TelegramProperties;
 import com.pocasluces.backend.repository.WeeklySummaryRepository;
+import com.pocasluces.backend.service.TelegramClient.FailureKind;
 import com.pocasluces.backend.service.TelegramClient.SendResult;
 import com.pocasluces.backend.service.WeeklySummaryFormatter.Summary;
 import lombok.extern.slf4j.Slf4j;
@@ -51,6 +52,14 @@ import java.util.function.BooleanSupplier;
  *   <li>The top list ignores the unidentified-zone placeholder but totals include it.</li>
  * </ul>
  *
+ * <h2>Telegram failures</h2>
+ * Same reading of {@link TelegramClient.FailureKind} as {@link OutageAnnouncer}: a transient
+ * failure or a rate limit retries on the next poll; an unavailable chat is an {@code ERROR}
+ * for an operator and also retries; a summary Telegram rejects for good
+ * ({@code MESSAGE_REJECTED}) is retried on {@link #MAX_MESSAGE_REJECTIONS} polls in total and
+ * then skipped for that week (one warning, nothing recorded in the database, so a restart or
+ * the next Monday starts clean).
+ *
  * Never throws: any failure is logged (token redacted) and cannot affect alerts or the poll.
  */
 @Slf4j
@@ -58,6 +67,8 @@ import java.util.function.BooleanSupplier;
 public class WeeklySummaryAnnouncer {
 
     static final LocalTime SEND_FROM = LocalTime.of(9, 0);
+    /** Deterministic Telegram rejections of a week's summary before that week is skipped. */
+    static final int MAX_MESSAGE_REJECTIONS = 3;
 
     private final WeeklySummaryRepository repository;
     private final TelegramClient telegramClient;
@@ -67,6 +78,11 @@ public class WeeklySummaryAnnouncer {
     private final TransactionOperations newTransaction;
     /** Week confirmed sent by this JVM whose mark could not be persisted (see class javadoc). */
     private volatile LocalDate sentButUnmarked;
+    /** Week whose summary Telegram rejected for good {@link #MAX_MESSAGE_REJECTIONS} times; skipped by this JVM. */
+    private volatile LocalDate givenUp;
+    /** Week being counted in {@link #rejections}; only touched by the announcing thread. */
+    private LocalDate rejectedWeek;
+    private int rejections;
 
     @Autowired
     public WeeklySummaryAnnouncer(WeeklySummaryRepository repository,
@@ -149,7 +165,7 @@ public class WeeklySummaryAnnouncer {
                 return;
             }
             LocalDate weekStart = now.toLocalDate().minusDays(7);
-            if (weekStart.equals(sentButUnmarked)
+            if (weekStart.equals(sentButUnmarked) || weekStart.equals(givenUp)
                 || Boolean.TRUE.equals(newTransaction.execute(s -> repository.isWeekSent(weekStart)))) {
                 return;
             }
@@ -166,11 +182,33 @@ public class WeeklySummaryAnnouncer {
                 case SendResult.RateLimited limited -> log.warn(
                     "Telegram: rate limited sending the weekly summary (retry after {} s); will retry on the next poll",
                     limited.retryAfterSeconds());
+                case SendResult.Failed failed when failed.kind() == FailureKind.CHAT_UNAVAILABLE -> log.error(
+                    "Telegram: cannot deliver the weekly summary to chat {} ({}); the channel or the bot's rights need an operator. "
+                        + "Nothing is recorded, will retry on the next poll", properties.chatId(), failed.reason());
+                case SendResult.Failed failed when failed.kind() == FailureKind.MESSAGE_REJECTED ->
+                    countRejection(weekStart, failed.reason());
                 case SendResult.Failed failed -> log.warn(
                     "Telegram: could not send the weekly summary, will retry on the next poll: {}", failed.reason());
             }
         } catch (RuntimeException e) {
             logFailure(e);
+        }
+    }
+
+    /** One more deterministic rejection of this week's summary; the week is skipped at the limit. */
+    private void countRejection(LocalDate weekStart, String reason) {
+        if (!weekStart.equals(rejectedWeek)) {
+            rejectedWeek = weekStart;
+            rejections = 0;
+        }
+        rejections++;
+        if (rejections >= MAX_MESSAGE_REJECTIONS) {
+            givenUp = weekStart;
+            log.warn("Telegram: giving up on the weekly summary for the week of {}: rejected for good {} times ({}); "
+                + "skipped for this week, nothing recorded", weekStart, rejections, reason);
+        } else {
+            log.warn("Telegram: weekly summary for the week of {} rejected for good ({}/{}), will retry on the next poll: {}",
+                weekStart, rejections, MAX_MESSAGE_REJECTIONS, reason);
         }
     }
 
