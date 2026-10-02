@@ -8,11 +8,8 @@ with copy-pasteable commands, a verification step, and a rollback note.
 
 ## Checklist (recommended order)
 
-- [ ] **T1 — Branch rename** ([`branch-rename.md`](branch-rename.md)): merge
-  feature branches into `master`, rename to `main` on GitHub, update local
-  clones. Do this **first** — dependabot.yml and deploy.yml already target
-  `main`, so PRs/deploys against the old default branch may behave
-  unexpectedly until the rename lands.
+- [x] **T1 — Branch rename** ([`branch-rename.md`](branch-rename.md)): done;
+  `main` is the default branch and dependabot.yml / deploy.yml target it.
 - [ ] **T2 — Dependabot**: `.github/dependabot.yml` (Maven `/backend`, npm
   `/frontend` — Dependabot's npm ecosystem also reads `pnpm-lock.yaml` —
   GitHub Actions `/`), weekly, Europe/Madrid, grouped minor+patch updates,
@@ -20,8 +17,9 @@ with copy-pasteable commands, a verification step, and a rollback note.
   to the (renamed) default branch.
 - [x] **T3 — nginx** ([`nginx.md`](nginx.md)): rate limiting, security headers,
   CSP (built from an actual inspection of the frontend, not guessed), API
-  headers. Files in `infra/nginx/`. Applied 2026-09-29 (CSP still Report-Only,
-  HSTS max-age=300 until verified).
+  headers. Files in `infra/nginx/`. Applied 2026-09-29; CSP now enforced and HSTS
+  max-age 1 year. gzip and cache rules via
+  `infra/nginx/sevillasinluz-performance.conf` applied 2026-10-02.
 - [x] **T4 — VPS hardening** ([`vps-hardening.md`](vps-hardening.md)): ufw,
   SSH hardening, scoped sudo for CI, fail2ban, unattended-upgrades. Contains
   explicit lock-out warnings — read before running. ufw and SSH (keys only)
@@ -33,12 +31,37 @@ with copy-pasteable commands, a verification step, and a rollback note.
   correction script to run only if it finds any.
 - [ ] **T5 — PostgreSQL** ([`postgres.md`](postgres.md)): least-privilege
   role, automated daily backups + retention, restore drill. Files in
-  `infra/postgres/`.
-- [ ] **T6 — Monitoring** ([`monitoring.md`](monitoring.md)): external uptime
-  checks, SSL expiry alerts, `certbot renew --dry-run`.
-- [ ] **Telegram alerts** ([`telegram.md`](telegram.md)): set `TELEGRAM_BOT_TOKEN`
+  `infra/postgres/`. Backups not applied (disk space); manual off-box
+  `pg_dump` taken 2026-10-02 before V8.
+- [x] **T6 — Monitoring** ([`monitoring.md`](monitoring.md)): UptimeRobot on
+  `/api/health` plus the cert-expiry workflow.
+- [x] **Telegram alerts** ([`telegram.md`](telegram.md)): set `TELEGRAM_BOT_TOKEN`
   and `TELEGRAM_CHAT_ID` in a `600` systemd drop-in, verify the startup log line,
   disable, rotate the token via @BotFather. Off until both variables exist.
+
+## Deploy
+
+`.github/workflows/deploy.yml` runs on every push to `main`; deploys never
+overlap (`concurrency: deploy-production`).
+
+1. **Backend**: build and test, upload the JAR as `backend-new.jar`, keep the
+   running one as `backend-previous.jar`, swap, restart `sevillasinluz` and poll
+   `http://127.0.0.1:8081/api/health` for up to 180 s. Then the runner checks
+   `https://api.sevillasinluz.es/api/health`.
+2. **Frontend** (only if the backend job succeeded): unit tests, build, upload
+   to `/var/www/sevillasinluz-staging/`, copy hashed assets first and
+   `boot.js` / `index.html` last, remove staging, check the live `main-*.js`
+   returns 200. Old hashed chunks are kept on purpose.
+
+**Rollback**: if the backend is not healthy in time, the workflow restores
+`backend-previous.jar`, restarts, prints the last 80 journal lines and fails.
+A Flyway migration already applied by the failed version is **not** rolled back.
+
+Manual rollback on the VPS:
+
+```
+cp /opt/sevillasinluz/backend-previous.jar /opt/sevillasinluz/backend-0.0.1-SNAPSHOT.jar && systemctl restart sevillasinluz
+```
 
 ## Files added by this change
 
