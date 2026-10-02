@@ -15,7 +15,8 @@ Dedicated deploy user / no root key, fail2ban nginx-limit-req backend check.
 
 ## Tasks
 - [x] S1 Workflow + application.yaml + docs (route: delegated direct).
-- [ ] S2 Review, push, observe the first deploy end to end.
+- [x] S2 Review, push, observe the first deploy end to end.
 
 ## Progress / evidence
 - S1 (delegated direct, uncommitted): deploy.yml, application.yaml (server.address 127.0.0.1), docs/operations/README.md. Checks: yaml.safe_load ok; action-validator exit 0; ng test 155 passed; backend mvn test (excluding Postgres/Flyway ITs) exit 0.
+- S2: first real run 37001657493 2026-10-02: backend swapped, local health UP in seconds, public health OK, frontend tests ran in CI, staged publish OK. nginx proxy_pass switched to 127.0.0.1 by the owner before deploy (backup /root/sevillasinluz-proxy.conf.bak).
