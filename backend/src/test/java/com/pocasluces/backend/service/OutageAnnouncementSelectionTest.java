@@ -56,6 +56,13 @@ class OutageAnnouncementSelectionTest {
     private EnelApiService api;
     private NeighborhoodLocator neighborhoods;
     private DistrictLocator districts;
+    private MutableClock clock;
+    /**
+     * One scheduler for the whole scenario, as in production: the mass-resolution guard keeps
+     * its "deferred last poll" state in memory, so a poll that would resolve every active
+     * outage (here: the only one) is applied only when the next poll says the same.
+     */
+    private OutageDataScheduler scheduler;
 
     @BeforeEach
     void setUp() {
@@ -64,6 +71,9 @@ class OutageAnnouncementSelectionTest {
         districts = mock(DistrictLocator.class);
         when(neighborhoods.findNeighborhood(anyDouble(), anyDouble())).thenReturn("León");
         when(districts.findDistrict(anyDouble(), anyDouble(), any())).thenReturn("Triana");
+        clock = new MutableClock(T0);
+        scheduler = new OutageDataScheduler(api, repository, neighborhoods, districts, clock,
+            new FetchHealthTracker(clock), mock(OutageAnnouncer.class), mock(WeeklySummaryAnnouncer.class));
     }
 
     // ---- new outages ---------------------------------------------------------------------
@@ -167,33 +177,41 @@ class OutageAnnouncementSelectionTest {
     void restorationIsSelectedOnlyAfterTwoConsecutiveMissingPolls() {
         announcedOutage("A");
 
-        poll(at(2));
+        poll(at(2));                    // A is the only active outage: its resolution waits a poll
+        assertThat(find("A").isActive()).isTrue();
+        assertThat(find("A").getMissingPolls()).isZero();
+        assertThat(restoredCandidates()).isEmpty();
+
+        poll(at(3));                    // confirmed: resolved, missing once
         assertThat(find("A").isActive()).isFalse();
         assertThat(find("A").getMissingPolls()).isEqualTo(1);
         assertThat(restoredCandidates()).isEmpty();
 
-        poll(at(3));
+        poll(at(4));
         assertThat(find("A").getMissingPolls()).isEqualTo(2);
         assertThat(restoredCandidates()).extracting(EnelOutage::getObjectId).containsExactly("A");
-        assertThat(restoredCandidates().get(0).getResolvedAt()).as("last seen").isEqualTo(at(1));
+        assertThat(restoredCandidates().get(0).getResolvedAt()).as("last seen, not the deferred flip").isEqualTo(at(1));
     }
 
     @Test
     void singleMissingPollFollowedByReappearanceProducesNoRestoration() {
         Feature a = announcedOutage("A");
 
-        poll(at(2));                    // partial feed: A missing once
+        poll(at(2));                    // partial feed: A missing once (resolution deferred)
+        poll(at(3));                    // still missing: resolved now
+        assertThat(find("A").isActive()).isFalse();
         assertThat(restoredCandidates()).isEmpty();
 
-        poll(at(3), a);                 // recovery: A is back
+        poll(at(4), a);                 // recovery: A is back
         assertThat(find("A").isActive()).isTrue();
         assertThat(find("A").getResolvedAt()).isNull();
         assertThat(find("A").getMissingPolls()).isZero();
         assertThat(restoredCandidates()).isEmpty();
 
-        poll(at(4));                    // counting starts again from zero
+        poll(at(5));                    // counting starts again from zero (and the guard too)
+        poll(at(6));
         assertThat(restoredCandidates()).isEmpty();
-        poll(at(5));
+        poll(at(7));
         assertThat(restoredCandidates()).extracting(EnelOutage::getObjectId).containsExactly("A");
     }
 
@@ -207,11 +225,30 @@ class OutageAnnouncementSelectionTest {
         assertThat(newCandidates(at(1))).hasSize(3);
         markAnnounced(List.of("A", "B", "C"), at(1));
 
-        poll(at(2));                    // feed answered with zero outages
-        assertThat(repository.findAll()).allSatisfy(o -> assertThat(o.isActive()).isFalse());
+        poll(at(2));                    // feed answered with zero outages: deferred, nothing changes
+        assertThat(repository.findAll()).allSatisfy(o -> {
+            assertThat(o.isActive()).isTrue();
+            assertThat(o.getMissingPolls()).isZero();
+        });
         assertThat(restoredCandidates()).isEmpty();
 
-        poll(at(3), a, b, c);           // everything is back
+        poll(at(3), a, b, c);           // everything is back: no message, no trace
+        assertThat(restoredCandidates()).isEmpty();
+        assertThat(repository.findAll()).allSatisfy(o -> {
+            assertThat(o.isActive()).isTrue();
+            assertThat(o.getMissingPolls()).isZero();
+        });
+
+        poll(at(4));                    // two empty polls in a row: now it is applied
+        poll(at(5));
+        assertThat(repository.findAll()).allSatisfy(o -> {
+            assertThat(o.isActive()).isFalse();
+            assertThat(o.getResolvedAt()).isEqualTo(at(3));
+            assertThat(o.getMissingPolls()).isEqualTo(1);
+        });
+        assertThat(restoredCandidates()).isEmpty();
+
+        poll(at(6), a, b, c);           // back again before the second missing poll
         assertThat(restoredCandidates()).isEmpty();
         assertThat(repository.findAll()).allSatisfy(o -> {
             assertThat(o.isActive()).isTrue();
@@ -223,13 +260,14 @@ class OutageAnnouncementSelectionTest {
     void failedPollNeitherCountsAsMissingNorResetsTheCounter() {
         announcedOutage("A");
         poll(at(2));
+        poll(at(3));
         assertThat(find("A").getMissingPolls()).isEqualTo(1);
 
-        failedPoll(at(3));
+        failedPoll(at(4));
         assertThat(find("A").getMissingPolls()).isEqualTo(1);
         assertThat(restoredCandidates()).isEmpty();
 
-        poll(at(4));
+        poll(at(5));
         assertThat(restoredCandidates()).extracting(EnelOutage::getObjectId).containsExactly("A");
     }
 
@@ -249,18 +287,21 @@ class OutageAnnouncementSelectionTest {
     @Test
     void restorationIsAnnouncedAtMostOnceEvenIfTheOutageFlapsAfterwards() {
         Feature a = announcedOutage("A");
-        poll(at(2));
-        poll(at(3));
+        poll(at(2));                    // deferred (only active outage)
+        poll(at(3));                    // resolved, missing once
+        poll(at(4));                    // missing twice
         assertThat(restoredCandidates()).hasSize(1);
         Long id = find("A").getId();
-        repository.markRestorationAnnounced(List.of(id), at(3));
+        repository.markRestorationAnnounced(List.of(id), at(4));
         flushAndClear();
         assertThat(restoredCandidates()).isEmpty();
 
-        poll(at(4), a);                 // reappears
-        assertThat(newCandidates(at(4))).as("already announced as new").isEmpty();
-        poll(at(5));
+        poll(at(5), a);                 // reappears
+        assertThat(newCandidates(at(5))).as("already announced as new").isEmpty();
         poll(at(6));
+        poll(at(7));
+        poll(at(8));
+        assertThat(find("A").isActive()).isFalse();
         assertThat(restoredCandidates()).as("already announced as restored").isEmpty();
     }
 
@@ -305,20 +346,29 @@ class OutageAnnouncementSelectionTest {
         List<EnelApiFeatureWithEvidence> feed = java.util.Arrays.stream(published).map(Feature::evidence).toList();
         // doReturn/doThrow: when(api.fetch...()) would invoke the stub, which may currently throw.
         doReturn(feed).when(api).fetchSevillaOutages();
-        scheduler(madridNow).fetchAndSaveOutages();
+        clock.now = madridNow;
+        scheduler.fetchAndSaveOutages();
         flushAndClear();
     }
 
     private void failedPoll(LocalDateTime madridNow) {
         doThrow(new EnelApiService.EnelApiException("feed down")).when(api).fetchSevillaOutages();
-        scheduler(madridNow).fetchAndSaveOutages();
+        clock.now = madridNow;
+        scheduler.fetchAndSaveOutages();
         flushAndClear();
     }
 
-    private OutageDataScheduler scheduler(LocalDateTime madridNow) {
-        Clock clock = Clock.fixed(madridNow.atZone(MADRID).toInstant(), MADRID);
-        return new OutageDataScheduler(api, repository, neighborhoods, districts, clock,
-            new FetchHealthTracker(clock), mock(OutageAnnouncer.class), mock(WeeklySummaryAnnouncer.class));
+    /** Europe/Madrid clock whose wall-clock "now" each poll sets. */
+    private static final class MutableClock extends Clock {
+        LocalDateTime now;
+
+        MutableClock(LocalDateTime now) {
+            this.now = now;
+        }
+
+        @Override public ZoneId getZone() { return MADRID; }
+        @Override public Clock withZone(ZoneId zone) { return this; }
+        @Override public java.time.Instant instant() { return now.atZone(MADRID).toInstant(); }
     }
 
     private List<EnelOutage> newCandidates(LocalDateTime now) {

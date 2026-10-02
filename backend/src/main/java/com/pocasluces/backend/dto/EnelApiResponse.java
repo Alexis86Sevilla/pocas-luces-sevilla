@@ -11,6 +11,17 @@ import java.util.List;
 public class EnelApiResponse {
     private List<Feature> features;
 
+    /**
+     * ArcGIS sets this to {@code true} when the page was cut by the server's record limit and
+     * more features exist beyond it. Absent (null) or false otherwise.
+     */
+    @JsonProperty("exceededTransferLimit")
+    private Boolean exceededTransferLimit;
+
+    public boolean hasExceededTransferLimit() {
+        return Boolean.TRUE.equals(exceededTransferLimit);
+    }
+
     @Data
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class Feature {

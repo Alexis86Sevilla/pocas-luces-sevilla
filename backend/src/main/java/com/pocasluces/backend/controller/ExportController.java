@@ -12,10 +12,12 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -39,6 +41,19 @@ public class ExportController {
             HttpServletResponse response) throws IOException {
 
         apiKeyAuth.requireValidKey(request);
+
+        // Validate everything before touching the response: once the CSV header is written the
+        // status is committed and a validation error could no longer become a clean 400.
+        if (month != null && year == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "month requires year");
+        }
+        if (year != null) {
+            RequestValidation.requireYear(year);
+        }
+        if (month != null) {
+            RequestValidation.requireMonth(month);
+        }
+
         response.setContentType("text/csv; charset=UTF-8");
         response.setHeader("Content-Disposition", "attachment; filename=\"cortes_endesa.csv\"");
         response.setCharacterEncoding(StandardCharsets.UTF_8.name());
@@ -47,7 +62,6 @@ public class ExportController {
             writer.println(OutageExportDto.header());
 
             if (year != null && month != null) {
-                RequestValidation.requireMonth(month);
                 streamPageable(year, month, writer);
             } else if (year != null) {
                 streamPageable(year, writer);

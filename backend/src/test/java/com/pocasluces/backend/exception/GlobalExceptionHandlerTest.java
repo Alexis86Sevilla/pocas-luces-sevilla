@@ -2,9 +2,13 @@ package com.pocasluces.backend.exception;
 
 import com.pocasluces.backend.service.EnelApiService;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -46,6 +50,42 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().message()).isEqualTo("year must be between 2000 and 2100");
+    }
+
+    @Test
+    void handleNotFoundShouldAnswer404WithTheCommonErrorShape() {
+        NoResourceFoundException e = new NoResourceFoundException(HttpMethod.GET, "api/nope");
+
+        ResponseEntity<GlobalExceptionHandler.ErrorResponse> response = handler.handleNotFound(e);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().status()).isEqualTo(404);
+        assertThat(response.getBody().error()).isEqualTo("Not found");
+        assertThat(response.getBody().message()).isEqualTo("No resource at this path");
+        assertThat(response.getBody().timestamp()).isNotNull();
+    }
+
+    @Test
+    void handleRequestBindingShouldAnswer400ForAMissingParameter() {
+        MissingServletRequestParameterException e = new MissingServletRequestParameterException("year", "int");
+
+        ResponseEntity<GlobalExceptionHandler.ErrorResponse> response = handler.handleRequestBinding(e);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().message()).contains("year");
+    }
+
+    @Test
+    void handleMethodNotSupportedShouldAnswer405() {
+        HttpRequestMethodNotSupportedException e = new HttpRequestMethodNotSupportedException("GET");
+
+        ResponseEntity<GlobalExceptionHandler.ErrorResponse> response = handler.handleMethodNotSupported(e);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.METHOD_NOT_ALLOWED);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().status()).isEqualTo(405);
     }
 
     @Test

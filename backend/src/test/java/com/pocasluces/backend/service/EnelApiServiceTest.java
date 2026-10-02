@@ -73,15 +73,59 @@ class EnelApiServiceTest {
     }
 
     @Test
-    void shouldReturnEmptyListWhenFeaturesFieldIsMissing() {
+    void shouldFailWhenFeaturesFieldIsMissingInsteadOfReportingAnOutageFreeCity() {
+        // A reshaped response without "features" is not "zero outages": returning an empty
+        // list here would make the scheduler resolve every active outage.
         String json = "{\"objectIdFieldName\": \"objectid1\"}";
 
-        server.expect(MockRestRequestMatchers.requestTo(Matchers.startsWith(EnelApiService.ENEL_API_URL)))
+        server.expect(ExpectedCount.once(), MockRestRequestMatchers.requestTo(Matchers.startsWith(EnelApiService.ENEL_API_URL)))
             .andRespond(MockRestResponseCreators.withSuccess(json, MediaType.APPLICATION_JSON));
+
+        EnelApiService.EnelApiException ex = assertThrows(EnelApiService.EnelApiException.class,
+            () -> service.fetchSevillaOutages());
+
+        assertThat(ex.getMessage()).contains("no 'features' array");
+        server.verify();
+    }
+
+    @Test
+    void shouldKeepPagingWhileTheFeedFlagsExceededTransferLimitEvenOnShortPages() {
+        // Server-side record limit below our page size: 1 feature per page, flagged as cut.
+        String firstPage = """
+            {"exceededTransferLimit": true, "features": [{"attributes": {"objectid1": 1, "interruption_date": "10/07/2026 08:30"}}]}
+            """;
+        String secondPage = """
+            {"exceededTransferLimit": false, "features": [{"attributes": {"objectid1": 2, "interruption_date": "10/07/2026 08:40"}}]}
+            """;
+
+        server.expect(ExpectedCount.once(), MockRestRequestMatchers.requestTo(Matchers.containsString("resultOffset=0")))
+            .andRespond(MockRestResponseCreators.withSuccess(firstPage, MediaType.APPLICATION_JSON));
+        server.expect(ExpectedCount.once(), MockRestRequestMatchers.requestTo(Matchers.containsString("resultOffset=1")))
+            .andRespond(MockRestResponseCreators.withSuccess(secondPage, MediaType.APPLICATION_JSON));
 
         List<EnelApiFeatureWithEvidence> result = service.fetchSevillaOutages();
 
-        assertThat(result).isEmpty();
+        assertThat(result).extracting(f -> f.feature().getAttributes().getObjectId()).containsExactly("1", "2");
+        server.verify();
+    }
+
+    @Test
+    void shouldFailWhenTheLastPageStillReportsMoreRecordsThanFetched() {
+        String firstPage = """
+            {"exceededTransferLimit": true, "features": [{"attributes": {"objectid1": 1, "interruption_date": "10/07/2026 08:30"}}]}
+            """;
+        String emptyButCut = "{\"exceededTransferLimit\": true, \"features\": []}";
+
+        server.expect(ExpectedCount.once(), MockRestRequestMatchers.requestTo(Matchers.containsString("resultOffset=0")))
+            .andRespond(MockRestResponseCreators.withSuccess(firstPage, MediaType.APPLICATION_JSON));
+        server.expect(ExpectedCount.once(), MockRestRequestMatchers.requestTo(Matchers.containsString("resultOffset=1")))
+            .andRespond(MockRestResponseCreators.withSuccess(emptyButCut, MediaType.APPLICATION_JSON));
+
+        EnelApiService.EnelApiException ex = assertThrows(EnelApiService.EnelApiException.class,
+            () -> service.fetchSevillaOutages());
+
+        assertThat(ex.getMessage()).contains("exceededTransferLimit");
+        server.verify();
     }
 
     @Test

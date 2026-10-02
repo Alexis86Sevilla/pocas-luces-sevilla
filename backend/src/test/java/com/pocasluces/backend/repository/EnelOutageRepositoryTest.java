@@ -368,6 +368,98 @@ class EnelOutageRepositoryTest {
         repository.setActiveByObjectIds(List.of(), true);
     }
 
+    @Test
+    void correctInterruptionDateThenUpsertKeepsTheSameRowUnderTheCorrectedKey() {
+        LocalDateTime poll1 = LocalDateTime.of(2026, 9, 30, 23, 5, 9);
+        LocalDateTime poll2 = LocalDateTime.of(2026, 9, 30, 23, 10, 9);
+        LocalDateTime startA = LocalDateTime.of(2026, 9, 30, 23, 0);
+        LocalDateTime startB = LocalDateTime.of(2026, 9, 30, 22, 50);
+
+        EnelOutage a = outage("A", startA);
+        a.setLatitude(37.3521);
+        a.setLongitude(-5.9712);
+        a.setServiceType("BT");
+        a.setFirstSeenAt(poll1);
+        a.setFetchedAt(poll1);
+        repository.upsert(a);
+        em.flush();
+        em.clear();
+        Long id = repository.findByObjectId("A").orElseThrow().getId();
+        repository.markAnnounced(List.of(id), poll1);
+        em.flush();
+        em.clear();
+
+        assertThat(repository.correctInterruptionDate(id, startB, poll2)).isEqualTo(1);
+        EnelOutage b = outage("B", startB);
+        b.setLatitude(37.3521);
+        b.setLongitude(-5.9712);
+        b.setServiceType("BT");
+        b.setFirstSeenAt(poll2);
+        b.setFetchedAt(poll2);
+        b.setAffectedClients(9);
+        repository.upsert(b);
+        em.flush();
+        em.clear();
+
+        assertThat(repository.findAll()).hasSize(1);
+        EnelOutage row = repository.findById(id).orElseThrow();
+        assertThat(row.getInterruptionDate()).isEqualTo(startB);
+        assertThat(row.getOriginalInterruptionDate()).isEqualTo(startA);
+        assertThat(row.getStartCorrectedAt()).isEqualTo(poll2);
+        assertThat(row.getFirstSeenAt()).isEqualTo(poll1);
+        assertThat(row.getFetchedAt()).isEqualTo(poll2);
+        assertThat(row.getObjectId()).isEqualTo("B");
+        assertThat(row.getAffectedClients()).isEqualTo(9);
+        assertThat(row.getAnnouncedAt()).isEqualTo(poll1);
+        assertThat(row.isActive()).isTrue();
+        assertThat(repository.resolveStaleActiveOutages(poll2)).isZero();
+
+        // A second correction keeps the first original start.
+        LocalDateTime startC = LocalDateTime.of(2026, 9, 30, 22, 45);
+        repository.correctInterruptionDate(id, startC, poll2.plusMinutes(5));
+        em.clear();
+        assertThat(repository.findById(id).orElseThrow().getOriginalInterruptionDate()).isEqualTo(startA);
+    }
+
+    @Test
+    void findAllActiveReturnsDetachedSnapshotsOfActiveRowsOnly() {
+        EnelOutage active = outage("1", LocalDateTime.of(2026, 7, 10, 8, 30));
+        active.setLatitude(1.0);
+        EnelOutage inactive = outage("2", LocalDateTime.of(2026, 7, 10, 9, 30));
+        inactive.setLatitude(2.0);
+        inactive.setActive(false);
+        em.persist(active);
+        em.persist(inactive);
+        em.flush();
+
+        List<EnelOutage> result = repository.findAllActive();
+
+        assertThat(result).extracting(EnelOutage::getObjectId).containsExactly("1");
+        assertThat(em.getEntityManager().contains(result.get(0))).isFalse();
+    }
+
+    @Test
+    void countActiveNotFetchedAtMatchesWhatTheResolveStepWouldTouch() {
+        LocalDateTime now = LocalDateTime.of(2026, 7, 10, 8, 0);
+        EnelOutage stale = outage("stale", LocalDateTime.of(2026, 7, 10, 6, 0));
+        stale.setLatitude(1.0);
+        stale.setFetchedAt(now.minusMinutes(5));
+        EnelOutage fresh = outage("fresh", LocalDateTime.of(2026, 7, 10, 7, 0));
+        fresh.setLatitude(2.0);
+        fresh.setFetchedAt(now);
+        EnelOutage inactive = outage("inactive", LocalDateTime.of(2026, 7, 10, 5, 0));
+        inactive.setLatitude(3.0);
+        inactive.setFetchedAt(now.minusMinutes(5));
+        inactive.setActive(false);
+        em.persist(stale);
+        em.persist(fresh);
+        em.persist(inactive);
+
+        assertThat(repository.countByActiveTrue()).isEqualTo(2);
+        assertThat(repository.countActiveNotFetchedAt(now)).isEqualTo(1);
+        assertThat(repository.resolveStaleActiveOutages(now)).isEqualTo(1);
+    }
+
     private EnelOutage outage(String objectId, LocalDateTime interruptionDate) {
         LocalDateTime now = LocalDateTime.now();
         return EnelOutage.builder()

@@ -73,7 +73,7 @@ class HealthControllerTest {
 
     @Test
     void shouldReportUpWhenFetchIsRecent() throws Exception {
-        tracker.recordSuccess();
+        tracker.recordSuccess(12);
         clock.advance(Duration.ofMinutes(20));
 
         mvc.perform(get("/api/health"))
@@ -81,12 +81,30 @@ class HealthControllerTest {
             .andExpect(jsonPath("$.status").value("UP"))
             .andExpect(jsonPath("$.lastSuccessfulFetch").value("2026-07-10T12:00:00Z"))
             .andExpect(jsonPath("$.ageSeconds").value(1200))
-            .andExpect(jsonPath("$.length()").value(3));
+            .andExpect(jsonPath("$.lastFeatureCount").value(12))
+            .andExpect(jsonPath("$.consecutiveEmptyPolls").value(0))
+            .andExpect(jsonPath("$.length()").value(5));
+    }
+
+    @Test
+    void shouldExposeFeedShapeCountersBeforeAndAfterEmptyPolls() throws Exception {
+        mvc.perform(get("/api/health"))
+            .andExpect(jsonPath("$.lastFeatureCount").value(org.hamcrest.Matchers.nullValue()))
+            .andExpect(jsonPath("$.consecutiveEmptyPolls").value(0));
+
+        tracker.recordSuccess(0);
+        tracker.recordSuccess(0);
+
+        mvc.perform(get("/api/health"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("UP"))
+            .andExpect(jsonPath("$.lastFeatureCount").value(0))
+            .andExpect(jsonPath("$.consecutiveEmptyPolls").value(2));
     }
 
     @Test
     void shouldReportStaleWhenFetchIsTooOld() throws Exception {
-        tracker.recordSuccess();
+        tracker.recordSuccess(3);
         clock.advance(Duration.ofMinutes(20).plusSeconds(1));
 
         mvc.perform(get("/api/health"))

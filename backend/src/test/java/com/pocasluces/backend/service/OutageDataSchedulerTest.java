@@ -21,6 +21,8 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -317,5 +319,252 @@ class OutageDataSchedulerTest {
         scheduler.fetchAndSaveOutages();
 
         assertThat(tracker.getLastSuccessfulFetch()).contains(Instant.parse("2026-07-10T12:00:00Z"));
+        assertThat(tracker.getLastFeatureCount()).contains(0);
+        assertThat(tracker.getConsecutiveEmptyPolls()).isEqualTo(1);
+    }
+
+    @Test
+    void shouldRecordTheFeatureCountOfASuccessfulFetch() {
+        EnelApiResponse.Feature feature = feature("123", "10/07/2026 08:30", 37.3970, -5.9800, "AT");
+        when(enelApiService.fetchSevillaOutages())
+            .thenReturn(List.of(new EnelApiFeatureWithEvidence(feature, "http://source", "{}")));
+
+        scheduler.fetchAndSaveOutages();
+
+        assertThat(tracker.getLastFeatureCount()).contains(1);
+        assertThat(tracker.getConsecutiveEmptyPolls()).isZero();
+    }
+
+    // ---- Feed guard: skipped-feature ratio -------------------------------------------------
+
+    @Test
+    void shouldNotApplyAPollWhenMoreThanTwentyPercentOfItsFeaturesCannotBeParsed() {
+        when(enelApiService.fetchSevillaOutages()).thenReturn(List.of(
+            evidence(feature("1", "10/07/2026 08:30", 37.0, -5.0, "AT")),
+            evidence(feature("2", "10/07/2026 08:31", 37.0, -5.0, "AT")),
+            evidence(feature("3", "10/07/2026 08:32", 37.0, -5.0, "AT")),
+            evidence(feature("4", "not-a-date", 37.0, -5.0, "AT")),
+            evidence(feature(null, "10/07/2026 08:34", 37.0, -5.0, "AT"))));
+
+        scheduler.fetchAndSaveOutages();
+
+        // 2 of 5 skipped (40%): nothing written, nothing resolved, not a successful poll.
+        verify(repository, never()).upsert(any());
+        verify(repository, never()).resolveStaleActiveOutages(any());
+        verify(repository, never()).incrementMissingPollsOfAnnouncedInactiveOutages();
+        verify(announcer, never()).announceAfterCommit();
+        assertThat(tracker.getLastSuccessfulFetch()).isEmpty();
+    }
+
+    @Test
+    void shouldApplyAPollWhoseSkippedShareIsWithinTheLimit() {
+        List<EnelApiFeatureWithEvidence> features = new java.util.ArrayList<>();
+        for (int i = 1; i <= 9; i++) {
+            features.add(evidence(feature(String.valueOf(i), "10/07/2026 08:30", 37.0 + i, -5.0, "AT")));
+        }
+        features.add(evidence(feature("10", "not-a-date", 37.0, -5.0, "AT")));
+        when(enelApiService.fetchSevillaOutages()).thenReturn(features);
+
+        scheduler.fetchAndSaveOutages();
+
+        // 1 of 10 skipped (10%): the 9 good rows are saved and the poll counts as successful.
+        verify(repository, times(9)).upsert(any());
+        verify(repository).resolveStaleActiveOutages(LocalDateTime.now(clock));
+        assertThat(tracker.getLastSuccessfulFetch()).isPresent();
+    }
+
+    // ---- Feed guard: mass resolution needs two consecutive polls -----------------------------
+
+    @Test
+    void shouldDeferResolvingEveryActiveOutageUntilTheNextPollConfirmsIt() {
+        when(enelApiService.fetchSevillaOutages()).thenReturn(List.of());
+        when(repository.countByActiveTrue()).thenReturn(3L);
+        when(repository.countActiveNotFetchedAt(LocalDateTime.now(clock))).thenReturn(3L);
+
+        scheduler.fetchAndSaveOutages();
+        verify(repository, never()).resolveStaleActiveOutages(any());
+        // The poll itself succeeded: the feed was read, only the resolution waits.
+        assertThat(tracker.getLastSuccessfulFetch()).isPresent();
+
+        scheduler.fetchAndSaveOutages();
+        verify(repository, times(1)).resolveStaleActiveOutages(LocalDateTime.now(clock));
+    }
+
+    @Test
+    void shouldDeferWhenMoreThanHalfOfAtLeastFourActiveOutagesWouldResolve() {
+        when(enelApiService.fetchSevillaOutages()).thenReturn(List.of());
+        when(repository.countByActiveTrue()).thenReturn(4L);
+        when(repository.countActiveNotFetchedAt(LocalDateTime.now(clock))).thenReturn(3L);
+
+        scheduler.fetchAndSaveOutages();
+
+        verify(repository, never()).resolveStaleActiveOutages(any());
+    }
+
+    @Test
+    void shouldResolveImmediatelyWhenHalfOrFewerWouldResolve() {
+        when(enelApiService.fetchSevillaOutages()).thenReturn(List.of());
+        when(repository.countByActiveTrue()).thenReturn(10L);
+        when(repository.countActiveNotFetchedAt(LocalDateTime.now(clock))).thenReturn(5L);
+
+        scheduler.fetchAndSaveOutages();
+
+        verify(repository).resolveStaleActiveOutages(LocalDateTime.now(clock));
+    }
+
+    @Test
+    void shouldResolveImmediatelyWhenSomeButNotAllOfFewerThanFourActiveOutagesVanish() {
+        when(enelApiService.fetchSevillaOutages()).thenReturn(List.of());
+        when(repository.countByActiveTrue()).thenReturn(3L);
+        when(repository.countActiveNotFetchedAt(LocalDateTime.now(clock))).thenReturn(2L);
+
+        scheduler.fetchAndSaveOutages();
+
+        verify(repository).resolveStaleActiveOutages(LocalDateTime.now(clock));
+    }
+
+    @Test
+    void shouldRequireTwoConsecutiveSuccessfulPollsForAMassResolution() {
+        when(repository.countByActiveTrue()).thenReturn(3L);
+        when(repository.countActiveNotFetchedAt(LocalDateTime.now(clock))).thenReturn(3L);
+
+        when(enelApiService.fetchSevillaOutages()).thenReturn(List.of());
+        scheduler.fetchAndSaveOutages();                       // deferred
+        when(enelApiService.fetchSevillaOutages()).thenThrow(new EnelApiService.EnelApiException("down"));
+        scheduler.fetchAndSaveOutages();                       // failed poll breaks the sequence
+        doReturn(List.of()).when(enelApiService).fetchSevillaOutages();
+        scheduler.fetchAndSaveOutages();                       // deferred again
+
+        verify(repository, never()).resolveStaleActiveOutages(any());
+    }
+
+    @Test
+    void shouldForgetADeferredMassResolutionOnceANormalPollHappens() {
+        when(enelApiService.fetchSevillaOutages()).thenReturn(List.of());
+        when(repository.countByActiveTrue()).thenReturn(3L);
+        when(repository.countActiveNotFetchedAt(LocalDateTime.now(clock))).thenReturn(3L, 0L, 3L);
+
+        scheduler.fetchAndSaveOutages();                       // deferred
+        scheduler.fetchAndSaveOutages();                       // nothing to resolve: resets
+        scheduler.fetchAndSaveOutages();                       // deferred again, not applied
+
+        verify(repository, times(1)).resolveStaleActiveOutages(LocalDateTime.now(clock)); // the middle, harmless run
+    }
+
+    // ---- Start-time corrections ----------------------------------------------------------------
+
+    @Test
+    void shouldMergeAStartTimeCorrectionIntoTheExistingRowInsteadOfInsertingASecondOne() {
+        // Polígono Sur, 2026-09-30: A (start 23:00, 9 clients) was published once, at 23:05:09.
+        // The 23:10:09 poll no longer carries A but publishes B: same point and type, 9 clients,
+        // start corrected to 22:50. One physical outage, one row.
+        LocalDateTime previousPoll = LocalDateTime.of(2026, 9, 30, 23, 5, 9);
+        LocalDateTime thisPoll = LocalDateTime.of(2026, 9, 30, 23, 10, 9);
+        OutageDataScheduler scheduler = schedulerAt(thisPoll);
+        EnelOutage existing = activeRow(41L, 37.3521, -5.9712, "BT", LocalDateTime.of(2026, 9, 30, 23, 0), previousPoll);
+        when(repository.findAllActive()).thenReturn(List.of(existing));
+        EnelApiResponse.Feature corrected = feature("B", "30/09/2026 22:50", 37.3521, -5.9712, "BT");
+        corrected.getAttributes().setAffectedClient(9);
+        when(enelApiService.fetchSevillaOutages()).thenReturn(List.of(evidence(corrected)));
+        when(repository.correctInterruptionDate(41L, LocalDateTime.of(2026, 9, 30, 22, 50), thisPoll)).thenReturn(1);
+
+        scheduler.fetchAndSaveOutages();
+
+        InOrder inOrder = inOrder(repository);
+        inOrder.verify(repository).correctInterruptionDate(41L, LocalDateTime.of(2026, 9, 30, 22, 50), thisPoll);
+        inOrder.verify(repository).upsert(argThat(o -> o.getInterruptionDate().equals(LocalDateTime.of(2026, 9, 30, 22, 50))
+            && o.getAffectedClients() == 9 && o.getLatitude() == 37.3521 && o.getServiceType().equals("BT")));
+        inOrder.verify(repository).resolveStaleActiveOutages(thisPoll);
+        verify(repository, times(1)).upsert(any());
+    }
+
+    @Test
+    void shouldNotCorrectWhenTheNewStartIsAfterTheVanishedRowWasLastSeen() {
+        LocalDateTime previousPoll = LocalDateTime.of(2026, 9, 30, 23, 5, 9);
+        OutageDataScheduler scheduler = schedulerAt(LocalDateTime.of(2026, 9, 30, 23, 10, 9));
+        when(repository.findAllActive()).thenReturn(List.of(
+            activeRow(41L, 37.3521, -5.9712, "BT", LocalDateTime.of(2026, 9, 30, 23, 0), previousPoll)));
+        when(enelApiService.fetchSevillaOutages())
+            .thenReturn(List.of(evidence(feature("B", "30/09/2026 23:07", 37.3521, -5.9712, "BT"))));
+
+        scheduler.fetchAndSaveOutages();
+
+        // Started after A's last sighting: a genuine new outage at the same point.
+        verify(repository, never()).correctInterruptionDate(anyLong(), any(), any());
+        verify(repository).upsert(any());
+    }
+
+    @Test
+    void shouldNotCorrectWhenTheMatchIsAmbiguous() {
+        LocalDateTime previousPoll = LocalDateTime.of(2026, 9, 30, 23, 5, 9);
+        OutageDataScheduler scheduler = schedulerAt(LocalDateTime.of(2026, 9, 30, 23, 10, 9));
+        when(repository.findAllActive()).thenReturn(List.of(
+            activeRow(41L, 37.3521, -5.9712, "BT", LocalDateTime.of(2026, 9, 30, 23, 0), previousPoll),
+            activeRow(42L, 37.3521, -5.9712, "BT", LocalDateTime.of(2026, 9, 30, 23, 1), previousPoll)));
+        when(enelApiService.fetchSevillaOutages())
+            .thenReturn(List.of(evidence(feature("B", "30/09/2026 22:50", 37.3521, -5.9712, "BT"))));
+
+        scheduler.fetchAndSaveOutages();
+
+        // Two rows vanished and one appeared: which one was corrected? Unknown, so neither.
+        verify(repository, never()).correctInterruptionDate(anyLong(), any(), any());
+        verify(repository).upsert(any());
+    }
+
+    @Test
+    void shouldNotCorrectWhenAnotherRowAlreadyOwnsTheCorrectedKey() {
+        LocalDateTime previousPoll = LocalDateTime.of(2026, 9, 30, 23, 5, 9);
+        OutageDataScheduler scheduler = schedulerAt(LocalDateTime.of(2026, 9, 30, 23, 10, 9));
+        when(repository.findAllActive()).thenReturn(List.of(
+            activeRow(41L, 37.3521, -5.9712, "BT", LocalDateTime.of(2026, 9, 30, 23, 0), previousPoll)));
+        when(enelApiService.fetchSevillaOutages())
+            .thenReturn(List.of(evidence(feature("B", "30/09/2026 22:50", 37.3521, -5.9712, "BT"))));
+        when(repository.findByLatitudeAndLongitudeAndInterruptionDateAndServiceType(
+            37.3521, -5.9712, LocalDateTime.of(2026, 9, 30, 22, 50), "BT"))
+            .thenReturn(Optional.of(EnelOutage.builder().id(7L).build()));
+
+        scheduler.fetchAndSaveOutages();
+
+        // An older, resolved row has that key: the upsert re-opens it; moving row 41 onto the
+        // same key would violate the unique constraint.
+        verify(repository, never()).correctInterruptionDate(anyLong(), any(), any());
+        verify(repository).upsert(any());
+    }
+
+    @Test
+    void shouldNotCorrectWhenTheExistingRowIsStillPublished() {
+        LocalDateTime previousPoll = LocalDateTime.of(2026, 9, 30, 23, 5, 9);
+        OutageDataScheduler scheduler = schedulerAt(LocalDateTime.of(2026, 9, 30, 23, 10, 9));
+        when(repository.findAllActive()).thenReturn(List.of(
+            activeRow(41L, 37.3521, -5.9712, "BT", LocalDateTime.of(2026, 9, 30, 23, 0), previousPoll)));
+        when(enelApiService.fetchSevillaOutages()).thenReturn(List.of(
+            evidence(feature("A", "30/09/2026 23:00", 37.3521, -5.9712, "BT")),
+            evidence(feature("B", "30/09/2026 22:50", 37.3521, -5.9712, "BT"))));
+
+        scheduler.fetchAndSaveOutages();
+
+        // Both are in the feed: two outages at one point, nothing vanished.
+        verify(repository, never()).correctInterruptionDate(anyLong(), any(), any());
+        verify(repository, times(2)).upsert(any());
+    }
+
+    private OutageDataScheduler schedulerAt(LocalDateTime madridNow) {
+        ZoneId madrid = ZoneId.of("Europe/Madrid");
+        Clock at = Clock.fixed(madridNow.atZone(madrid).toInstant(), madrid);
+        return new OutageDataScheduler(enelApiService, repository, locator, districtLocator, at,
+            new FetchHealthTracker(at), announcer, weeklySummaryAnnouncer);
+    }
+
+    private static EnelOutage activeRow(long id, double lat, double lon, String serviceType,
+                                        LocalDateTime start, LocalDateTime lastSeen) {
+        return EnelOutage.builder()
+            .id(id).latitude(lat).longitude(lon).serviceType(serviceType).interruptionDate(start)
+            .firstSeenAt(lastSeen).fetchedAt(lastSeen).createdAt(lastSeen).updatedAt(lastSeen)
+            .neighborhoodName("Polígono Sur").affectedClients(9).active(true)
+            .build();
+    }
+
+    private static EnelApiFeatureWithEvidence evidence(EnelApiResponse.Feature feature) {
+        return new EnelApiFeatureWithEvidence(feature, "http://source", "{}");
     }
 }

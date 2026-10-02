@@ -129,6 +129,21 @@ public class EnelOutage {
     private int missingPolls = 0;
 
     /**
+     * Start time Endesa published the first time this outage was seen, kept only when a
+     * later poll republished the same outage with a corrected start (see
+     * {@code OutageDataScheduler}, start-time corrections). NULL for the vast majority of
+     * rows, whose {@code interruptionDate} was never corrected. Set once and never
+     * overwritten, so the original value stays auditable through later corrections.
+     * Backfilled by {@code V8__merge_start_corrected_duplicates.sql} for merged rows.
+     */
+    @Column(name = "original_interruption_date")
+    private LocalDateTime originalInterruptionDate;
+
+    /** Poll (Europe/Madrid wall-clock) of the latest start-time correction; NULL if none. */
+    @Column(name = "start_corrected_at")
+    private LocalDateTime startCorrectedAt;
+
+    /**
      * True for an outage that was published in exactly one poll and was already gone in the
      * next one: resolved, and its last sighting is also its first. An active outage seen
      * once is never brief, since it may still be ongoing. Derived, not stored.

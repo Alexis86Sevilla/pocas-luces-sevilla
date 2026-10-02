@@ -16,7 +16,8 @@ import java.time.Instant;
 /**
  * Public health endpoint for external uptime monitors. Reports whether the backend is still
  * refreshing Endesa data, not just whether the process is alive. Exposes nothing beyond the
- * status and the last successful fetch time.
+ * status, the last successful fetch time and two feed-shape counters (features in the last
+ * successful poll, consecutive empty polls) that let a monitor spot a feed that went quiet.
  */
 @RestController
 @RequestMapping("/api/health")
@@ -24,7 +25,11 @@ public class HealthController {
 
     public enum Status { UP, STALE, STARTING }
 
-    public record HealthResponse(Status status, Instant lastSuccessfulFetch, Long ageSeconds) {}
+    public record HealthResponse(Status status,
+                                 Instant lastSuccessfulFetch,
+                                 Long ageSeconds,
+                                 Integer lastFeatureCount,
+                                 int consecutiveEmptyPolls) {}
 
     private final FetchHealthTracker tracker;
     private final Clock clock;
@@ -60,6 +65,7 @@ public class HealthController {
         HttpStatus http = status == Status.STALE ? HttpStatus.SERVICE_UNAVAILABLE : HttpStatus.OK;
         return ResponseEntity.status(http)
             .cacheControl(CacheControl.noStore())
-            .body(new HealthResponse(status, last, ageSeconds));
+            .body(new HealthResponse(status, last, ageSeconds,
+                tracker.getLastFeatureCount().orElse(null), tracker.getConsecutiveEmptyPolls()));
     }
 }

@@ -20,8 +20,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Proves that the V3 (outage identity), V4 (cause column), V5 (resolved_at column and
- * backfill), V6 (Telegram announcement state and go-live backfill) and V7 (weekly summary
- * table) Flyway migrations
+ * backfill), V6 (Telegram announcement state and go-live backfill), V7 (weekly summary
+ * table) and V8 (start-correction columns and audit table) Flyway migrations
  * apply cleanly to a database that already has data in the pre-migration (V2) shape — the
  * exact situation production is in, given {@code baseline-on-migrate: true}.
  *
@@ -110,8 +110,8 @@ class OutageIdentityFlywayMigrationTest {
 
         MigrateResult result = flyway.migrate();
 
-        assertThat(result.migrationsExecuted).isEqualTo(5); // V3 to V7, none skipped
-        assertThat(result.targetSchemaVersion).isEqualTo("7");
+        assertThat(result.migrationsExecuted).isEqualTo(6); // V3 to V8, none skipped
+        assertThat(result.targetSchemaVersion).isEqualTo("8");
 
         try (Connection connection = connect()) {
             connection.setAutoCommit(true);
@@ -169,6 +169,16 @@ class OutageIdentityFlywayMigrationTest {
             insertRow(connection, "Bellavista", 37.3500, -5.9700, "2026-07-14 09:00:00", "BT", "2026-07-14 09:05:00");
             assertThat(count(connection, "neighborhood_name = 'Bellavista' AND announce_eligible = TRUE " +
                 "AND announced_at IS NULL AND restoration_announced_at IS NULL AND missing_polls = 0")).isEqualTo(1);
+
+            // V8: the start-correction columns exist and start empty (none of these rows is a
+            // start-corrected duplicate), and the audit table is there and empty. The merge rule
+            // itself is covered by StartCorrectionMergeMigrationTest.
+            assertThat(count(connection, "original_interruption_date IS NULL AND start_corrected_at IS NULL")).isEqualTo(5);
+            try (Statement statement = connection.createStatement();
+                 ResultSet rs = statement.executeQuery("SELECT COUNT(*) FROM enel_outage_merged")) {
+                rs.next();
+                assertThat(rs.getInt(1)).isZero();
+            }
         }
     }
 

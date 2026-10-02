@@ -33,4 +33,23 @@ public interface EnelOutageRepositoryCustom {
      * Does nothing when the collection is empty.
      */
     void setActiveByObjectIds(Collection<String> objectIds, boolean active);
+
+    /**
+     * Every row currently flagged active, read through plain JDBC so the returned objects are
+     * detached snapshots: the scheduler compares them with the poll being processed (see
+     * start-time corrections) and never flushes them back.
+     */
+    List<EnelOutage> findAllActive();
+
+    /**
+     * Rewrites the start time of one existing row, i.e. moves it to a new location key, when a
+     * poll republished the same physical outage with a corrected start. Keeps the original
+     * start in {@code original_interruption_date} (first correction only) and stamps
+     * {@code start_corrected_at}. The caller must have checked that no other row owns the new
+     * key; the ordinary {@link #upsert} with the corrected key then updates the row as a normal
+     * re-sighting (same id, {@code first_seen_at} and announcement state).
+     *
+     * @return the number of rows updated (1, or 0 if the id no longer exists)
+     */
+    int correctInterruptionDate(long id, LocalDateTime correctedStart, LocalDateTime now);
 }

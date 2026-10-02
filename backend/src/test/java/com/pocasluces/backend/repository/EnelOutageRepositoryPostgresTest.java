@@ -264,6 +264,54 @@ class EnelOutageRepositoryPostgresTest {
         assertThat(row.isAnnounceEligible()).isTrue();
     }
 
+    @Test
+    void correctInterruptionDateThenOnConflictUpsertMergesTheCorrectionIntoTheExistingRow() {
+        // Polígono Sur: A (start 23:00) seen once at 23:05:09; the next poll publishes B
+        // (start 22:50) at the same point/type. The scheduler moves A to B's key and the
+        // ON CONFLICT upsert then updates it as a re-sighting: one row, no new insert.
+        LocalDateTime poll1 = LocalDateTime.of(2026, 9, 30, 23, 5, 9);
+        LocalDateTime poll2 = LocalDateTime.of(2026, 9, 30, 23, 10, 9);
+        LocalDateTime startA = LocalDateTime.of(2026, 9, 30, 23, 0);
+        LocalDateTime startB = LocalDateTime.of(2026, 9, 30, 22, 50);
+
+        EnelOutage a = outage("A", startA);
+        a.setLatitude(37.3521);
+        a.setLongitude(-5.9712);
+        a.setServiceType("BT");
+        a.setFirstSeenAt(poll1);
+        a.setFetchedAt(poll1);
+        repository.upsert(a);
+        Long id = repository.findAll().get(0).getId();
+        repository.markAnnounced(List.of(id), poll1);
+
+        assertThat(repository.correctInterruptionDate(id, startB, poll2)).isEqualTo(1);
+        EnelOutage b = outage("B", startB);
+        b.setLatitude(37.3521);
+        b.setLongitude(-5.9712);
+        b.setServiceType("BT");
+        b.setFirstSeenAt(poll2);
+        b.setFetchedAt(poll2);
+        b.setAffectedClients(9);
+        repository.upsert(b);
+
+        entityManager.clear();
+        assertThat(repository.count()).isEqualTo(1);
+        EnelOutage row = repository.findById(id).orElseThrow();
+        assertThat(row.getInterruptionDate()).isEqualTo(startB);
+        assertThat(row.getOriginalInterruptionDate()).isEqualTo(startA);
+        assertThat(row.getStartCorrectedAt()).isEqualTo(poll2);
+        assertThat(row.getFirstSeenAt()).isEqualTo(poll1);
+        assertThat(row.getFetchedAt()).isEqualTo(poll2);
+        assertThat(row.getObjectId()).isEqualTo("B");
+        assertThat(row.getAffectedClients()).isEqualTo(9);
+        assertThat(row.getAnnouncedAt()).isEqualTo(poll1);
+        assertThat(row.isActive()).isTrue();
+        assertThat(row.isBrief()).isFalse();
+        assertThat(repository.resolveStaleActiveOutages(poll2)).isZero();
+        assertThat(repository.findAllActive()).extracting(EnelOutage::getId).containsExactly(id);
+        assertThat(repository.findRestoredOutagesToAnnounce(1)).isEmpty();
+    }
+
     private EnelOutage outage(String objectId, LocalDateTime interruptionDate) {
         LocalDateTime now = LocalDateTime.now();
         return EnelOutage.builder()

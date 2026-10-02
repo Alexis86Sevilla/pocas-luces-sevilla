@@ -174,7 +174,8 @@ public class EnelOutageRepositoryImpl implements EnelOutageRepositoryCustom {
             SELECT id, object_id, latitude, longitude, affected_clients, service_type,
                    interruption_date, reposition_date, neighborhood_name, district_name, cause, source_url,
                    raw_response_hash, raw_response, first_seen_at, fetched_at, created_at, updated_at, active, resolved_at,
-                   announce_eligible, announced_at, restoration_announced_at, missing_polls
+                   announce_eligible, announced_at, restoration_announced_at, missing_polls,
+                   original_interruption_date, start_corrected_at
             FROM enel_outages
             WHERE active = true
             AND fetched_at > :since
@@ -211,6 +212,8 @@ public class EnelOutageRepositoryImpl implements EnelOutageRepositoryCustom {
         o.setAnnouncedAt(rs.getObject("announced_at", LocalDateTime.class));
         o.setRestorationAnnouncedAt(rs.getObject("restoration_announced_at", LocalDateTime.class));
         o.setMissingPolls(rs.getInt("missing_polls"));
+        o.setOriginalInterruptionDate(rs.getObject("original_interruption_date", LocalDateTime.class));
+        o.setStartCorrectedAt(rs.getObject("start_corrected_at", LocalDateTime.class));
         return o;
     }
 
@@ -223,6 +226,43 @@ public class EnelOutageRepositoryImpl implements EnelOutageRepositoryCustom {
         String sql = "UPDATE enel_outages SET active = :active WHERE object_id IN (:objectIds)";
         Map<String, Object> params = Map.of("active", active, "objectIds", objectIds);
         jdbcTemplate.update(sql, params);
+    }
+
+    @Override
+    public List<EnelOutage> findAllActive() {
+        String sql = """
+            SELECT id, object_id, latitude, longitude, affected_clients, service_type,
+                   interruption_date, reposition_date, neighborhood_name, district_name, cause, source_url,
+                   raw_response_hash, raw_response, first_seen_at, fetched_at, created_at, updated_at, active, resolved_at,
+                   announce_eligible, announced_at, restoration_announced_at, missing_polls,
+                   original_interruption_date, start_corrected_at
+            FROM enel_outages
+            WHERE active = true
+            ORDER BY id
+            """;
+        return jdbcTemplate.query(sql, Map.of(), (rs, rowNum) -> mapRowToEnelOutage(rs));
+    }
+
+    @Override
+    @Transactional
+    public int correctInterruptionDate(long id, LocalDateTime correctedStart, LocalDateTime now) {
+        // original_interruption_date is set only by the first correction (COALESCE keeps an
+        // existing value), so the start Endesa published first is never lost. Plain JDBC, like
+        // the upsert, so the Postgres and H2 paths behave the same and no managed entity is
+        // left with a stale key in the persistence context.
+        String sql = """
+            UPDATE enel_outages
+            SET original_interruption_date = COALESCE(original_interruption_date, interruption_date),
+                interruption_date = :correctedStart,
+                start_corrected_at = :now,
+                updated_at = :now
+            WHERE id = :id
+            """;
+        Map<String, Object> params = new HashMap<>();
+        params.put("id", id);
+        params.put("correctedStart", correctedStart);
+        params.put("now", now);
+        return jdbcTemplate.update(sql, params);
     }
 
 }

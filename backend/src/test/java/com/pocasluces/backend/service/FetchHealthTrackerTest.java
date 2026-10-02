@@ -26,35 +26,57 @@ class FetchHealthTrackerTest {
     @Test
     void shouldStartWithoutSuccessfulFetchAndKeepStartInstant() {
         assertThat(tracker.getLastSuccessfulFetch()).isEmpty();
+        assertThat(tracker.getLastFeatureCount()).isEmpty();
+        assertThat(tracker.getConsecutiveEmptyPolls()).isZero();
         assertThat(tracker.getStartedAt()).isEqualTo(Instant.parse("2026-07-10T12:00:00Z"));
     }
 
     @Test
     void shouldRecordImmediatelyWithoutTransaction() {
-        tracker.recordSuccess();
+        tracker.recordSuccess(7);
 
         assertThat(tracker.getLastSuccessfulFetch()).contains(Instant.parse("2026-07-10T12:00:00Z"));
+        assertThat(tracker.getLastFeatureCount()).contains(7);
+        assertThat(tracker.getConsecutiveEmptyPolls()).isZero();
+    }
+
+    @Test
+    void shouldCountConsecutiveEmptyPollsAndResetOnTheFirstNonEmptyOne() {
+        tracker.recordSuccess(0);
+        tracker.recordSuccess(0);
+        assertThat(tracker.getConsecutiveEmptyPolls()).isEqualTo(2);
+        assertThat(tracker.getLastFeatureCount()).contains(0);
+
+        tracker.recordSuccess(3);
+        assertThat(tracker.getConsecutiveEmptyPolls()).isZero();
+        assertThat(tracker.getLastFeatureCount()).contains(3);
+
+        tracker.recordSuccess(0);
+        assertThat(tracker.getConsecutiveEmptyPolls()).isEqualTo(1);
     }
 
     @Test
     void shouldRecordOnlyAfterCommitInsideTransaction() {
         TransactionSynchronizationManager.initSynchronization();
 
-        tracker.recordSuccess();
+        tracker.recordSuccess(2);
         assertThat(tracker.getLastSuccessfulFetch()).isEmpty();
+        assertThat(tracker.getLastFeatureCount()).isEmpty();
 
         TransactionSynchronizationManager.getSynchronizations().forEach(TransactionSynchronization::afterCommit);
         assertThat(tracker.getLastSuccessfulFetch()).contains(Instant.parse("2026-07-10T12:00:00Z"));
+        assertThat(tracker.getLastFeatureCount()).contains(2);
     }
 
     @Test
     void shouldNotRecordWhenTransactionRollsBack() {
         TransactionSynchronizationManager.initSynchronization();
 
-        tracker.recordSuccess();
+        tracker.recordSuccess(0);
         TransactionSynchronizationManager.getSynchronizations()
             .forEach(s -> s.afterCompletion(TransactionSynchronization.STATUS_ROLLED_BACK));
 
         assertThat(tracker.getLastSuccessfulFetch()).isEmpty();
+        assertThat(tracker.getConsecutiveEmptyPolls()).isZero();
     }
 }

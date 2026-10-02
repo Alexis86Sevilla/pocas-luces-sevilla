@@ -40,26 +40,43 @@ public class EnelApiService {
         this.restTemplate = restTemplate;
     }
 
+    /**
+     * Fetches every Sevilla outage, page by page. The result is only returned when the feed
+     * has been read completely: a page flagged {@code exceededTransferLimit} means the server
+     * cut it and more features exist, so paging continues while the flag is set (whatever the
+     * page size) and the run fails if the feed still reports more after the last page it could
+     * fetch. A truncated list would make the scheduler resolve every outage it did not see.
+     *
+     * @throws EnelApiException when the feed cannot be read completely or is malformed
+     */
     public List<EnelApiFeatureWithEvidence> fetchSevillaOutages() {
         List<EnelApiFeatureWithEvidence> allFeatures = new ArrayList<>();
         int offset = 0;
         int pages = 0;
 
-        while (pages < MAX_PAGES) {
+        while (true) {
             String sourceUrl = buildUrl(offset);
             FetchPageResult page = fetchPage(sourceUrl);
+            pages++;
 
             if (page.features().isEmpty()) {
+                if (page.exceededTransferLimit()) {
+                    throw new EnelApiException("Enel API returned an empty page flagged exceededTransferLimit at offset " + offset);
+                }
                 break;
             }
 
             allFeatures.addAll(wrapWithEvidence(sourceUrl, page.rawResponse(), page.features()));
-            pages++;
 
-            if (page.features().size() < PAGE_SIZE) {
+            boolean morePages = page.exceededTransferLimit() || page.features().size() >= PAGE_SIZE;
+            if (!morePages) {
                 break;
             }
-            offset += PAGE_SIZE;
+            if (pages >= MAX_PAGES) {
+                throw new EnelApiException("Enel API reports more outages than " + MAX_PAGES
+                    + " pages of " + PAGE_SIZE + "; refusing a truncated feed");
+            }
+            offset += page.features().size();
         }
 
         return Collections.unmodifiableList(allFeatures);
@@ -127,11 +144,16 @@ public class EnelApiService {
                 validateResponse(response, body);
 
                 EnelApiResponse apiResponse = objectMapper.readValue(body, EnelApiResponse.class);
-                List<EnelApiResponse.Feature> features = apiResponse.getFeatures() != null
-                    ? apiResponse.getFeatures()
-                    : Collections.emptyList();
-                log.info("Enel API page fetched: {} outages", features.size());
-                return new FetchPageResult(features, body);
+                if (apiResponse.getFeatures() == null) {
+                    // A reshaped or partial response (no "features" array at all) is not an
+                    // outage-free Sevilla: treating it as empty would resolve every active outage.
+                    throw new EnelApiException("Enel API response has no 'features' array: "
+                        + body.substring(0, Math.min(200, body.length())));
+                }
+                List<EnelApiResponse.Feature> features = apiResponse.getFeatures();
+                log.info("Enel API page fetched: {} outages (exceededTransferLimit={})",
+                    features.size(), apiResponse.hasExceededTransferLimit());
+                return new FetchPageResult(features, body, apiResponse.hasExceededTransferLimit());
             } catch (HttpStatusCodeException e) {
                 log.warn("Enel API HTTP error on attempt {}/{}: {} {}", attempt, MAX_RETRIES,
                     e.getStatusCode(), e.getMessage());
@@ -192,7 +214,8 @@ public class EnelApiService {
         }
     }
 
-    private record FetchPageResult(List<EnelApiResponse.Feature> features, String rawResponse) {}
+    private record FetchPageResult(List<EnelApiResponse.Feature> features, String rawResponse,
+                                   boolean exceededTransferLimit) {}
 
     public static class EnelApiException extends RuntimeException {
         public EnelApiException(String message) {

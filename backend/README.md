@@ -80,15 +80,37 @@ If `ADMIN_API_KEY` is not configured, protected endpoints always return `403`.
 
 `POST /api/outages/fetch` is additionally rate-limited: it returns `429 Too Many Requests` if the previous manual fetch happened less than `admin.fetch.cooldown` ago (default `5m`).
 
-`GET /api/health` returns `{"status", "lastSuccessfulFetch", "ageSeconds"}`: `UP` (200) while the last successful Endesa fetch is at most `health.max-fetch-age` old (default `20m`), `STARTING` (200) when none has succeeded yet within `health.startup-grace` of startup (default `10m`), otherwise `STALE` (503). The timestamp is in memory and recorded after the scheduler's transaction commits; a failed fetch is never recorded (a successful fetch with zero outages is).
+`GET /api/health` returns `{"status", "lastSuccessfulFetch", "ageSeconds", "lastFeatureCount", "consecutiveEmptyPolls"}`: `UP` (200) while the last successful Endesa fetch is at most `health.max-fetch-age` old (default `20m`), `STARTING` (200) when none has succeeded yet within `health.startup-grace` of startup (default `10m`), otherwise `STALE` (503). `lastFeatureCount` is the number of features the last successful poll carried (`null` before the first success) and `consecutiveEmptyPolls` how many successful polls in a row carried none, so a monitor can tell an outage-free Sevilla from a feed that went quiet. Everything is in memory and recorded after the scheduler's transaction commits; a failed fetch, or a poll rejected by a [feed guard](#feed-guards), is never recorded (a successful fetch with zero outages is).
+
+Client mistakes answer the same JSON error body (`timestamp`, `status`, `error`, `message`) as every other error: unknown path `404`, missing or non-numeric parameter `400`, wrong HTTP method `405`. They are logged at DEBUG/WARN without a stack trace; only unexpected failures reach the generic `500` handler, which logs the stack trace and never leaks the message.
 
 ## Scheduling
 
 `OutageDataScheduler` fetches data from Endesa every 5 minutes (fixed delay) and upserts records by the location key `(latitude, longitude, interruption_date, service_type)`.
 
-On each run, every outage returned by Endesa is upserted as active with `resolved_at` cleared (an outage found again is re-opened). After that, any outage still marked active whose `fetched_at` predates this run is marked resolved: `active = false` and `resolved_at` set to its `fetched_at`, i.e. the last poll in which Endesa still published it. This is a conservative lower bound of the real end: it never inflates durations, even if our own polling had gaps — see [Data source](#data-source) below. A fetch that returns zero outages resolves every currently active one and is logged as a warning (an outage-free Sevilla is plausible, so it is applied, not skipped, but it is worth flagging). A failed fetch changes nothing: no upsert and no resolution happen for that run. The live endpoint returns active outages fetched within the last 6 hours.
+On each run, every outage returned by Endesa is upserted as active with `resolved_at` cleared (an outage found again is re-opened). After that, any outage still marked active whose `fetched_at` predates this run is marked resolved: `active = false` and `resolved_at` set to its `fetched_at`, i.e. the last poll in which Endesa still published it. This is a conservative lower bound of the real end: it never inflates durations, even if our own polling had gaps — see [Data source](#data-source) below. A failed fetch changes nothing: no upsert and no resolution happen for that run. The live endpoint returns active outages fetched within the last 6 hours.
 
 After the resolve step, and in the same transaction, the run increments `missing_polls` for every announced outage it did not see (see [Telegram alerts](#telegram-alerts)); once the transaction commits, `OutageAnnouncer` decides what to post.
+
+### Start-time corrections
+
+Endesa sometimes republishes the same physical outage with a corrected start time. Since the start is part of the identity key, the literal reading inserts a second row and resolves the first in the same poll, usually as a false brief outage (the 2026-10-02 audit found 88 such pairs in 3100 rows; example: Polígono Sur, 9 supply points, start 23:00 seen once at 23:05:09, then start 22:50 from 23:10:09 on). The scheduler now treats it as one outage when the match is unambiguous — all of these must hold:
+
+- exactly one active row at that latitude, longitude and service type is absent from the poll (it vanished), and exactly one feature in the poll has a key that no stored row owns at that same point and type;
+- the new start is not after the vanished row's last sighting (`interruption_date <= fetched_at`): it describes an outage that was already going on, not a fault that began later;
+- no other row (for example an older, resolved one) already owns the corrected key.
+
+Then `correctInterruptionDate` moves the existing row to the corrected key, keeping its `id`, `first_seen_at`, `created_at` and announcement state, sets `original_interruption_date` to the start Endesa published first (only on the first correction, never overwritten) and `start_corrected_at` to the poll; the ordinary upsert then updates it as a re-sighting. The row is never resolved, so it is not brief and no "restored" message follows; if it is announced, it is announced once, with the corrected start. Anything ambiguous (two rows vanishing at one point, or two new keys appearing) falls back to the literal behaviour, which never loses data. Corrections are logged at WARN.
+
+### Feed guards
+
+A poll is applied only when the feed was read completely and understood; otherwise it is rejected as a whole (`ERROR` in the log, no upsert, no resolution, not recorded as a success) and retried 5 minutes later:
+
+- a response without a `features` array is an error, not an outage-free Sevilla;
+- `exceededTransferLimit` is honoured: paging continues while a page is flagged, whatever its size, and the run fails if the last page it could fetch still reports more records (or if more than 50 pages of 100 exist);
+- if more than 20% of the features cannot be used (no object id, unparseable start) the poll is rejected, so a renamed field or a new date format cannot turn into a near-empty poll that resolves everything.
+
+Resolving means "Endesa no longer publishes it", so a sudden mass disappearance is treated with suspicion: when a poll would resolve every active outage, or more than half of them while at least 4 were active, the resolution is deferred (`WARN`) and applied only if the next successful poll meets the same condition. A failed fetch or a rejected poll in between restarts the count. The deferral does not change `resolved_at` (each row's last sighting) nor durations; only the `active` flag flips one poll later, and with it the Telegram "restored" countdown. For a single active outage ending normally this means `/live` shows it for one extra poll. The in-memory state resets on restart.
 
 Each outage is assigned a district using the official district polygons in `src/main/resources/geojson/distritos-sevilla.json`. Outages created before the district column existed are backfilled at startup by `DistrictBackfillRunner` (non-dev profiles).
 
@@ -127,8 +149,9 @@ The main execution's zone can be changed for an extra run, e.g.
 `./mvnw test -Dsurefire.jvm.timezone=America/New_York`. See
 [Timezone contract](#timezone-contract) for why.
 
-`EnelOutageRepositoryPostgresTest`, `TimeZoneIndependencePostgresTest` and
-`OutageIdentityFlywayMigrationTest` use Testcontainers and need a running Docker daemon.
+`EnelOutageRepositoryPostgresTest`, `TimeZoneIndependencePostgresTest`,
+`WeeklySummaryRepositoryPostgresTest`, `OutageIdentityFlywayMigrationTest` and
+`StartCorrectionMergeMigrationTest` use Testcontainers and need a running Docker daemon.
 
 ## Packaging
 
@@ -172,6 +195,10 @@ What is verified vs. approximate:
   than the neighborhood inference, but is still derived from the same coordinates.
 - **Cause (`cause`)** is taken verbatim from Endesa's own `des_cause_es` feed field
   (e.g. "Avería" or "Trabajos programados") — it is not inferred or guessed.
+- **Original start (`original_interruption_date`, `start_corrected_at`)**: internal audit
+  columns, NULL for almost every row. Set when Endesa republished the outage with a corrected
+  start and the scheduler (or V8, for historical rows) merged the two sightings into one row;
+  see [Start-time corrections](#start-time-corrections). Not exposed by the API or the CSVs.
 
 Before this fix, outages were identified by `(neighborhoodName, interruptionDate,
 serviceType)`. Because neighborhood is itself derived from coordinates, two distinct
@@ -202,6 +229,22 @@ serviceType)`.
 - `V7__add_telegram_weekly_summary.sql`: creates `telegram_weekly_summary`
   (`week_start` DATE primary key, `sent_at` TIMESTAMP NOT NULL) so each weekly
   [Telegram summary](#weekly-summary) is posted at most once.
+- `V8__merge_start_corrected_duplicates.sql`: adds the nullable `original_interruption_date`
+  and `start_corrected_at` columns, creates the audit table `enel_outage_merged` (every
+  column of `enel_outages`, same ids, plus `merged_into_id`, `merged_at`, `merge_reason`) and
+  merges the historical duplicates produced by [start-time corrections](#start-time-corrections).
+  A pair (A, B) is merged only under the strict signature: same latitude, longitude and
+  service type; A resolved; B first seen after A's last sighting and within 10 minutes of it
+  (one slow poll tolerated, a genuine re-fault after a longer gap excluded); B's start not
+  after A's last sighting; and a one-to-one match (one vanished row, one new row at that
+  point). B survives with A's `first_seen_at`/`created_at`, `original_interruption_date` =
+  A's start, `start_corrected_at` = B's first sighting, announcement marks taken from
+  whichever row has them (so nothing is sent twice), `missing_polls` the greater; A is copied
+  to `enel_outage_merged` and deleted. Chains (the start corrected twice) are merged one link
+  per pass, head first. Re-running the rule finds nothing, so it is idempotent. The audit's
+  strict signature matched 88 of 3100 rows; the migration logs how many it merged (`NOTICE`),
+  and the number can be lower, never higher: ambiguous groups and pairs more than 10 minutes
+  apart are left untouched.
 
 ## Timezone contract
 

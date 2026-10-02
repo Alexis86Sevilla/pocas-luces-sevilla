@@ -34,6 +34,17 @@ public interface EnelOutageRepository extends JpaRepository<EnelOutage, Long>, E
            "WHERE o.active = true AND o.fetchedAt < :now")
     int resolveStaleActiveOutages(@Param("now") LocalDateTime now);
 
+    /** Rows currently flagged active; read by the scheduler before its upserts (mass-resolution guard). */
+    long countByActiveTrue();
+
+    /**
+     * Number of rows {@link #resolveStaleActiveOutages} would resolve at {@code now}: still
+     * active and not re-upserted by the current run. Same predicate as the resolve step, and a
+     * JPQL query like it, so the H2 (JPA) upsert path is flushed before counting.
+     */
+    @Query("SELECT COUNT(o) FROM EnelOutage o WHERE o.active = true AND o.fetchedAt < :now")
+    long countActiveNotFetchedAt(@Param("now") LocalDateTime now);
+
     @Modifying
     @Transactional
     @Query("UPDATE EnelOutage o SET o.active = :active WHERE o.objectId IN :objectIds")

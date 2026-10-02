@@ -5,13 +5,25 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.ServletRequestBindingException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.time.LocalDateTime;
 
+/**
+ * Maps exceptions to the API's JSON error body. Client mistakes (unknown path, missing or
+ * malformed parameter, wrong method) are expected traffic: they answer 4xx and are logged at
+ * DEBUG/WARN without a stack trace. Only genuinely unexpected failures reach the generic 500
+ * handler, which logs the stack trace and never leaks the message to the client.
+ */
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -24,12 +36,39 @@ public class GlobalExceptionHandler {
                 "Internal server error", "An unexpected error occurred"));
     }
 
+    @ExceptionHandler({NoResourceFoundException.class, NoHandlerFoundException.class})
+    public ResponseEntity<ErrorResponse> handleNotFound(Exception e) {
+        log.debug("Not found: {}", e.getMessage());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+            .body(new ErrorResponse(LocalDateTime.now(), HttpStatus.NOT_FOUND.value(),
+                "Not found", "No resource at this path"));
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ErrorResponse> handleMethodNotSupported(HttpRequestMethodNotSupportedException e) {
+        log.debug("Method not allowed: {}", e.getMessage());
+        return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED)
+            .body(new ErrorResponse(LocalDateTime.now(), HttpStatus.METHOD_NOT_ALLOWED.value(),
+                "Method not allowed", "HTTP method not supported for this path"));
+    }
+
+    /** Missing request parameter, header, cookie or path variable (Spring's binding failures). */
+    @ExceptionHandler(ServletRequestBindingException.class)
+    public ResponseEntity<ErrorResponse> handleRequestBinding(ServletRequestBindingException e) {
+        log.warn("Bad request: {}", e.getMessage());
+        return badRequest(e.getMessage());
+    }
+
+    @ExceptionHandler({MethodArgumentNotValidException.class, HandlerMethodValidationException.class})
+    public ResponseEntity<ErrorResponse> handleValidation(Exception e) {
+        log.warn("Bad request: validation failed");
+        return badRequest("Request validation failed");
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponse> handleIllegalArgument(IllegalArgumentException e) {
         log.warn("Bad request: {}", e.getMessage());
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-            .body(new ErrorResponse(LocalDateTime.now(), HttpStatus.BAD_REQUEST.value(),
-                "Bad request", e.getMessage()));
+        return badRequest(e.getMessage());
     }
 
     @ExceptionHandler(ResponseStatusException.class)
@@ -45,9 +84,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleTypeMismatch(MethodArgumentTypeMismatchException e) {
         String message = "Invalid value for parameter '" + e.getName() + "'";
         log.warn("{}", message);
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-            .body(new ErrorResponse(LocalDateTime.now(), HttpStatus.BAD_REQUEST.value(),
-                "Bad request", message));
+        return badRequest(message);
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
@@ -64,6 +101,12 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
             .body(new ErrorResponse(LocalDateTime.now(), HttpStatus.BAD_GATEWAY.value(),
                 "Bad gateway", "Upstream Enel API error"));
+    }
+
+    private ResponseEntity<ErrorResponse> badRequest(String message) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+            .body(new ErrorResponse(LocalDateTime.now(), HttpStatus.BAD_REQUEST.value(),
+                "Bad request", message));
     }
 
     public record ErrorResponse(LocalDateTime timestamp, int status, String error, String message) {

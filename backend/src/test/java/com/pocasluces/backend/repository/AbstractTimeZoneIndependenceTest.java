@@ -218,15 +218,28 @@ abstract class AbstractTimeZoneIndependenceTest {
             .singleElement()
             .extracting(EnelOutage::getInterruptionDate).isEqualTo(ENDESA_START);
 
-        // Next poll, five minutes later: Endesa no longer publishes it.
+        // Next poll, five minutes later: Endesa no longer publishes it. Resolving the only
+        // active outage is a mass resolution, so the first poll defers and the second applies.
         when(api.fetchSevillaOutages()).thenReturn(List.of());
-        LocalDateTime nextRun = RUN_NOW.plusMinutes(5);
-        scheduler(api, neighborhoods, districts, nextRun).fetchAndSaveOutages();
+        MutableClock clock = new MutableClock(RUN_NOW.plusMinutes(5));
+        OutageDataScheduler scheduler = scheduler(api, neighborhoods, districts, clock);
+        scheduler.fetchAndSaveOutages();
+        flushAndClear();
+
+        assertThat(repository.findByObjectId("4711")).get().satisfies(o -> {
+            assertThat(o.isActive()).isTrue();
+            assertThat(o.getResolvedAt()).isNull();
+        });
+
+        clock.now = RUN_NOW.plusMinutes(10);
+        LocalDateTime nextRun = clock.now;
+        scheduler.fetchAndSaveOutages();
         flushAndClear();
 
         assertThat(repository.findCurrentlyActive(nextRun, nextRun.minusHours(6))).isEmpty();
         assertThat(repository.findByObjectId("4711")).get().satisfies(o -> {
             assertThat(o.isActive()).isFalse();
+            // Last poll in which Endesa still published it, unaffected by the deferred flip.
             assertThat(o.getResolvedAt()).isEqualTo(RUN_NOW);
             assertThat(o.getInterruptionDate()).isEqualTo(ENDESA_START);
         });
@@ -280,11 +293,28 @@ abstract class AbstractTimeZoneIndependenceTest {
 
     private OutageDataScheduler scheduler(EnelApiService api, NeighborhoodLocator neighborhoods,
                                           DistrictLocator districts, LocalDateTime madridNow) {
-        Clock clock = Clock.fixed(madridNow.atZone(MADRID).toInstant(), MADRID);
+        return scheduler(api, neighborhoods, districts, Clock.fixed(madridNow.atZone(MADRID).toInstant(), MADRID));
+    }
+
+    private OutageDataScheduler scheduler(EnelApiService api, NeighborhoodLocator neighborhoods,
+                                          DistrictLocator districts, Clock clock) {
         return new OutageDataScheduler(api, repository, neighborhoods, districts, clock,
             new com.pocasluces.backend.service.FetchHealthTracker(clock),
             mock(com.pocasluces.backend.service.OutageAnnouncer.class),
             mock(com.pocasluces.backend.service.WeeklySummaryAnnouncer.class));
+    }
+
+    /** Europe/Madrid clock whose wall-clock "now" the test moves between polls. */
+    static final class MutableClock extends Clock {
+        LocalDateTime now;
+
+        MutableClock(LocalDateTime now) {
+            this.now = now;
+        }
+
+        @Override public ZoneId getZone() { return MADRID; }
+        @Override public Clock withZone(ZoneId zone) { return this; }
+        @Override public java.time.Instant instant() { return now.atZone(MADRID).toInstant(); }
     }
 
     private String storedText(String column, String objectId) {
