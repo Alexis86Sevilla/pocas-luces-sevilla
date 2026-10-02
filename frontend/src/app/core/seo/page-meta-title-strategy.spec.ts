@@ -43,4 +43,17 @@ describe('PageMetaTitleStrategy', () => {
     expect(description()).toBe('Desc datos');
     expect(canonical()).toBe('https://sevillasinluz.es/datos');
   });
+
+  it('mirrors title and description into og:* and twitter:* and updates og:url', async () => {
+    const content = (sel: string) => doc.head.querySelector(sel)?.getAttribute('content');
+    await router.navigateByUrl('/datos');
+    expect(content('meta[property="og:title"]')).toBe('Datos');
+    expect(content('meta[name="twitter:title"]')).toBe('Datos');
+    expect(content('meta[property="og:description"]')).toBe('Desc datos');
+    expect(content('meta[name="twitter:description"]')).toBe('Desc datos');
+    expect(content('meta[property="og:url"]')).toBe('https://sevillasinluz.es/datos');
+    await router.navigateByUrl('/');
+    expect(content('meta[property="og:title"]')).toBe('Inicio');
+    expect(content('meta[name="twitter:description"]')).toBe('Desc inicio');
+  });
 });

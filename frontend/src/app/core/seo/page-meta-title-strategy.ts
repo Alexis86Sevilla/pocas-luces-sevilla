@@ -14,16 +14,23 @@ export class PageMetaTitleStrategy extends TitleStrategy {
 
   override updateTitle(snapshot: RouterStateSnapshot): void {
     const title = this.buildTitle(snapshot);
-    if (title !== undefined) this.title.setTitle(title);
+    if (title !== undefined) {
+      this.title.setTitle(title);
+      this.meta.updateTag({ property: 'og:title', content: title });
+      this.meta.updateTag({ name: 'twitter:title', content: title });
+    }
 
     const description = this.deepestData(snapshot.root)['description'];
     if (typeof description === 'string') {
       this.meta.updateTag({ name: 'description', content: description });
+      this.meta.updateTag({ property: 'og:description', content: description });
+      this.meta.updateTag({ name: 'twitter:description', content: description });
     }
 
     const canonical = SITE_ORIGIN + this.pathOf(snapshot.url);
     this.setCanonical(canonical);
     this.meta.updateTag({ property: 'og:url', content: canonical });
+    this.meta.updateTag({ name: 'twitter:url', content: canonical });
   }
 
   /** Path without query string or fragment; the home page is always "/". */

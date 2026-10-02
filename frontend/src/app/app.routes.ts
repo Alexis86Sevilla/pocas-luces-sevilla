@@ -49,7 +49,10 @@ export const routes: Routes = [
         'De dónde salen los datos de Sevilla Sin Luz, qué es exacto, qué es aproximado y qué estima la distribuidora.',
     },
   },
-  // Angular's redirectTo preserves query params and the URL fragment by default,
-  // so shared links like ?anio=2026&mes=7#en-directo keep working through this redirect.
-  { path: '**', redirectTo: '' },
+  {
+    path: '**',
+    loadComponent: () => import('./pages/not-found/not-found-page.component').then(m => m.NotFoundPageComponent),
+    title: 'Página no encontrada — Sevilla Sin Luz',
+    data: { description: 'La página que buscas no existe. Vuelve al inicio de Sevilla Sin Luz.' },
+  },
 ];

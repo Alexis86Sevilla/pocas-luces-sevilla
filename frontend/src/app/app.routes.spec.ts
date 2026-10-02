@@ -5,6 +5,7 @@ import { RouterTestingHarness } from '@angular/router/testing';
 import { routes } from './app.routes';
 import { ContextPageComponent } from './pages/context/context-page.component';
 import { DataPageComponent } from './pages/data/data-page.component';
+import { NotFoundPageComponent } from './pages/not-found/not-found-page.component';
 import { MapPageComponent } from './pages/map/map-page.component';
 
 describe('app routes', () => {
@@ -28,8 +29,10 @@ describe('app routes', () => {
     expect(component).toBeInstanceOf(DataPageComponent);
   });
 
-  it('redirects unknown paths home, keeping query and fragment', async () => {
-    await TestBed.inject(Router).navigateByUrl('/nope?anio=2026&mes=7#en-directo');
-    expect(TestBed.inject(Router).url).toBe('/?anio=2026&mes=7#en-directo');
+  it('renders the not-found page for unknown paths without redirecting', async () => {
+    const harness = await RouterTestingHarness.create();
+    const component = await harness.navigateByUrl('/nope?anio=2026');
+    expect(component).toBeInstanceOf(NotFoundPageComponent);
+    expect(TestBed.inject(Router).url).toBe('/nope?anio=2026');
   });
 });
