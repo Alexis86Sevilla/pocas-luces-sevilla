@@ -49,6 +49,20 @@ describe('MethodologySectionComponent', () => {
     expect(dictionary.textContent).toContain('brief');
   });
 
+  it('explains start-time corrections: one outage kept, original start audited, history revised', () => {
+    const fixture = TestBed.createComponent(MethodologySectionComponent);
+    fixture.detectChanges();
+    const text = fixture.nativeElement.textContent;
+
+    expect(text).toContain('hora de inicio corregida');
+    expect(text).toContain('se conserva un único corte');
+    expect(text).toContain('auditoría');
+    expect(text).toContain('se fusionaron en uno solo');
+    expect(text).toContain('no se considera breve');
+    expect(text).toContain('se espera a que la siguiente lo confirme');
+    expect(text).not.toContain('nosotros');
+  });
+
   it('links to the open-source repository and reuses the footer contact email', () => {
     const fixture = TestBed.createComponent(MethodologySectionComponent);
     fixture.detectChanges();
