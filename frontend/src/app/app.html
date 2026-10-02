@@ -1,5 +1,9 @@
 <app-nav />
-<router-outlet />
+<!-- Reserves a full viewport for the routed page so the support section and footer
+     never flash at the top before the first route renders. -->
+<div class="min-h-svh">
+  <router-outlet />
+</div>
 <app-support-section />
 <app-footer />
 <app-back-to-top />

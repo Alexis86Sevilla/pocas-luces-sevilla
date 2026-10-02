@@ -21,6 +21,8 @@ export const appConfig: ApplicationConfig = {
       withInMemoryScrolling({ anchorScrolling: 'enabled', scrollPositionRestoration: 'enabled' }),
       // Cross-fade between pages where the View Transitions API exists; skipped for reduced motion.
       withViewTransitions({
+        // The first render has no previous page to fade from; animating it only flashes the shell.
+        skipInitialTransition: true,
         onViewTransitionCreated: ({ transition }) => {
           if (globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
             transition.skipTransition();

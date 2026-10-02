@@ -59,8 +59,17 @@
     }
   }
   </script>
+  <script src="/boot.js"></script>
+  <style>
+    /* Static placeholder painted before the app boots; Angular replaces it on bootstrap. */
+    .boot { min-height: 100svh; background: #fff; }
+    .boot::before { content: ""; display: block; height: 57px; background: #111827; }
+    .boot-home .boot { background: #04060c; }
+    /* Keeps the page dark between the app bootstrapping and the first route rendering. */
+    .boot-home body { background: #04060c; }
+  </style>
 </head>
 <body>
-  <app-root></app-root>
+  <app-root><div class="boot" aria-hidden="true"></div></app-root>
 </body>
 </html>
