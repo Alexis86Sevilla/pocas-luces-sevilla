@@ -1,5 +1,7 @@
-import { Component, effect, input, model, output } from '@angular/core';
+import { Component, computed, effect, inject, input, model, output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+
+import { MadridClock } from '../../../../../core/services/madrid-clock';
 
 export interface DateFilterValue {
   readonly year: number;
@@ -37,16 +39,13 @@ export class DateFilterComponent {
   protected readonly month = model(0);
   protected readonly year = model(0);
 
-  private readonly now = new Date();
-  private readonly currentYear = this.now.getFullYear();
-  private readonly currentMonth = this.now.getMonth() + 1;
-
-  // Descending so the current year appears first.
-  protected readonly years = Array.from(
-    { length: Math.max(1, this.currentYear - FIRST_DATA_YEAR + 1) },
-    (_, i) => this.currentYear - i,
+  private readonly clock = inject(MadridClock);
+  // Descending so the current year appears first. Computed so a month/year rollover while the
+  // page stays open updates the options.
+  protected readonly years = computed(() =>
+    Array.from({ length: Math.max(1, this.clock.year() - FIRST_DATA_YEAR + 1) }, (_, i) => this.clock.year() - i),
   );
-  protected readonly months = ALL_MONTHS.filter(m => m.value <= this.currentMonth);
+  protected readonly months = computed(() => ALL_MONTHS.filter(m => m.value <= this.clock.month()));
 
   constructor() {
     effect(() => {

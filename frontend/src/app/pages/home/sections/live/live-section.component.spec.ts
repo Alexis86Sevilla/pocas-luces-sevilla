@@ -3,7 +3,7 @@ import { provideRouter } from '@angular/router';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 
-import { LiveSectionComponent, type LiveGroup } from './live-section.component';
+import { LIVE_REFRESH_MS, LiveSectionComponent, type LiveGroup } from './live-section.component';
 import { ApiOutageService } from '../../../../core/services/api-outage.service';
 import { TELEGRAM_CHANNEL_URL } from '../../../../core/config/social';
 
@@ -98,5 +98,78 @@ describe('LiveSectionComponent', () => {
     const link: HTMLAnchorElement | null = fixture.nativeElement.querySelector(`a[href="${TELEGRAM_CHANNEL_URL}"]`);
     expect(link?.textContent).toContain('Recibe avisos en Telegram');
     expect(link?.getAttribute('rel')).toBe('noopener noreferrer');
+  });
+
+  describe('background refresh', () => {
+    let visibility: DocumentVisibilityState;
+    const isLive = (r: { url: string }) => r.url.endsWith('/outages/live');
+
+    beforeEach(() => {
+      visibility = 'visible';
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-10-02T10:00:00Z'));
+      Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => visibility });
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+      delete (document as unknown as Record<string, unknown>)['visibilityState'];
+    });
+
+    it('refreshes /live every 5 minutes while the tab is visible, without a loading state', () => {
+      const fixture = createFixture();
+      vi.advanceTimersByTime(LIVE_REFRESH_MS);
+      httpMock.expectOne(isLive).flush([]);
+      expect(api.liveLoading()).toBe(false);
+
+      vi.advanceTimersByTime(LIVE_REFRESH_MS);
+      httpMock.expectOne(isLive).flush([]);
+      fixture.destroy();
+    });
+
+    it('skips the timed refresh while hidden, then catches up when visible again if the data is old', () => {
+      const fixture = createFixture();
+      api.loadLiveOutages();
+      httpMock.expectOne(isLive).flush([]);
+
+      visibility = 'hidden';
+      vi.advanceTimersByTime(LIVE_REFRESH_MS);
+      httpMock.expectNone(isLive);
+
+      visibility = 'visible';
+      document.dispatchEvent(new Event('visibilitychange'));
+      httpMock.expectOne(isLive).flush([]);
+      fixture.destroy();
+    });
+
+    it('does not refetch on becoming visible when the data is fresh', () => {
+      const fixture = createFixture();
+      api.loadLiveOutages();
+      httpMock.expectOne(isLive).flush([]);
+
+      vi.advanceTimersByTime(60_000);
+      document.dispatchEvent(new Event('visibilitychange'));
+      httpMock.expectNone(isLive);
+      fixture.destroy();
+    });
+
+    it('keeps the data on screen when a background refresh fails', () => {
+      const fixture = createFixture();
+      api.loadLiveOutages();
+      httpMock.expectOne(isLive).flush([]);
+
+      vi.advanceTimersByTime(LIVE_REFRESH_MS);
+      httpMock.expectOne(isLive).flush('boom', { status: 500, statusText: 'Server Error' });
+      expect(api.liveError()).toBe(false);
+      fixture.destroy();
+    });
+
+    it('stops refreshing and listening once destroyed', () => {
+      const fixture = createFixture();
+      fixture.destroy();
+      vi.advanceTimersByTime(LIVE_REFRESH_MS * 2);
+      document.dispatchEvent(new Event('visibilitychange'));
+      httpMock.expectNone(isLive);
+    });
   });
 });

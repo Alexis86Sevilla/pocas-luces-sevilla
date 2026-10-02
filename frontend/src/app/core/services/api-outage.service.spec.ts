@@ -92,3 +92,39 @@ describe('ApiOutageService', () => {
     expect(service.liveError()).toBe(false);
   });
 });
+
+describe('ApiOutageService Madrid time', () => {
+  afterEach(() => vi.useRealTimers());
+
+  function create(at: string): ApiOutageService {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(at));
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
+    return TestBed.inject(ApiOutageService);
+  }
+
+  it('starts on the Europe/Madrid month, not the browser/UTC one', () => {
+    // 23:30 UTC on 30 Sep is 1 Oct in Madrid.
+    const service = create('2026-09-30T23:30:00Z');
+    expect(service.selectedYear()).toBe(2026);
+    expect(service.selectedMonth()).toBe(10);
+    expect(service.monthlyIsCurrentMonth()).toBe(true);
+  });
+
+  it('stops being the current month after the clock ticks into the next one', () => {
+    const service = create('2026-10-31T22:59:30Z'); // 23:59:30 in Madrid
+    expect(service.monthlyIsCurrentMonth()).toBe(true);
+    vi.advanceTimersByTime(60_000);
+    expect(service.monthlyIsCurrentMonth()).toBe(false);
+  });
+
+  it('records when /live last succeeded', () => {
+    const service = create('2026-10-02T10:00:00Z');
+    const httpMock = TestBed.inject(HttpTestingController);
+    expect(service.liveLoadedAt()).toBeNull();
+    service.loadLiveOutages(true);
+    httpMock.expectOne(r => r.url.endsWith('/outages/live')).flush([]);
+    expect(service.liveLoadedAt()).toBe(Date.now());
+  });
+});

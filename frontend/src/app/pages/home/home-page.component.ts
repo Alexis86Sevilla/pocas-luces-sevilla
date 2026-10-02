@@ -10,6 +10,7 @@ import { LiveSectionComponent, type LiveGroup } from './sections/live/live-secti
 import { ChartSectionComponent } from './sections/chart/chart-section.component';
 import { MonthlySectionComponent } from './sections/monthly/monthly-section.component';
 import { MonthlyRankingComponent } from './sections/monthly-ranking/monthly-ranking.component';
+import { MadridClock } from '../../core/services/madrid-clock';
 import { parseMadridDate } from '../../core/utils/madrid-date';
 import { outageCategory } from '../../core/utils/outage-category';
 
@@ -24,6 +25,7 @@ export class HomePageComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly location = inject(Location);
+  private readonly clock = inject(MadridClock);
 
   protected readonly districts = this.api.derivedDistricts;
   protected readonly yearlyOutages = this.api.deduplicatedYearlyOutages;
@@ -93,7 +95,7 @@ export class HomePageComponent implements OnInit {
     const params = this.route.snapshot.queryParamMap;
     const year = Number(params.get('anio'));
     const month = Number(params.get('mes'));
-    const currentYear = new Date().getFullYear();
+    const currentYear = this.clock.year();
 
     const validYear = Number.isInteger(year) && year >= FIRST_DATA_YEAR && year <= currentYear;
     const validMonth = Number.isInteger(month) && month >= 1 && month <= 12;

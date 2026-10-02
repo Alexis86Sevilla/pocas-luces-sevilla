@@ -1,10 +1,10 @@
 import { HttpClient } from '@angular/common/http';
-import { computed, Injectable, signal } from '@angular/core';
+import { computed, inject, Injectable, signal } from '@angular/core';
 
 import { environment } from '../../../environments/environment';
-import type { District, DistrictStats } from '../models';
-import { formatMadridDate } from '../utils/madrid-date';
+import type { District } from '../models';
 import { ErrorLogService } from './error-log.service';
+import { MadridClock } from './madrid-clock';
 
 export interface EnelOutage {
   objectId: number;
@@ -39,24 +39,23 @@ export type LoadStatus = 'idle' | 'loading' | 'success' | 'error';
 @Injectable({ providedIn: 'root' })
 export class ApiOutageService {
   private readonly apiUrl = environment.apiBaseUrl;
+  private readonly clock = inject(MadridClock);
 
   private readonly _yearlyOutages = signal<readonly EnelOutage[]>([]);
   private readonly _monthlyOutages = signal<readonly EnelOutage[]>([]);
   private readonly _liveOutages = signal<readonly EnelOutage[]>([]);
-  private readonly _districtStats = signal<readonly DistrictStats[]>([]);
 
   readonly yearlyOutages = this._yearlyOutages.asReadonly();
   readonly monthlyOutages = this._monthlyOutages.asReadonly();
   readonly liveOutages = this._liveOutages.asReadonly();
-  readonly districtStats = this._districtStats.asReadonly();
 
   // Deduplicated views for the UI: keep the most recent fetched record per natural key.
   readonly deduplicatedYearlyOutages = computed(() => this.deduplicate(this._yearlyOutages()));
   readonly deduplicatedMonthlyOutages = computed(() => this.deduplicate(this._monthlyOutages()));
   readonly deduplicatedLiveOutages = computed(() => this.deduplicate(this._liveOutages()));
 
-  private readonly _selectedYear = signal(new Date().getFullYear());
-  private readonly _selectedMonth = signal(new Date().getMonth() + 1);
+  private readonly _selectedYear = signal(this.clock.year());
+  private readonly _selectedMonth = signal(this.clock.month());
 
   readonly selectedYear = this._selectedYear.asReadonly();
   readonly selectedMonth = this._selectedMonth.asReadonly();
@@ -79,17 +78,17 @@ export class ApiOutageService {
   readonly monthlyError = computed(() => this._monthlyStatus() === 'error');
   readonly liveError = computed(() => this._liveStatus() === 'error');
 
+  private readonly _liveLoadedAt = signal<number | null>(null);
+  /** Epoch ms of the last successful /live response, or null before the first one. */
+  readonly liveLoadedAt = this._liveLoadedAt.asReadonly();
+
   private readonly _currentMonthOutages = signal<readonly EnelOutage[]>([]);
   private readonly _currentMonthStatus = signal<LoadStatus>('idle');
 
   /** True when the shared monthly data is the current Madrid month, so it can be reused as is. */
-  readonly monthlyIsCurrentMonth = computed(() => {
-    const now = new Date();
-    return (
-      this._selectedYear() === Number(formatMadridDate(now, 'yyyy')) &&
-      this._selectedMonth() === Number(formatMadridDate(now, 'MM'))
-    );
-  });
+  readonly monthlyIsCurrentMonth = computed(
+    () => this._selectedYear() === this.clock.year() && this._selectedMonth() === this.clock.month(),
+  );
 
   /** Request status for the current Madrid month, whichever source provides it. */
   readonly currentMonthStatus = computed<LoadStatus>(() =>
@@ -161,12 +160,9 @@ export class ApiOutageService {
    * when the shared monthly data is showing another month (see `currentMonthCount`).
    */
   loadCurrentMonthOutages(): void {
-    const now = new Date();
     this._currentMonthStatus.set('loading');
     this.http
-      .get<EnelOutage[]>(
-        `${this.apiUrl}/outages/monthly?year=${formatMadridDate(now, 'yyyy')}&month=${Number(formatMadridDate(now, 'MM'))}`,
-      )
+      .get<EnelOutage[]>(`${this.apiUrl}/outages/monthly?year=${this.clock.year()}&month=${this.clock.month()}`)
       .subscribe({
         next: data => {
           this._currentMonthOutages.set(data);
@@ -180,26 +176,23 @@ export class ApiOutageService {
   }
 
   // ── Live ──
-  loadLiveOutages(): void {
-    this._liveStatus.set('loading');
+  /**
+   * `silent` is for background refreshes: no loading state (so skeletons do not flash) and a
+   * failure keeps the data already on screen instead of replacing it with the error panel; the
+   * "desactualizados" warning covers that case.
+   */
+  loadLiveOutages(silent = false): void {
+    if (!silent) this._liveStatus.set('loading');
     this.http.get<EnelOutage[]>(`${this.apiUrl}/outages/live`).subscribe({
       next: data => {
         this._liveOutages.set(data);
         this._liveStatus.set('success');
+        this._liveLoadedAt.set(Date.now());
       },
       error: err => {
-        this._liveStatus.set('error');
+        if (!silent) this._liveStatus.set('error');
         this.errorLog.log('API Live', err);
       },
-    });
-  }
-
-  // ── District statistics ──
-  loadDistrictStats(year?: number): void {
-    const y = year ?? this._selectedYear();
-    this.http.get<DistrictStats[]>(`${this.apiUrl}/stats?year=${y}`).subscribe({
-      next: data => this._districtStats.set(data),
-      error: err => this.errorLog.log('API Stats', err),
     });
   }
 
