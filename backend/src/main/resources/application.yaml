@@ -113,6 +113,7 @@ spring:
 
 server:
   port: 8081
+  # Prod only: nginx on the same host is the only client, so never listen on public interfaces.
   address: 127.0.0.1
 
 logging:

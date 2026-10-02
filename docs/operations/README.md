@@ -47,7 +47,11 @@ overlap (`concurrency: deploy-production`).
 1. **Backend**: build and test, upload the JAR as `backend-new.jar`, keep the
    running one as `backend-previous.jar`, swap, restart `sevillasinluz` and poll
    `http://127.0.0.1:8081/api/health` for up to 180 s. Then the runner checks
-   `https://api.sevillasinluz.es/api/health`.
+   `https://api.sevillasinluz.es/api/health`. Only the local check triggers the
+   automatic rollback: if the public check fails (nginx or DNS problem) the job turns
+   red but the new JAR stays live, so roll back manually if the new version is the cause.
+   Startup logs are not printed in the job (public repository): read
+   `journalctl -u sevillasinluz` on the VPS.
 2. **Frontend** (only if the backend job succeeded): unit tests, build, upload
    to `/var/www/sevillasinluz-staging/`, copy hashed assets first and
    `boot.js` / `index.html` last, remove staging, check the live `main-*.js`

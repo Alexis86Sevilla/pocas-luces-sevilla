@@ -46,23 +46,28 @@ jobs:
 
       # Swap the JAR, restart and wait for /api/health. On failure the previous JAR is restored.
       # Note: a Flyway migration already applied by the failed version is NOT rolled back.
+      # The remote JAR name is fixed by the systemd unit (ExecStart), independent of the POM version.
+      # Startup logs are NOT printed here: this repository and its Action logs are public.
       - name: Swap JAR, restart and verify (rollback on failure)
         uses: appleboy/ssh-action@029f5b4aeeeb58fdfe1410a5d17f967dacf36262 # v1.0.3
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
+          command_timeout: 15m
           script_stop: true
           script: |
             set -euo pipefail
             cd /opt/sevillasinluz
+            JAR=backend-0.0.1-SNAPSHOT.jar
+            HEALTH_TIMEOUT=180
 
             wait_healthy() {
               # curl -f succeeds only on 2xx, so any non-200 answer keeps polling.
-              local deadline=$((SECONDS + 180))
+              local deadline=$((SECONDS + HEALTH_TIMEOUT)) body
               while [ "$SECONDS" -lt "$deadline" ]; do
-                if curl -fsS --max-time 5 http://127.0.0.1:8081/api/health > /tmp/health.json 2>/dev/null; then
-                  echo "Health OK: $(cat /tmp/health.json)"
+                if body=$(curl -fsS --max-time 5 http://127.0.0.1:8081/api/health 2>/dev/null); then
+                  echo "Health OK: $body"
                   return 0
                 fi
                 sleep 5
@@ -70,22 +75,22 @@ jobs:
               return 1
             }
 
-            if [ -f backend-0.0.1-SNAPSHOT.jar ]; then
-              cp -p backend-0.0.1-SNAPSHOT.jar backend-previous.jar
+            if [ -f "$JAR" ]; then
+              cp -p "$JAR" backend-previous.jar
             fi
-            mv backend-new.jar backend-0.0.1-SNAPSHOT.jar
-            systemctl restart sevillasinluz
+            mv backend-new.jar "$JAR"
+            # A failing restart must still reach the rollback below, not abort the script.
+            systemctl restart sevillasinluz || echo "systemctl restart reported a failure"
 
             if wait_healthy; then
               echo "Backend deploy succeeded"
               exit 0
             fi
 
-            echo "Backend did not become healthy within 180s; rolling back"
-            journalctl -u sevillasinluz -n 80 --no-pager || true
+            echo "Backend did not become healthy within ${HEALTH_TIMEOUT}s; rolling back (see journalctl -u sevillasinluz on the VPS)"
             if [ -f backend-previous.jar ]; then
-              cp -p backend-previous.jar backend-0.0.1-SNAPSHOT.jar
-              systemctl restart sevillasinluz
+              cp -p backend-previous.jar "$JAR"
+              systemctl restart sevillasinluz || echo "systemctl restart of the previous version reported a failure"
               wait_healthy || echo "Previous version did not report healthy either"
             else
               echo "No previous JAR to restore"
@@ -164,6 +169,10 @@ jobs:
             find . -type f ! -name index.html ! -name boot.js -exec cp --parents -p {} /var/www/sevillasinluz/ \;
             if [ -f boot.js ]; then cp -p boot.js /var/www/sevillasinluz/boot.js; fi
             cp -p index.html /var/www/sevillasinluz/index.html
+            # Old hashed bundles stay for visitors still holding an older index.html; prune the
+            # ones this build no longer ships once they are more than 14 days old.
+            cd /var/www/sevillasinluz
+            find . -maxdepth 1 -type f -regextype posix-extended -regex '\./[a-z]+-[A-Z0-9]{8}\.(js|css)' -mtime +14               -exec sh -c '[ -e "/var/www/sevillasinluz-staging/$1" ] || rm -f -- "$1"' _ {} \;
             cd /
             rm -rf /var/www/sevillasinluz-staging
 
