@@ -182,6 +182,91 @@ class TelegramMessageFormatterTest {
         assertThat(unique).hasSize(outages.size());
     }
 
+    @Test
+    void groupsNewOutagesWithTheSameLineApartFromSupplies() {
+        List<Message> messages = formatter.newOutages(List.of(
+            grouped(1, 2, NOW.minusMinutes(60)), grouped(2, 1, NOW.minusMinutes(60)),
+            outage(9, "Triana", "León", NOW.minusMinutes(1)), grouped(3, 4, NOW.minusMinutes(60))), NOW);
+
+        assertThat(messages).hasSize(1);
+        assertThat(messages.get(0).text()).isEqualTo("""
+            🔴 Nuevos cortes de luz en Sevilla
+            • Distrito Norte desde las 10:00 · 3 cortes, 7 suministros · Avería · reposición estimada 12:00
+            • Triana (León aprox.) desde las 10:59 · 120 suministros · Avería
+            """ + FOOTER);
+        assertThat(messages.get(0).outageIds()).containsExactly(1L, 2L, 3L, 9L);
+    }
+
+    @Test
+    void groupedNewOutagesUsePluralHeaderAndOmitUnknownSupplies() {
+        EnelOutage a = grouped(1, 0, NOW.minusMinutes(60));
+        EnelOutage b = grouped(2, 0, NOW.minusMinutes(60));
+        a.setAffectedClients(null);
+        b.setAffectedClients(null);
+
+        List<Message> messages = formatter.newOutages(List.of(a, b), NOW);
+
+        assertThat(messages.get(0).text()).startsWith("🔴 Nuevos cortes de luz en Sevilla\n• Distrito Norte desde las 10:00 · 2 cortes · Avería");
+        assertThat(messages.get(0).outageIds()).containsExactly(1L, 2L);
+    }
+
+    @Test
+    void groupedNewOutagesCountedByOutagesNotLinesAndSummaryCountsOutages() {
+        List<EnelOutage> outages = new ArrayList<>(List.of(
+            grouped(1001, 1, NOW.minusMinutes(90)), grouped(1002, 1, NOW.minusMinutes(90))));
+        outages.addAll(manyOutages(400));
+
+        List<Message> messages = formatter.newOutages(outages, NOW);
+
+        assertThat(allIds(messages)).containsExactlyInAnyOrderElementsOf(outages.stream().map(EnelOutage::getId).toList());
+        assertThat(messages.get(0).text()).contains("• Distrito Norte desde las 09:30 · 2 cortes, 2 suministros");
+        long bulletLines = messages.stream().flatMap(m -> m.text().lines()).filter(l -> l.startsWith("• ")).count();
+        int summarized = Integer.parseInt(java.util.regex.Pattern.compile("… y (\\d+) más")
+            .matcher(messages.get(messages.size() - 1).text()).results().findFirst().orElseThrow().group(1));
+        assertThat(summarized).as("summary counts outages, not lines").isEqualTo(402 - (int) (bulletLines + 1));
+    }
+
+    @Test
+    void groupsRestoredOutagesWithTheSameStartAndDuration() {
+        EnelOutage a = grouped(1, 2, NOW.minusMinutes(60));
+        EnelOutage b = grouped(2, 1, NOW.minusMinutes(60));
+        EnelOutage c = grouped(3, 4, NOW.minusMinutes(60));
+        for (EnelOutage o : List.of(a, b, c)) {
+            o.setResolvedAt(NOW.minusMinutes(18));
+        }
+
+        List<Message> messages = formatter.restoredOutages(List.of(a, b, c), NOW);
+
+        assertThat(messages).hasSize(1);
+        assertThat(messages.get(0).text()).isEqualTo("""
+            🟢 Luz restablecida
+            • Distrito Norte, 3 cortes desde las 10:00 · duración observada: al menos 42 min
+            """ + FOOTER);
+        assertThat(messages.get(0).outageIds()).containsExactly(1L, 2L, 3L);
+    }
+
+    @Test
+    void restoredOutagesWithDifferentDurationsStaySeparate() {
+        EnelOutage a = grouped(1, 2, NOW.minusMinutes(60));
+        EnelOutage b = grouped(2, 1, NOW.minusMinutes(60));
+        a.setResolvedAt(NOW.minusMinutes(18));
+        b.setResolvedAt(NOW.minusMinutes(10));
+
+        List<Message> messages = formatter.restoredOutages(List.of(a, b), NOW);
+
+        assertThat(messages.get(0).text()).contains("• Distrito Norte, corte desde las 10:00 · duración observada: al menos 42 min\n")
+            .contains("• Distrito Norte, corte desde las 10:00 · duración observada: al menos 50 min\n")
+            .doesNotContain("cortes desde");
+        assertThat(messages.get(0).outageIds()).containsExactly(1L, 2L);
+    }
+
+    private static EnelOutage grouped(long id, int clients, LocalDateTime start) {
+        EnelOutage o = outage(id, "Distrito Norte", null, start);
+        o.setAffectedClients(clients);
+        o.setRepositionDate(NOW.plusHours(1));
+        return o;
+    }
+
     private static List<Long> allIds(List<Message> messages) {
         List<Long> ids = new ArrayList<>();
         messages.forEach(m -> ids.addAll(m.outageIds()));
