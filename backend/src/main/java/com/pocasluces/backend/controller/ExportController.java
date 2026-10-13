@@ -3,14 +3,14 @@ package com.pocasluces.backend.controller;
 import com.pocasluces.backend.config.ApiKeyAuth;
 import com.pocasluces.backend.controller.validation.RequestValidation;
 import com.pocasluces.backend.dto.OutageExportDto;
-import com.pocasluces.backend.entity.EnelOutage;
+import com.pocasluces.backend.entity.OutageView;
 import com.pocasluces.backend.repository.EnelOutageRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,6 +22,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
+import java.util.function.Function;
 
 @RestController
 @RequestMapping("/api/outages/export")
@@ -73,45 +74,33 @@ public class ExportController {
         }
     }
 
+    // Slices (no COUNT(*) per page) of the OutageView projection (raw_response never read).
+
     private void streamAll(PrintWriter writer) {
-        Pageable pageable = PageRequest.of(0, EXPORT_PAGE_SIZE,
-            Sort.by(Sort.Direction.DESC, "interruptionDate"));
-        Page<EnelOutage> page;
-        do {
-            page = enelOutageRepo.findAll(pageable);
-            writePage(page, writer);
-            pageable = page.nextPageable();
-        } while (page.hasNext());
+        stream(enelOutageRepo::findSliceBy, writer);
     }
 
     private void streamPageable(int year, PrintWriter writer) {
         RequestValidation.requireYear(year);
-        Pageable pageable = PageRequest.of(0, EXPORT_PAGE_SIZE,
-            Sort.by(Sort.Direction.DESC, "interruptionDate"));
-        Page<EnelOutage> page;
-        do {
-            page = enelOutageRepo.findByYear(year, pageable);
-            writePage(page, writer);
-            pageable = page.nextPageable();
-        } while (page.hasNext());
+        stream(p -> enelOutageRepo.findSliceByYear(year, p), writer);
     }
 
     private void streamPageable(int year, int month, PrintWriter writer) {
         RequestValidation.requireYear(year);
         RequestValidation.requireMonth(month);
-        Pageable pageable = PageRequest.of(0, EXPORT_PAGE_SIZE,
-            Sort.by(Sort.Direction.DESC, "interruptionDate"));
-        Page<EnelOutage> page;
-        do {
-            page = enelOutageRepo.findByYearAndMonth(year, month, pageable);
-            writePage(page, writer);
-            pageable = page.nextPageable();
-        } while (page.hasNext());
+        stream(p -> enelOutageRepo.findSliceByYearAndMonth(year, month, p), writer);
     }
 
-    private void writePage(Page<EnelOutage> page, PrintWriter writer) {
-        for (EnelOutage o : page.getContent()) {
-            writer.println(OutageExportDto.from(o).toCsvRow());
-        }
+    private void stream(Function<Pageable, Slice<OutageView>> reader, PrintWriter writer) {
+        Pageable pageable = PageRequest.of(0, EXPORT_PAGE_SIZE,
+            Sort.by(Sort.Direction.DESC, "interruptionDate"));
+        Slice<OutageView> page;
+        do {
+            page = reader.apply(pageable);
+            for (OutageView o : page.getContent()) {
+                writer.println(OutageExportDto.from(o).toCsvRow());
+            }
+            pageable = page.nextPageable();
+        } while (page.hasNext());
     }
 }

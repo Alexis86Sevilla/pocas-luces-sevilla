@@ -53,7 +53,9 @@ TELEGRAM_CHAT_ID to enable)`). The token itself is never printed. Then wait for 
 next outage: the first message arrives two polls (about 10 minutes) after Endesa
 starts publishing it, and the scheduler log shows `Telegram: announced N new
 outage(s)`. Delivery problems appear as `WARN ... Telegram: ...` lines with the
-HTTP status or Telegram's description, and are retried on the next poll.
+HTTP status or Telegram's description, and are retried on the next poll; an
+`ERROR ... Telegram: cannot deliver to chat ...` means the bot can no longer post
+to the channel at all (see [Notes](#notes)).
 
 Nothing that existed before the restart is ever announced: the V6 migration
 marks every pre-existing outage as not eligible, so enabling the feature during
@@ -93,7 +95,7 @@ With the alerts enabled, the channel also gets one automatic summary per week: o
 - Sent at most once per week: the week is stored in the `telegram_weekly_summary` table only after Telegram confirms. To resend a week (for example after deleting the message by hand), delete its row, `DELETE FROM telegram_weekly_summary WHERE week_start = '2026-09-21';`, and it is retried on the next poll, as long as it is still Monday.
 - If the app is down all Monday, that week is skipped.
 - A week is summarized only when our data covers all of it (earliest `first_seen_at` at or before that week's Monday 00:00); otherwise it is skipped and logged (`data does not cover the whole week`), never posted with partial totals or as "no outages".
-- If the outage alerts of the same poll were rate limited (HTTP 429) or failed, the summary waits for the next poll (still within Monday).
+- If the outage alerts of the same poll were rate limited (HTTP 429), failed, or had a message rejected for good, the summary waits for the next poll (still within Monday).
 - The comparison with the previous week is shown only when our data covers both weeks (earliest `first_seen_at` at or before the previous week's start).
 - Check in the logs: `Telegram: weekly summary for the week of <date> sent`.
 
@@ -118,5 +120,28 @@ With the alerts enabled, the channel also gets one automatic summary per week: o
   repeat that one message once.
 - Rate limiting (`HTTP 429`) skips the rest of that poll; nothing is lost, the
   same candidates are sent on the next one.
+- Telegram failures are read in three ways (`TelegramClient.FailureKind`, decided from
+  Telegram's `error_code` and `description`):
+  - **Transient** (network error, 5xx, `HTTP 401` while a token is being rotated): the poll
+    stops there (`WARN ... will retry on the next poll`), nothing is marked, same as always.
+  - **Message rejected for good** (`HTTP 400` about the message body, e.g. `message is too
+    long`): that message is skipped and the *other* messages of the same poll are still
+    sent (`WARN ... rejected for good ... going on with the next messages`). Each outage in
+    the rejected message gets one more strike in memory; after 3 strikes it is given up
+    (`WARN ... giving up on N new outage(s) whose message Telegram rejected 3 times`): never
+    sent again by this process, and deliberately **not** marked `announced_at` in the
+    database, because that mark means "Telegram confirmed it" and would later trigger a
+    "restored" message for an outage the channel never saw. A restart retries it 3 more
+    polls, then gives up again. To silence it for good, fix the cause (or mark it by hand).
+  - **Chat unavailable** (`chat not found`, `bot was kicked`, `not enough rights`, `HTTP 403`,
+    `HTTP 404`): every message would fail, so the poll stops at once, nothing is counted or
+    marked, and the log says `ERROR ... Telegram: cannot deliver to chat @SevillaSinLuz (...)
+    the channel or the bot's rights need an operator`. Check that `@SevillaSinLuzBot` is still an
+    administrator of the channel with permission to post and that `TELEGRAM_CHAT_ID` is right;
+    the same messages go out on the first poll after the fix.
+- The weekly summary follows the same rules: transient and chat-unavailable failures retry on
+  the next poll (the latter with the same `ERROR`); a summary rejected for good is retried 3
+  polls in total and then skipped for that week (`WARN ... giving up on the weekly summary for
+  the week of ...`), with nothing recorded, so the next Monday starts clean.
 - `TELEGRAM_CHAT_ID` is public information (it is the channel handle). Only the
   token is a secret.

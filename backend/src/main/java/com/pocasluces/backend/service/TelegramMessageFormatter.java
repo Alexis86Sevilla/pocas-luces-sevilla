@@ -8,14 +8,19 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 /**
  * Builds the plain-text Telegram messages (Spanish, impersonal). One grouped message per
  * poll and type, split into several messages only when the Telegram length limit requires
  * it, and capped at {@link #MAX_MESSAGES_PER_TYPE}: beyond that the rest is summarized as
  * "y N más" with a link to the map, and those outages count as announced too.
+ * Outages whose lines would be identical apart from the supplies (same place, start, cause
+ * and estimate) are grouped into one line ("3 cortes"), because e-distribución often
+ * publishes several outages for one fault; every grouped outage id is still announced.
  *
  * <p>Everything stated comes from persisted data: the start time and the restoration
  * estimate are Endesa's own values, the neighborhood is marked as approximate, and the
@@ -48,23 +53,62 @@ public class TelegramMessageFormatter {
     /** One Telegram message and the outages it announces (including any summarized ones). */
     public record Message(String text, List<Long> outageIds) {}
 
-    private record Line(String text, Long outageId) {}
+    /** One rendered line, the ids of every outage it announces and how many outages that is. */
+    private record Line(String text, List<Long> outageIds) {
+        int outageCount() {
+            return outageIds.size();
+        }
+    }
 
     public List<Message> newOutages(List<EnelOutage> outages, LocalDateTime now) {
-        List<Line> lines = outages.stream().map(o -> new Line(newOutageLine(o, now), o.getId())).toList();
+        Map<String, List<EnelOutage>> groups = new LinkedHashMap<>();
+        for (EnelOutage o : outages) {
+            groups.computeIfAbsent(newLine(o, now, null), key -> new ArrayList<>()).add(o);
+        }
+        List<Line> lines = groups.values().stream().map(group -> {
+            EnelOutage first = group.get(0);
+            String text = group.size() == 1 ? newOutageLine(first, now) : newLine(first, now, groupedCountAndSupplies(group));
+            return new Line(text, ids(group));
+        }).toList();
         return pack(lines, count -> count == 1 ? NEW_HEADER_SINGULAR : NEW_HEADER_PLURAL);
     }
 
     public List<Message> restoredOutages(List<EnelOutage> outages, LocalDateTime now) {
-        List<Line> lines = outages.stream().map(o -> new Line(restoredLine(o, now), o.getId())).toList();
+        Map<String, List<EnelOutage>> groups = new LinkedHashMap<>();
+        for (EnelOutage o : outages) {
+            groups.computeIfAbsent(restoredLine(o, now), key -> new ArrayList<>()).add(o);
+        }
+        List<Line> lines = groups.entrySet().stream().map(entry -> {
+            List<EnelOutage> group = entry.getValue();
+            String text = group.size() == 1 ? entry.getKey() : restoredLine(group.get(0), now, group.size() + " cortes");
+            return new Line(text, ids(group));
+        }).toList();
         return pack(lines, count -> RESTORED_HEADER);
     }
 
+    private static List<Long> ids(List<EnelOutage> group) {
+        return group.stream().map(EnelOutage::getId).toList();
+    }
+
+    private static String groupedCountAndSupplies(List<EnelOutage> group) {
+        String text = group.size() + " cortes";
+        List<Integer> known = group.stream().map(EnelOutage::getAffectedClients).filter(c -> c != null).toList();
+        if (!known.isEmpty()) {
+            text += ", " + supplies(known.stream().mapToInt(Integer::intValue).sum());
+        }
+        return text;
+    }
+
     String newOutageLine(EnelOutage o, LocalDateTime now) {
+        return newLine(o, now, o.getAffectedClients() == null ? null : supplies(o.getAffectedClients()));
+    }
+
+    /** {@code middle} is the optional segment between the start time and the category. */
+    private static String newLine(EnelOutage o, LocalDateTime now, String middle) {
         StringBuilder line = new StringBuilder("• ").append(place(o));
         line.append(" desde ").append(sinceWhen(o.getInterruptionDate(), now));
-        if (o.getAffectedClients() != null) {
-            line.append(" · ").append(supplies(o.getAffectedClients()));
+        if (middle != null) {
+            line.append(" · ").append(middle);
         }
         line.append(" · ").append(category(o.getCause(), o.getServiceType()));
         if (o.getRepositionDate() != null) {
@@ -74,8 +118,12 @@ public class TelegramMessageFormatter {
     }
 
     String restoredLine(EnelOutage o, LocalDateTime now) {
+        return restoredLine(o, now, "corte");
+    }
+
+    private static String restoredLine(EnelOutage o, LocalDateTime now, String outageLabel) {
         StringBuilder line = new StringBuilder("• ").append(place(o));
-        line.append(", corte desde ").append(sinceWhen(o.getInterruptionDate(), now));
+        line.append(", ").append(outageLabel).append(" desde ").append(sinceWhen(o.getInterruptionDate(), now));
         String duration = observedDuration(o.getInterruptionDate(), o.getResolvedAt());
         if (duration != null) {
             line.append(" · duración observada: al menos ").append(duration);
@@ -147,7 +195,7 @@ public class TelegramMessageFormatter {
     }
 
     private interface Header {
-        String forCount(int lineCount);
+        String forCount(int outageCount);
     }
 
     private static List<Message> pack(List<Line> lines, Header header) {
@@ -192,15 +240,17 @@ public class TelegramMessageFormatter {
     }
 
     private static Message render(List<Line> lines, Header header, List<Line> summarized) {
-        StringBuilder text = new StringBuilder(header.forCount(lines.size() + summarized.size()));
+        int outageCount = lines.stream().mapToInt(Line::outageCount).sum()
+            + summarized.stream().mapToInt(Line::outageCount).sum();
+        StringBuilder text = new StringBuilder(header.forCount(outageCount));
         List<Long> ids = new ArrayList<>();
         for (Line line : lines) {
             text.append('\n').append(line.text());
-            ids.add(line.outageId());
+            ids.addAll(line.outageIds());
         }
         if (!summarized.isEmpty()) {
-            text.append("\n… y ").append(summarized.size()).append(" más en ").append(MAP_URL);
-            summarized.forEach(line -> ids.add(line.outageId()));
+            text.append("\n… y ").append(summarized.stream().mapToInt(Line::outageCount).sum()).append(" más en ").append(MAP_URL);
+            summarized.forEach(line -> ids.addAll(line.outageIds()));
         }
         text.append('\n').append(FOOTER);
         return new Message(text.toString(), List.copyOf(ids));

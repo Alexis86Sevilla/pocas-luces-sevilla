@@ -1,6 +1,7 @@
 package com.pocasluces.backend.dto;
 
 import com.pocasluces.backend.entity.EnelOutage;
+import com.pocasluces.backend.entity.OutageView;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -28,6 +29,10 @@ public record OutageExportDto(
     private static final DateTimeFormatter ISO = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
     public static OutageExportDto from(EnelOutage o) {
+        return from(OutageView.of(o));
+    }
+
+    public static OutageExportDto from(OutageView o) {
         return new OutageExportDto(
             o.getId(),
             o.getObjectId(),

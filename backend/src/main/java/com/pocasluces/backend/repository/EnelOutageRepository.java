@@ -1,19 +1,21 @@
 package com.pocasluces.backend.repository;
 
 import com.pocasluces.backend.entity.EnelOutage;
+import com.pocasluces.backend.entity.OutageView;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
-
-import org.springframework.data.jpa.repository.Modifying;
-import java.util.Collection;
-import org.springframework.transaction.annotation.Transactional;
 
 public interface EnelOutageRepository extends JpaRepository<EnelOutage, Long>, EnelOutageRepositoryCustom {
 
@@ -120,8 +122,6 @@ public interface EnelOutageRepository extends JpaRepository<EnelOutage, Long>, E
             LocalDateTime interruptionDate,
             String serviceType);
 
-    Page<EnelOutage> findByNeighborhoodNameIgnoreCase(String neighborhoodName, Pageable pageable);
-
     long countByDistrictNameIsNull();
 
     @Query("""
@@ -131,31 +131,94 @@ public interface EnelOutageRepository extends JpaRepository<EnelOutage, Long>, E
         """)
     List<EnelOutage> findTopBatchWithNullDistrict(@Param("afterId") long afterId, Pageable pageable);
 
-    // Monthly aggregation for charts: count outages by month and district.
+    // ---- Public read paths ------------------------------------------------------------------
+    //
+    // Everything below returns the OutageView projection (every column but raw_response) and
+    // filters by half-open ranges on interruption_date computed in Java as Europe/Madrid
+    // wall-clock values: `x >= :from AND x < :to` selects exactly the rows `YEAR(x) = y [AND
+    // MONTH(x) = m]` selected, including a start at 00:00:00 on the 1st and one at 23:59:59 on
+    // the last day, but it can use idx_enel_outage_interruption_date, which a function on the
+    // column cannot. The equivalence is proven by AbstractQueryEquivalenceTest against the
+    // original predicates on the same fixture.
+
+    /** Start of the first day of {@code year}, Europe/Madrid wall-clock. */
+    static LocalDateTime startOfYear(int year) {
+        return LocalDate.of(year, 1, 1).atStartOfDay();
+    }
+
+    /** Start of the first day of {@code month} in {@code year}, Europe/Madrid wall-clock. */
+    static LocalDateTime startOfMonth(int year, int month) {
+        return LocalDate.of(year, month, 1).atStartOfDay();
+    }
+
+    /** Case-insensitive match; see {@code EnelOutageController#getEnelOutages} for why it stays so. */
+    Page<OutageView> findByNeighborhoodNameIgnoreCase(String neighborhoodName, Pageable pageable);
+
+    /** Every row, paged with a total count (the paged JSON endpoint reports {@code totalElements}). */
+    Page<OutageView> findAllProjectedBy(Pageable pageable);
+
+    /** Every row, paged without a count query: each page reads one row more to know whether a next page exists. */
+    Slice<OutageView> findSliceBy(Pageable pageable);
+
+    /** Rows whose start is in {@code [from, to)}, most recent start first. */
+    List<OutageView> findByInterruptionDateGreaterThanEqualAndInterruptionDateLessThanOrderByInterruptionDateDesc(
+        LocalDateTime from, LocalDateTime to);
+
+    /** Rows whose start is in {@code [from, to)}, paged with a total count; the order comes from the pageable. */
+    Page<OutageView> findPageByInterruptionDateGreaterThanEqualAndInterruptionDateLessThan(
+        LocalDateTime from, LocalDateTime to, Pageable pageable);
+
+    /** Rows whose start is in {@code [from, to)}, paged without a count query; the order comes from the pageable. */
+    Slice<OutageView> findSliceByInterruptionDateGreaterThanEqualAndInterruptionDateLessThan(
+        LocalDateTime from, LocalDateTime to, Pageable pageable);
+
+    /** Monthly aggregation for charts: (month, district, count) for the starts in {@code [from, to)}. */
     @Query("""
         SELECT MONTH(o.interruptionDate), o.districtName, COUNT(o)
         FROM EnelOutage o
-        WHERE YEAR(o.interruptionDate) = :year
+        WHERE o.interruptionDate >= :from AND o.interruptionDate < :to
         AND o.districtName IS NOT NULL
         GROUP BY MONTH(o.interruptionDate), o.districtName
         ORDER BY MONTH(o.interruptionDate), o.districtName
         """)
-    List<Object[]> aggregateByMonthAndDistrict(@Param("year") int year);
+    List<Object[]> aggregateByMonthAndDistrict(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
 
-    @Query("SELECT o FROM EnelOutage o WHERE YEAR(o.interruptionDate) = :year ORDER BY o.interruptionDate DESC")
-    List<EnelOutage> findByYear(@Param("year") int year);
+    default List<Object[]> aggregateByMonthAndDistrict(int year) {
+        return aggregateByMonthAndDistrict(startOfYear(year), startOfYear(year + 1));
+    }
 
-    @Query("SELECT o FROM EnelOutage o WHERE YEAR(o.interruptionDate) = :year")
-    Page<EnelOutage> findByYear(@Param("year") int year, Pageable pageable);
+    /** Outages that started in {@code year}, most recent first. */
+    default List<OutageView> findByYear(int year) {
+        return findStartedIn(startOfYear(year), startOfYear(year + 1));
+    }
 
-    @Query("""
-        SELECT o FROM EnelOutage o
-        WHERE YEAR(o.interruptionDate) = :year
-        AND MONTH(o.interruptionDate) = :month
-        ORDER BY o.interruptionDate DESC
-        """)
-    List<EnelOutage> findByYearAndMonth(@Param("year") int year, @Param("month") int month);
+    default Page<OutageView> findByYear(int year, Pageable pageable) {
+        return findPageByInterruptionDateGreaterThanEqualAndInterruptionDateLessThan(
+            startOfYear(year), startOfYear(year + 1), pageable);
+    }
 
-    @Query("SELECT o FROM EnelOutage o WHERE YEAR(o.interruptionDate) = :year AND MONTH(o.interruptionDate) = :month")
-    Page<EnelOutage> findByYearAndMonth(@Param("year") int year, @Param("month") int month, Pageable pageable);
+    default Slice<OutageView> findSliceByYear(int year, Pageable pageable) {
+        return findSliceByInterruptionDateGreaterThanEqualAndInterruptionDateLessThan(
+            startOfYear(year), startOfYear(year + 1), pageable);
+    }
+
+    /** Outages that started in {@code month} of {@code year}, most recent first. */
+    default List<OutageView> findByYearAndMonth(int year, int month) {
+        return findStartedIn(startOfMonth(year, month), startOfMonth(year, month).plusMonths(1));
+    }
+
+    default Page<OutageView> findByYearAndMonth(int year, int month, Pageable pageable) {
+        return findPageByInterruptionDateGreaterThanEqualAndInterruptionDateLessThan(
+            startOfMonth(year, month), startOfMonth(year, month).plusMonths(1), pageable);
+    }
+
+    default Slice<OutageView> findSliceByYearAndMonth(int year, int month, Pageable pageable) {
+        return findSliceByInterruptionDateGreaterThanEqualAndInterruptionDateLessThan(
+            startOfMonth(year, month), startOfMonth(year, month).plusMonths(1), pageable);
+    }
+
+    /** Outages that started in {@code [from, to)}, most recent start first. */
+    default List<OutageView> findStartedIn(LocalDateTime from, LocalDateTime to) {
+        return findByInterruptionDateGreaterThanEqualAndInterruptionDateLessThanOrderByInterruptionDateDesc(from, to);
+    }
 }

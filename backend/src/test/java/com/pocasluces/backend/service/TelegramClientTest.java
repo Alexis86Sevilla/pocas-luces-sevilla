@@ -2,6 +2,7 @@ package com.pocasluces.backend.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pocasluces.backend.config.TelegramProperties;
+import com.pocasluces.backend.service.TelegramClient.FailureKind;
 import com.pocasluces.backend.service.TelegramClient.SendResult;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -87,8 +88,101 @@ class TelegramClientTest {
 
         SendResult result = client.sendMessage("x");
 
+        assertThat(result).isInstanceOfSatisfying(SendResult.Failed.class, f -> {
+            assertThat(f.reason()).isEqualTo("HTTP 403 (Forbidden: bot is not a member of the channel chat)");
+            assertThat(f.kind()).isEqualTo(FailureKind.CHAT_UNAVAILABLE);
+        });
+    }
+
+    @Test
+    void aBadRequestAboutTheMessageItselfIsRejectedForGoodButOnlyForThatMessage() {
+        server.expect(requestTo(SEND_URL))
+            .andRespond(withStatus(HttpStatus.BAD_REQUEST)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body("{\"ok\":false,\"error_code\":400,\"description\":\"Bad Request: message is too long\"}"));
+
+        SendResult result = client.sendMessage("x");
+
+        assertThat(result).isInstanceOfSatisfying(SendResult.Failed.class, f -> {
+            assertThat(f.reason()).isEqualTo("HTTP 400 (Bad Request: message is too long)");
+            assertThat(f.kind()).isEqualTo(FailureKind.MESSAGE_REJECTED);
+        });
+    }
+
+    @Test
+    void aBadRequestAboutTheChatMakesEveryMessageUndeliverable() {
+        server.expect(requestTo(SEND_URL))
+            .andRespond(withStatus(HttpStatus.BAD_REQUEST)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body("{\"ok\":false,\"error_code\":400,\"description\":\"Bad Request: chat not found\"}"));
+
+        SendResult result = client.sendMessage("x");
+
         assertThat(result).isInstanceOfSatisfying(SendResult.Failed.class,
-            f -> assertThat(f.reason()).isEqualTo("HTTP 403 (Forbidden: bot is not a member of the channel chat)"));
+            f -> assertThat(f.kind()).isEqualTo(FailureKind.CHAT_UNAVAILABLE));
+    }
+
+    @Test
+    void notFoundIsReadAsAnUnavailableChatEvenWithoutABody() {
+        server.expect(requestTo(SEND_URL)).andRespond(withStatus(HttpStatus.NOT_FOUND));
+
+        SendResult result = client.sendMessage("x");
+
+        assertThat(result).isInstanceOfSatisfying(SendResult.Failed.class, f -> {
+            assertThat(f.reason()).startsWith("HTTP 404");
+            assertThat(f.kind()).isEqualTo(FailureKind.CHAT_UNAVAILABLE);
+        });
+    }
+
+    @Test
+    void telegramsErrorCodeWinsOverTheHttpStatus() {
+        server.expect(requestTo(SEND_URL))
+            .andRespond(withStatus(HttpStatus.BAD_REQUEST)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body("{\"ok\":false,\"error_code\":429,\"description\":\"Too Many Requests: retry after 3\",\"parameters\":{\"retry_after\":3}}"));
+
+        assertThat(client.sendMessage("x")).isEqualTo(new SendResult.RateLimited(3));
+    }
+
+    @Test
+    void serverAndTransportErrorsAndARevokedTokenStayTransient() {
+        server.expect(requestTo(SEND_URL)).andRespond(withServerError());
+        assertThat(client.sendMessage("x")).isInstanceOfSatisfying(SendResult.Failed.class,
+            f -> assertThat(f.kind()).isEqualTo(FailureKind.TRANSIENT));
+
+        server.reset();
+        server.expect(requestTo(SEND_URL)).andRespond(withException(new IOException("Connection refused")));
+        assertThat(client.sendMessage("x")).isInstanceOfSatisfying(SendResult.Failed.class,
+            f -> assertThat(f.kind()).isEqualTo(FailureKind.TRANSIENT));
+
+        server.reset();
+        server.expect(requestTo(SEND_URL))
+            .andRespond(withStatus(HttpStatus.UNAUTHORIZED)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body("{\"ok\":false,\"error_code\":401,\"description\":\"Unauthorized\"}"));
+        assertThat(client.sendMessage("x")).isInstanceOfSatisfying(SendResult.Failed.class,
+            f -> assertThat(f.kind()).isEqualTo(FailureKind.TRANSIENT));
+    }
+
+    @Test
+    void classifyIsConservativeAboutUnknownBadRequests() {
+        assertThat(TelegramClient.classify(400, "Bad Request: can't parse entities")).isEqualTo(FailureKind.MESSAGE_REJECTED);
+        assertThat(TelegramClient.classify(400, "Bad Request: text must be non-empty")).isEqualTo(FailureKind.MESSAGE_REJECTED);
+        assertThat(TelegramClient.classify(400, "Bad Request: not enough rights to send text messages to the chat"))
+            .isEqualTo(FailureKind.CHAT_UNAVAILABLE);
+        assertThat(TelegramClient.classify(400, "Bad Request: group chat was upgraded to a supergroup chat"))
+            .isEqualTo(FailureKind.CHAT_UNAVAILABLE);
+        assertThat(TelegramClient.classify(400, "Bad Request: something new")).isEqualTo(FailureKind.CHAT_UNAVAILABLE);
+        assertThat(TelegramClient.classify(400, null)).isEqualTo(FailureKind.CHAT_UNAVAILABLE);
+        assertThat(TelegramClient.classify(403, "Forbidden: bot was kicked from the channel chat")).isEqualTo(FailureKind.CHAT_UNAVAILABLE);
+        assertThat(TelegramClient.classify(404, "")).isEqualTo(FailureKind.CHAT_UNAVAILABLE);
+        assertThat(TelegramClient.classify(401, "Unauthorized")).isEqualTo(FailureKind.TRANSIENT);
+        assertThat(TelegramClient.classify(502, "Bad Gateway")).isEqualTo(FailureKind.TRANSIENT);
+    }
+
+    @Test
+    void aFailureBuiltWithOnlyAReasonIsTransient() {
+        assertThat(new SendResult.Failed("HTTP 502").kind()).isEqualTo(FailureKind.TRANSIENT);
     }
 
     @Test

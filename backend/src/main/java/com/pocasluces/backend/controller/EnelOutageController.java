@@ -93,6 +93,10 @@ public class EnelOutageController {
 
         Page<EnelOutageResponse> result;
         if (neighborhood != null && !neighborhood.isBlank()) {
+            // Case-insensitive on purpose: the parameter is typed by people, not only by the
+            // frontend, and "triana" must keep returning Triana. UPPER(neighborhood_name) cannot
+            // use idx_enel_outage_neighborhood, but this filter is rare and the table is small
+            // (a few thousand rows); an expression index would need a migration.
             result = enelOutageRepo.findByNeighborhoodNameIgnoreCase(neighborhood.trim(), pageable)
                 .map(EnelOutageResponse::from);
         } else if (year != null && month != null) {
@@ -105,7 +109,7 @@ public class EnelOutageController {
             result = enelOutageRepo.findByYear(year, pageable)
                 .map(EnelOutageResponse::from);
         } else {
-            result = enelOutageRepo.findAll(pageable)
+            result = enelOutageRepo.findAllProjectedBy(pageable)
                 .map(EnelOutageResponse::from);
         }
         return result;
