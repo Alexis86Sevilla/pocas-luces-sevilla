@@ -49,7 +49,7 @@ jobs:
       # The remote JAR name is fixed by the systemd unit (ExecStart), independent of the POM version.
       # Startup logs are NOT printed here: this repository and its Action logs are public.
       - name: Swap JAR, restart and verify (rollback on failure)
-        uses: appleboy/ssh-action@029f5b4aeeeb58fdfe1410a5d17f967dacf36262 # v1.0.3
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
@@ -131,7 +131,7 @@ jobs:
         run: pnpm build
 
       - name: Prepare staging directory on VPS
-        uses: appleboy/ssh-action@029f5b4aeeeb58fdfe1410a5d17f967dacf36262 # v1.0.3
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
@@ -156,7 +156,7 @@ jobs:
       # Hashed assets first, entry points (boot.js, index.html) last. Old hashed chunks are kept
       # because clients holding a cached index.html still need them.
       - name: Publish frontend (assets first, index.html last)
-        uses: appleboy/ssh-action@029f5b4aeeeb58fdfe1410a5d17f967dacf36262 # v1.0.3
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
